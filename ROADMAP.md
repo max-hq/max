@@ -11,11 +11,14 @@ Items are grouped by area. Within each group, items near the top are more pressi
 - FlowController should not be in core. Possibly `execution`.
 - **Daemon file logger** - background nodes need a place to write logs. Currently stderr is blackholed...
 - registries should have a lookup by id/name/field - we're frequently listing then filtering
-- Not happy with SQL parameter binding approach - fragile
+- Not happy with SQL parameter binding approach - fragile 
 
 ---
 
 ## Federation / node liveness
+
+### Basics
+- we need a way to inspect detail of logs / health of a node. When a node is unreachable, why? (e.g. "db file doesn't exist")
 
 ### Nodes need services / to expose capabilities
 Right now, a node is started / stopped. But there's no distinction between a started node, and a node

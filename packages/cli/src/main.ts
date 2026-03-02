@@ -28,9 +28,16 @@ async function flushWrite(stream: NodeJS.WritableStream, data: string): Promise<
   while (offset < data.length) {
     const chunk = data.slice(offset, offset + CHUNK)
     offset += CHUNK
-    await new Promise<void>((resolve, reject) => {
-      stream.write(chunk, (err) => (err ? reject(err) : resolve()))
-    })
+    try {
+      await new Promise<void>((resolve, reject) => {
+        stream.write(chunk, (err) => (err ? reject(err) : resolve()))
+      })
+    } catch (err: any) {
+      // Broken pipe - downstream consumer closed (e.g. piping to `head`).
+      // This is normal; just stop writing.
+      if (err?.code === 'EPIPE') return
+      throw err
+    }
   }
 }
 

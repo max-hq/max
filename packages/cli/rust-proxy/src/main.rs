@@ -66,6 +66,11 @@ fn extract_flag(args: &mut Vec<String>, flag: &str) -> bool {
 }
 
 fn main() {
+    // Reset SIGPIPE to default behavior so piping to `head` etc. exits
+    // cleanly instead of panicking. Rust sets SIG_IGN by default, which
+    // causes print!() to panic on broken pipe.
+    unsafe { libc::signal(libc::SIGPIPE, libc::SIG_DFL); }
+
     let mut args: Vec<String> = env::args().skip(1).collect();
     let cwd = env::current_dir().expect("Cannot determine CWD");
     let use_color = should_use_color(&args);

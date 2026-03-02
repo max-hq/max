@@ -23,7 +23,7 @@ function contextHeader(url: MaxUrl, fmt: Fmt): string {
 
 function healthLabel(health: HealthStatus, fmt: Fmt): string {
   // Not connected / unreachable — distinct from a running-but-unhealthy state
-  if (health.status === 'unhealthy' && (health.reason === 'not connected' || health.reason === 'unreachable')) {
+  if (health.status === 'unhealthy' && (health.reason === 'not connected')) {
     return `${fmt.yellow('○')} ${fmt.yellow(health.reason)}`
   }
 

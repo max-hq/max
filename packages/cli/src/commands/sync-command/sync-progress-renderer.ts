@@ -123,7 +123,7 @@ export class SyncProgressRenderer {
 function renderBar(phase: number): string {
   let bar = ''
   for (let i = 0; i < BAR_WIDTH; i++) {
-    const blockPhase = Math.min(Math.max(phase - i * PHASES_PER_BLOCK, 0), PHASES_PER_BLOCK)
+    const blockPhase = Math.min(Math.max(phase - i * PHASES_PER_BLOCK, 0), PHASES_PER_BLOCK - 1)
     bar += PHASE_CHARS[blockPhase]
   }
   return bar

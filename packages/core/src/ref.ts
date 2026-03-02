@@ -110,6 +110,10 @@ class RefImpl<E extends EntityDefAny, S extends Scope = Scope> implements Ref<E,
   toString(): string {
     return this.toKey() as string;
   }
+
+  toJSON(): string {
+    return this.toKey() as string;
+  }
 }
 
 // ============================================================================

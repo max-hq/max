@@ -11,7 +11,7 @@
  */
 
 import { unlinkSync } from 'node:fs'
-import type { RpcRequest, RpcResponse } from '@max/core'
+import { MaxError, RpcResponse, type RpcRequest } from '@max/core'
 import { BufferedSocket } from './util/buffered-socket.js'
 
 export type RpcDispatchFn = (request: RpcRequest) => Promise<RpcResponse>
@@ -65,9 +65,14 @@ export function createRpcSocketServer(opts: RpcSocketServerOptions): RpcSocketSe
 
         for (const msg of result.values) {
           const request = msg as RpcRequest
-          dispatch(request).then((response) => {
-            state.writer.write(JSON.stringify(response) + '\n')
-          })
+          dispatch(request)
+            .catch((err): RpcResponse => RpcResponse.error(
+              request.id,
+              MaxError.serialize(err),
+            ))
+            .then((response) => {
+              state.writer.write(JSON.stringify(response) + '\n')
+            })
         }
       },
 

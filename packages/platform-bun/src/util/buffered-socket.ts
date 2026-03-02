@@ -9,6 +9,7 @@
 
 interface Writable {
   write(data: string | Uint8Array): number
+  flush?(): void
   end(): void
 }
 
@@ -50,6 +51,7 @@ export class BufferedSocket {
 
     // Queue empty — if end() was requested, close now
     if (this.ending) {
+      this.socket.flush?.()
       this.socket.end()
       if (this.endResolve) {
         this.endResolve()
@@ -61,6 +63,7 @@ export class BufferedSocket {
   /** Close the socket once all queued data has been flushed. */
   end(): Promise<void> {
     if (this.queue.length === 0) {
+      this.socket.flush?.()
       this.socket.end()
       return Promise.resolve()
     }

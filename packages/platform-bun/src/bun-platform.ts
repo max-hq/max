@@ -398,7 +398,7 @@ function buildDeployerPipeline(overrides?: PlatformOverrides) {
 const defaultPipeline = buildDeployerPipeline()
 
 // Default installation registry for platform declaration (deployer kinds are static identifiers)
-const defaultInstRegistry = new DeployerRegistry<InstallationDeployer>('bun', [
+const defaultInstRegistry = new DeployerRegistry('bun', [
   new InProcessDeployer(createInstallationBootstrap(
     installationGraph,
     new BunConnectorRegistry(DEFAULT_MODULE_MAP),

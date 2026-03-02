@@ -27,10 +27,14 @@ export type FieldDef = ScalarField | RefField | CollectionField;
 export type FieldDefinitions = { [key: string]: FieldDef };
 
 export const Field = {
-  string: (): ScalarField<"string"> => ({ kind: "scalar", type: "string" }),
-  number: (): ScalarField<"number"> => ({ kind: "scalar", type: "number" }),
-  boolean: (): ScalarField<"boolean"> => ({ kind: "scalar", type: "boolean" }),
-  date: (): ScalarField<"date"> => ({ kind: "scalar", type: "date" }),
-  ref: <T extends EntityDefAny>(target: T): RefField<T> => ({ kind: "ref", target }),
-  collection: <T extends EntityDefAny>(target: T): CollectionField<T> => ({ kind: "collection", target }),
-} as const;
+  string: (): ScalarField<'string'> => ({ kind: 'scalar', type: 'string' }),
+  number: (): ScalarField<'number'> => ({ kind: 'scalar', type: 'number' }),
+  boolean: (): ScalarField<'boolean'> => ({ kind: 'scalar', type: 'boolean' }),
+  date: (): ScalarField<'date'> => ({ kind: 'scalar', type: 'date' }),
+  ref: <T extends EntityDefAny>(target: T): RefField<T> => ({ kind: 'ref', target }),
+  refThunk: <T extends EntityDefAny>(target: () => T): RefField<T> => ({ kind: 'ref', get target(){ return target() } }),
+  collection: <T extends EntityDefAny>(target: T): CollectionField<T> => ({
+    kind: 'collection',
+    target,
+  }),
+} as const

@@ -53,8 +53,8 @@ This of course varies case-by-case, but to provide a motivating example from a r
 
 |         | Tokens | Time  | Cost    | Performance X |
 |---------|--------|-------|---------|---------------|
-| **MCP** | 180M+  | 80m+  | $180+   | -             |
-| **Max** | 238    | 27s   | $0.003  | **~60,000x**  |
+| **MCP** | 18M+   | 80m+  | $180+   | -             |
+| **Max** | 238    | 27s   | $0.003  | **~75,630**   |
 
 Note: MCP figures are extrapolated - we had to terminate claude mid-run due to repeated recompactions and a not-unlimited buget. Additionally, the $180 cost doesn't include any calls to google drive (the second half of the challenge).
 

@@ -152,9 +152,15 @@ if (toolName === "Write") {
 
 if (!content || !filePath) process.exit(0);
 
-// Find patterns.md relative to this script (../ from hooks/)
+// Find patterns.md relative to this script
 const patternsPath = resolve(dirname(import.meta.path), "patterns.md");
 const patterns = parsePatterns(patternsPath);
+
+// Optional extra patterns file via CLI argument
+const extraPath = process.argv[2];
+if (extraPath) {
+  patterns.push(...parsePatterns(resolve(extraPath)));
+}
 
 // Check each pattern
 for (const pattern of patterns) {

@@ -289,6 +289,7 @@ export interface PlatformOverrides {
 
 function createInstallationBootstrap(
   graph: ResolverGraph<InstallationGraphConfig, InstallationGraphDeps>,
+  connectorRegistry: ConnectorRegistry,
   ephemeral?: boolean,
 ) {
   return async (
@@ -296,8 +297,6 @@ function createInstallationBootstrap(
     spec: InstallationSpec,
   ): Promise<InstallationClient> => {
     // Async: load connector (only truly async operation — everything else resolves synchronously)
-    const cfg = config.connectorRegistry ?? { type: 'hardcoded' as const }
-    const connectorRegistry = new BunConnectorRegistry(cfg.moduleMap ?? DEFAULT_MODULE_MAP)
     const connector = await connectorRegistry.resolve(spec.connector)
 
     // Sync: resolve all deps via graph
@@ -345,7 +344,7 @@ function createInstallationBootstrap(
 
 function createWorkspaceBootstrap(
   graph: ResolverGraph<WorkspaceGraphConfig, WorkspaceGraphDeps>,
-  installationDeployer: DeployerRegistry<InstallationDeployer>,
+  iGraph: ResolverGraph<InstallationGraphConfig, InstallationGraphDeps>,
   ephemeral?: boolean,
 ) {
   return async (
@@ -359,8 +358,13 @@ function createWorkspaceBootstrap(
       connectorRegistry: config.connectorRegistry,
     })
 
+    // Build installation deployer with this workspace's resolved connector registry
+    const instBootstrap = createInstallationBootstrap(iGraph, deps.connectorRegistry, ephemeral)
+    const instDeployer = new InProcessDeployer(instBootstrap)
+    const instRegistry = new DeployerRegistry('bun', [instDeployer, daemonInstallationDeployer])
+
     return new WorkspaceMax({
-      installationDeployer,
+      installationDeployer: instRegistry,
       installationSupervisor: deps.supervisor,
       connectorRegistry: deps.connectorRegistry,
       installationRegistry: deps.installationRegistry,
@@ -382,18 +386,25 @@ function buildDeployerPipeline(overrides?: PlatformOverrides) {
   const ephemeral = overrides?.ephemeral
 
   const iGraph = overrides?.installation ? installationGraph.with(overrides.installation) : installationGraph
-  const instDeployer = new InProcessDeployer(createInstallationBootstrap(iGraph, ephemeral))
-  const instRegistry = new DeployerRegistry('bun', [instDeployer, daemonInstallationDeployer])
-
   const wGraph = overrides?.workspace ? workspaceGraph.with(overrides.workspace) : workspaceGraph
-  const wsDeployer = new InProcessDeployer(createWorkspaceBootstrap(wGraph, instRegistry, ephemeral))
+
+  const wsDeployer = new InProcessDeployer(createWorkspaceBootstrap(wGraph, iGraph, ephemeral))
   const wsRegistry = new DeployerRegistry('bun', [wsDeployer, daemonWorkspaceDeployer])
 
-  return { instRegistry, wsRegistry, instDeployer, wsDeployer }
+  return { wsRegistry, wsDeployer }
 }
 
 // Default pipeline (no overrides)
 const defaultPipeline = buildDeployerPipeline()
+
+// Default installation registry for platform declaration (deployer kinds are static identifiers)
+const defaultInstRegistry = new DeployerRegistry<InstallationDeployer>('bun', [
+  new InProcessDeployer(createInstallationBootstrap(
+    installationGraph,
+    new BunConnectorRegistry(DEFAULT_MODULE_MAP),
+  )),
+  daemonInstallationDeployer,
+])
 
 // ============================================================================
 // BunPlatform
@@ -403,10 +414,10 @@ export const BunPlatform = Platform.define({
   name: 'bun' as PlatformName,
   installation: {
     deploy: {
-      inProcess: defaultPipeline.instDeployer.deployerKind,
+      inProcess: InProcessDeployer.deployerKind,
       daemon: daemonInstallationDeployer.deployerKind,
     },
-    registry: defaultPipeline.instRegistry,
+    registry: defaultInstRegistry,
   },
   workspace: {
     deploy: {

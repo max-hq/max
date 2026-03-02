@@ -1,12 +1,19 @@
 import {describe, expect, test} from 'bun:test'
 import {BunPlatform} from '../bun-platform.js'
-import {AcmeConfig} from '@max/connector-acme'
+import AcmeConnector, {AcmeConfig} from '@max/connector-acme'
 import * as fs from "node:fs";
+import {InMemoryConnectorRegistry} from "@max/connector";
 
 describe('in-process-provider', () => {
   test('smoke test — ephemeral workspace with in-process installation', async () => {
+    const fakeConnectorRegistry = new InMemoryConnectorRegistry()
+    fakeConnectorRegistry.addLocalNamed('@max/connector-acme', async () => ({ default: AcmeConnector }))
+
     const global = BunPlatform.createGlobalMax({
-      ephemeral: true
+      ephemeral: true,
+      workspace:{
+        connectorRegistry: () => fakeConnectorRegistry
+      }
     })
     await global.start()
 
@@ -44,7 +51,7 @@ describe('in-process-provider', () => {
     // Verify installation is accessible
     const installations = await workspace!.listInstallations()
     expect(installations.length).toBe(1)
-    expect(installations[0].connector).toBe('acme')
+    expect(installations[0].connector).toBe('@max/connector-acme')
 
     // Clean up
     await global.stop()

@@ -203,8 +203,14 @@ describe('resolver graph injection', () => {
   })
 
   test('createGlobalMax — ephemeral: true wires through all levels', async () => {
-    const max = BunPlatform.createGlobalMax({ ephemeral: true })
+    const max = BunPlatform.createGlobalMax({
+      ephemeral: true,
+      workspace:{
+        connectorRegistry: () => connectorRegistry
+      }
+    })
     await max.start()
+
 
     // Create workspace + installation — everything should work without touching the filesystem
     const wsId = await max.createWorkspace('test-ws', {

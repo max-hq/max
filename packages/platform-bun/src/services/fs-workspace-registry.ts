@@ -14,7 +14,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import type { WorkspaceId } from '@max/core'
+import { LifecycleManager, type WorkspaceId } from '@max/core'
 import type { WorkspaceRegistry, WorkspaceRegistryEntry } from '@max/federation'
 import { ErrRegistryEntryAlreadyExists, ErrRegistryEntryNotFound } from '@max/federation'
 import { initProject } from '../util/init-project.js'
@@ -33,6 +33,11 @@ interface WorkspacesFile {
 // ============================================================================
 
 export class FsWorkspaceRegistry implements WorkspaceRegistry {
+  lifecycle = LifecycleManager.on({
+    start: () => this.load(),
+    stop: () => this.persist(),
+  })
+
   private entries = new Map<WorkspaceId, WorkspaceRegistryEntry>()
   private readonly configPath: string
 

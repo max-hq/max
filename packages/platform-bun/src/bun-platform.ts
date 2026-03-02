@@ -87,7 +87,7 @@ import path from 'node:path'
 import { InProcessDeploymentConfig } from './deployers/types.js'
 import { SqliteEngine } from '@max/storage-sqlite'
 import { SqliteExecutionSchema, SqliteSyncMeta, SqliteTaskStore } from '@max/execution-sqlite'
-import { BunConnectorRegistry } from './services/bun-connector-registry.js'
+import { NaiveBunConnectorRegistry } from './services/bun-connector-registry.js'
 import { FsCredentialStore } from './services/fs-credential-store.js'
 import { InMemorySyncMeta, InMemoryTaskStore } from '@max/execution-local'
 import { FsInstallationRegistry } from './services/fs-installation-registry.js'
@@ -102,11 +102,6 @@ import {InstallationInfoPrinter} from "./printers/installation-printers.js";
 // Constants
 // ============================================================================
 
-// FIXME: No hardcoded module map
-const DEFAULT_MODULE_MAP: Record<string, string> = {
-  '@max/connector-acme': '@max/connector-acme',
-  '@max/connector-linear': '@max/connector-linear',
-}
 
 // ============================================================================
 // Installation Graph
@@ -240,10 +235,7 @@ export const workspaceGraph = ResolverGraph.define<WorkspaceGraphConfig, Workspa
     }
   },
 
-  connectorRegistry: (c) => {
-    const cfg = c.connectorRegistry ?? { type: 'hardcoded' as const }
-    return new BunConnectorRegistry(cfg.moduleMap ?? DEFAULT_MODULE_MAP)
-  },
+  connectorRegistry: () => NaiveBunConnectorRegistry.fromConnectorsDir(),
 
   supervisor: () => new DefaultSupervisor(() => crypto.randomUUID() as InstallationId),
 })
@@ -296,6 +288,9 @@ function createInstallationBootstrap(
     config: InProcessDeploymentConfig,
     spec: InstallationSpec,
   ): Promise<InstallationClient> => {
+    // Ensure connector registry is started (idempotent — no-op if already started)
+    await connectorRegistry.lifecycle.start()
+
     // Async: load connector (only truly async operation — everything else resolves synchronously)
     const connector = await connectorRegistry.resolve(spec.connector)
 
@@ -401,7 +396,7 @@ const defaultPipeline = buildDeployerPipeline()
 const defaultInstRegistry = new DeployerRegistry('bun', [
   new InProcessDeployer(createInstallationBootstrap(
     installationGraph,
-    new BunConnectorRegistry(DEFAULT_MODULE_MAP),
+    NaiveBunConnectorRegistry.fromConnectorsDir(),
   )),
   daemonInstallationDeployer,
 ])

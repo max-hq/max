@@ -28,7 +28,7 @@ import type { Ref } from "../ref.js"
 
 export class EngineProxy<TScope extends Scope = Scope> implements Engine<TScope> {
   /** No-op lifecycle — the real engine's lifecycle is the host node's concern. */
-  lifecycle = LifecycleManager.on({})
+  lifecycle = LifecycleManager.empty()
 
   constructor(
     private readonly transport: Transport,

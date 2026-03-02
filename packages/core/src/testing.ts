@@ -40,7 +40,7 @@ export function StubbedEngine(options: StubbedEngineOptions = {}): Engine<Instal
   const { id = "stub", calls } = options
 
   return {
-    lifecycle: LifecycleManager.on({}),
+    lifecycle: LifecycleManager.empty(),
 
     async load(ref: any) {
       calls?.push("load")

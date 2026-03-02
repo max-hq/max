@@ -5,7 +5,7 @@
  * Remote modules deferred to future work.
  */
 
-import { StaticTypeCompanion } from "@max/core";
+import { type Lifecycle, LifecycleManager, StaticTypeCompanion } from "@max/core";
 import type { ConnectorModuleAny } from "./connector-module.js";
 import {
   ErrConnectorNotFound,
@@ -26,7 +26,7 @@ export interface ConnectorRegistryEntry {
 // ConnectorRegistry Interface
 // ============================================================================
 
-export interface ConnectorRegistry {
+export interface ConnectorRegistry extends Lifecycle {
   /** Register a local connector by path. Reads package.json for the name. */
   addLocal(loader: () => Promise<{ default: ConnectorModuleAny }>): void;
 
@@ -47,6 +47,8 @@ export interface ConnectorRegistry {
 type ConnectorLoader = () => Promise<{ default: ConnectorModuleAny }>;
 
 export class InMemoryConnectorRegistry implements ConnectorRegistry {
+  lifecycle = LifecycleManager.empty()
+
   private loaders = new Map<string, ConnectorLoader>();
   private cache = new Map<string, ConnectorModuleAny>();
 

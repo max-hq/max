@@ -14,6 +14,7 @@ import {
   type DeployerKind,
   HealthStatus,
   ISODateString,
+  LifecycleManager,
   StartResult,
   StopResult,
   type WorkspaceId,
@@ -52,6 +53,14 @@ export class GlobalMax implements GlobalClientWithIdentity {
   private readonly workspaceSupervisor: WorkspaceSupervisor
   private readonly workspaceRegistry: WorkspaceRegistry
   private readonly workspaceDeployer: DeployerRegistry<WorkspaceDeployer>
+
+  lifecycle = LifecycleManager.auto(() => [
+    this.workspaceRegistry,
+    LifecycleManager.on({
+        start: () => this.reconcileWorkspaces(),
+        stop: () => this.stopWorkspaces(),
+    }),
+  ])
 
   constructor(args: GlobalMaxConstructable) {
     this.workspaceSupervisor = args.workspaceSupervisor
@@ -161,9 +170,16 @@ export class GlobalMax implements GlobalClientWithIdentity {
   }
 
   async start(): Promise<StartResult> {
-    // Load persisted workspace entries
-    await this.workspaceRegistry.load()
+    await this.lifecycle.start()
+    return StartResult.started()
+  }
 
+  async stop(): Promise<StopResult> {
+    await this.lifecycle.stop()
+    return StopResult.stopped()
+  }
+
+  private async reconcileWorkspaces(): Promise<void> {
     // Reconcile: deploy each persisted workspace into the supervisor
     const entries = this.workspaceRegistry.list()
     for (const entry of entries) {
@@ -176,15 +192,12 @@ export class GlobalMax implements GlobalClientWithIdentity {
         console.warn(`Failed to reconcile workspace ${entry.name} (${entry.id}):`, err)
       }
     }
-
-    return StartResult.started()
   }
 
-  async stop(): Promise<StopResult> {
+  private async stopWorkspaces(): Promise<void> {
     const handles = this.workspaceSupervisor.list()
     for (let i = handles.length - 1; i >= 0; i--) {
       await handles[i].client.stop()
     }
-    return StopResult.stopped()
   }
 }

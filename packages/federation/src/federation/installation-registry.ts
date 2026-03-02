@@ -2,6 +2,8 @@ import {
   ConnectorVersionIdentifier,
   InstallationId,
   ISODateString,
+  type Lifecycle,
+  LifecycleManager,
   Locator,
   LocatorURI,
 } from '@max/core'
@@ -22,12 +24,14 @@ export interface InstallationRegistryEntry {
 export interface InstallationRegistry extends BasicRegistry<
   InstallationRegistryEntry,
   InstallationId
-> {}
+>, Lifecycle {}
 
 export class InMemoryInstallationRegistry
   extends InMemoryBasicRegistry<InstallationRegistryEntry, InstallationId>
   implements InstallationRegistry
 {
+  lifecycle = LifecycleManager.empty()
+
   constructor() {
     super('installation', (value) => value.id)
   }

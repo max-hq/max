@@ -1,12 +1,36 @@
 
 import {ConnectorModuleAny, ConnectorRegistry, ConnectorRegistryEntry, InMemoryConnectorRegistry} from "@max/connector";
-import {ConnectorVersionIdentifier} from "@max/core";
+import {ConnectorVersionIdentifier, LifecycleManager} from "@max/core";
 import { ErrConnectorNotFound, ErrConnectorNotInstalled } from '@max/federation'
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 
+/** Default connectors directory - resolved relative to this file in the monorepo */
+const DEFAULT_CONNECTORS_DIR = path.resolve(import.meta.dir, '../../../../connectors')
 
-export class BunConnectorRegistry implements ConnectorRegistry {
+/**
+ * NaiveBunConnectorRegistry - A limited, project-local connector registry.
+ *
+ * Accepts a name-to-package mapping and registers lazy loaders that `import()`
+ * each package by name via Bun's module resolution.
+ *
+ * Use `fromConnectorsDir()` to auto-discover connectors from a local directory
+ * instead of specifying them manually. This scans for `connector-*` subdirectories,
+ * reads each `package.json` for the package name, and wires them up automatically.
+ *
+ * Limitations:
+ * - Only knows about connectors explicitly provided or physically present in the monorepo
+ * - Cannot resolve connectors installed from a remote registry
+ * - Relies on Bun workspace resolution for imports
+ */
+export class NaiveBunConnectorRegistry implements ConnectorRegistry {
 
   #registry = new InMemoryConnectorRegistry()
+  #deferredScanDir?: string
+
+  lifecycle = LifecycleManager.on({
+    start: () => this.scanForConnectors(),
+  })
 
   constructor(modules: Record<string,string>) {
     Object.entries(modules).forEach(([k,v]) => {
@@ -38,17 +62,39 @@ export class BunConnectorRegistry implements ConnectorRegistry {
   }
 
   /**
-   * FIXME:
-   * Stopgap solution whilst we build out connector registry - just pull the
-   *  identifiers from a list of installations.
+   * Auto-discover connectors from a local `connectors/` directory.
+   *
+   * Defers the filesystem scan to `lifecycle.start()`. Call `start()` (or let
+   * a parent lifecycle cascade) before resolving connectors.
    */
-  static fromConnectorList(connectors: ConnectorVersionIdentifier[]): BunConnectorRegistry {
-    const mapping = Object.fromEntries(connectors.map(c => {
-      const [loc,ver] = c.split(':')
-      return [loc,loc]
-    }))
-    return new this(mapping)
+  static fromConnectorsDir(connectorsDir: string = DEFAULT_CONNECTORS_DIR): NaiveBunConnectorRegistry {
+    const registry = new NaiveBunConnectorRegistry({})
+    registry.#deferredScanDir = connectorsDir
+    return registry
   }
 
+  private scanForConnectors(): void {
+    const connectorsDir = this.#deferredScanDir
+    if (!connectorsDir) return
 
+    const entries  = fs.readdirSync(connectorsDir, { withFileTypes: true })
+
+    for (const entry of entries) {
+      if (!entry.isDirectory() || !entry.name.startsWith('connector-')) continue
+      const pkgJsonPath = path.join(connectorsDir, entry.name, 'package.json')
+      if (!fs.existsSync(pkgJsonPath)) continue
+
+      const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf-8'))
+      const name: string | undefined = pkg.name
+      if (!name) continue
+
+      this.addLocalNamed(name, async () => {
+        try {
+          return await import(name)
+        } catch (e) {
+          throw ErrConnectorNotInstalled.create({ connector: name, location: name })
+        }
+      })
+    }
+  }
 }

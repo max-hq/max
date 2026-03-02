@@ -19,7 +19,7 @@ export {
 // Registries
 export { FsInstallationRegistry } from './services/fs-installation-registry.js'
 export { FsWorkspaceRegistry } from './services/fs-workspace-registry.js'
-export { BunConnectorRegistry } from './services/bun-connector-registry.js'
+export { NaiveBunConnectorRegistry } from './services/bun-connector-registry.js'
 
 // Credential store
 export { FsCredentialStore } from './services/fs-credential-store.js'

@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'bun:test'
 import { BunPlatform, installationGraph, workspaceGraph, globalGraph } from '../bun-platform.js'
-import { BunConnectorRegistry } from '../services/bun-connector-registry.js'
+import { NaiveBunConnectorRegistry } from '../services/bun-connector-registry.js'
 import { SqliteEngine } from '@max/storage-sqlite'
 import { SqliteExecutionSchema, SqliteSyncMeta, SqliteTaskStore } from '@max/execution-sqlite'
 import { InMemoryCredentialStore } from '@max/connector'
@@ -13,7 +13,7 @@ import { InMemorySyncMeta, InMemoryTaskStore } from '@max/execution-local'
 import { AcmeConfig } from '@max/connector-acme'
 import * as fs from 'node:fs'
 
-const connectorRegistry = new BunConnectorRegistry({ acme: '@max/connector-acme' })
+const connectorRegistry = new NaiveBunConnectorRegistry({ acme: '@max/connector-acme' })
 
 describe('resolver graph injection', () => {
 

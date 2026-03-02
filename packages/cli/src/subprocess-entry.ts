@@ -19,7 +19,7 @@ import type { InstallationSpec } from '@max/federation'
 import { DeployerKind } from '@max/core'
 import {
   BunPlatform,
-  BunConnectorRegistry,
+  NaiveBunConnectorRegistry,
   createRpcSocketServer,
 } from '@max/platform-bun'
 

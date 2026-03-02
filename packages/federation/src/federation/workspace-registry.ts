@@ -1,4 +1,4 @@
-import { ISODateString, WorkspaceId } from '@max/core'
+import { ISODateString, type Lifecycle, LifecycleManager, WorkspaceId } from '@max/core'
 import {BasicRegistry, InMemoryBasicRegistry} from "./basic-registry.js";
 import {DeploymentConfig} from "../deployers/index.js";
 import {WorkspaceSpec} from "../config/workspace-spec.js";
@@ -11,7 +11,7 @@ export interface WorkspaceRegistryEntry {
   readonly spec: WorkspaceSpec
 }
 
-export interface WorkspaceRegistry extends BasicRegistry<WorkspaceRegistryEntry, WorkspaceId> {
+export interface WorkspaceRegistry extends BasicRegistry<WorkspaceRegistryEntry, WorkspaceId>, Lifecycle {
   /** Hydrate entries from the backing store. */
   load(): Promise<void>
   /** Flush entries to the backing store. */
@@ -23,6 +23,8 @@ export class InMemoryWorkspaceRegistry
   extends InMemoryBasicRegistry<WorkspaceRegistryEntry, WorkspaceId>
   implements WorkspaceRegistry
 {
+  lifecycle = LifecycleManager.empty()
+
   constructor() {
     super('workspace', (value) => value.id)
   }

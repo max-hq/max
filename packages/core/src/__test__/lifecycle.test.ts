@@ -72,7 +72,7 @@ describe("LifecycleManager.on", () => {
     const startOnly = LifecycleManager.on({ start: () => {} })
     await startOnly.stop() // no-op, should not throw
 
-    const neither = LifecycleManager.on({})
+    const neither = LifecycleManager.empty()
     await neither.start()
     await neither.stop()
   })

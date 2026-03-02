@@ -7,7 +7,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import { InstallationId, LocatorURI } from '@max/core'
+import { InstallationId, LifecycleManager, LocatorURI } from '@max/core'
 import {
   DeploymentConfig,
   ErrInvariant,
@@ -18,6 +18,8 @@ import type { MaxJsonFile, MaxJsonInstallation } from '@max/federation'
 import { ErrRegistryEntryAlreadyExists, ErrRegistryEntryNotFound } from '@max/federation'
 
 export class FsInstallationRegistry implements InstallationRegistry {
+  lifecycle = LifecycleManager.empty()
+
   private readonly baseDir: string
 
   constructor(private readonly maxJsonPath: string) {

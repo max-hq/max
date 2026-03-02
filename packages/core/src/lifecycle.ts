@@ -28,7 +28,7 @@ export interface LifecycleStep {
 // ============================================================================
 
 /** Entry in an auto() sequence: a single Lifecycle or a parallel group. */
-type AutoEntry = Lifecycle | Lifecycle[]
+type AutoEntry = Lifecycle | Lifecycle[] | LifecycleMethods
 
 export const LifecycleManager = {
   /** Manual lifecycle with explicit start/stop. Omitted methods default to no-ops. */
@@ -42,6 +42,10 @@ export const LifecycleManager = {
   /** No-op step. */
   none(): LifecycleStep {
     return () => {}
+  },
+
+  empty(): LifecycleMethods {
+    return LifecycleManager.on({})
   },
 
   /** Run-once start step. Subsequent calls are no-ops. */
@@ -76,8 +80,10 @@ export const LifecycleManager = {
       for (const entry of resolve()) {
         if (Array.isArray(entry)) {
           await Promise.all(entry.map((d) => d.lifecycle.start()))
-        } else {
+        } else if ('lifecycle' in entry) {
           await entry.lifecycle.start()
+        }else{
+          await entry.start()
         }
       }
     })
@@ -88,8 +94,10 @@ export const LifecycleManager = {
         const entry = resolved[i]
         if (Array.isArray(entry)) {
           await Promise.all(entry.map((d) => d.lifecycle.stop()))
-        } else {
+        } else if ('lifecycle' in entry) {
           await entry.lifecycle.stop()
+        }else{
+          await entry.stop()
         }
       }
     })

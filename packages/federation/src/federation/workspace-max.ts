@@ -17,7 +17,7 @@
  *   6. Start the installation
  */
 
-import { DeployerKind, InstallationId, Locator, Schema } from '@max/core'
+import { DeployerKind, InstallationId, LifecycleManager, Locator, Schema } from '@max/core'
 import { HealthStatus, ISODateString, StartResult, StopResult } from '@max/core'
 import type { ConnectorRegistry, ConnectorRegistryEntry, OnboardingFlowAny } from '@max/connector'
 import type {
@@ -52,6 +52,15 @@ export class WorkspaceMax implements WorkspaceClient {
   private readonly installationRegistry: InstallationRegistry
   private readonly connectorRegistry: ConnectorRegistry
   private readonly installationDeployer: DeployerRegistry<InstallationDeployer>
+
+  lifecycle = LifecycleManager.auto(() => [
+    this.connectorRegistry,
+    this.installationRegistry,
+    LifecycleManager.on({
+        start: () => this.startSupervised(),
+        stop: () => this.stopSupervised(),
+    }),
+  ])
 
   constructor(args: WorkspaceMaxConstructable) {
     this.supervisor = args.installationSupervisor
@@ -237,6 +246,16 @@ export class WorkspaceMax implements WorkspaceClient {
   }
 
   async start(): Promise<StartResult> {
+    await this.lifecycle.start()
+    return StartResult.started()
+  }
+
+  async stop(): Promise<StopResult> {
+    await this.lifecycle.stop()
+    return StopResult.stopped()
+  }
+
+  private async startSupervised(): Promise<void> {
     // Start any installations already in the supervisor (e.g. created this session).
     // Persisted installations are connected lazily on first use via ConnectingInstallationClient.
     const handles = this.supervisor.list()
@@ -252,14 +271,12 @@ export class WorkspaceMax implements WorkspaceClient {
         console.log(`Started installation ${handle.id} successfully`)
       }
     }
-    return StartResult.started()
   }
 
-  async stop(): Promise<StopResult> {
+  private async stopSupervised(): Promise<void> {
     const handles = this.supervisor.list()
     for (let i = handles.length - 1; i >= 0; i--) {
       await handles[i].client.stop()
     }
-    return StopResult.stopped()
   }
 }

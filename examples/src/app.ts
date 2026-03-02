@@ -6,16 +6,27 @@
  */
 
 import * as path from 'node:path'
-import { Projection } from '@max/core'
+import { EntityInput, Projection } from '@max/core'
 import { BunPlatform } from '@max/platform-bun'
 import { AcmeConfig, AcmeUser } from '@max/connector-acme'
 import * as os from "node:os";
+import * as fs from "node:fs";
 
-const workspaceRoot = path.resolve(__dirname, '../../bun-test-project')
+const tmpRoot = fs.mkdtempSync(os.tmpdir())
+const maxRoot = path.join(tmpRoot, '.max')
+const dataDir = path.join(tmpRoot, 'test-workspace')
+fs.mkdirSync(maxRoot)
+fs.mkdirSync(dataDir)
+
+
+console.log("Creating max deployment using folders:", {maxRoot,dataDir})
 
 try {
-  const max = BunPlatform.createGlobalMax()
-  const dataDir = os.tmpdir()
+  const max = BunPlatform.createGlobalMax({
+    global:{
+      root: () => maxRoot
+    }
+  })
 
   const workspaceId = await max.createWorkspace(
     'test-workspace', // we don't need this anymore, it can come from the spec
@@ -23,9 +34,9 @@ try {
       via: BunPlatform.workspace.deploy.inProcess,
       config:{
         strategy: 'in-process',
-        dataDir: workspaceRoot,
+        dataDir,
         engine:{type: 'sqlite'},
-        connectorRegistry: {type:'hardcoded', moduleMap: {  }}
+        connectorRegistry: {type:'hardcoded', moduleMap: { 'acme': '@max/connector-acme'}}
       },
       spec:{
         name: "test-workspace",
@@ -52,13 +63,19 @@ try {
       dataDir
     }
   })
+
   const acme = await workspace.installation(acmeId)
 
-  console.log({
+  await acme.engine.store<AcmeUser>(EntityInput.create<AcmeUser>(AcmeUser.ref('user-1'), {
+    displayName: 'Round-tripped user',
+    email: 'test-1@test.com'
+  }))
+
+  console.log("Installation, workspace and engine successful. Output:", {
     installations: await workspace.listInstallations(),
     data: await workspace.health(),
     acme: await acme.engine.load(
-      AcmeUser.ref('usr_14cc9f9adc384561b79f93b738e44649'),
+      AcmeUser.ref('user-1'),
       Projection.all
     ),
   })

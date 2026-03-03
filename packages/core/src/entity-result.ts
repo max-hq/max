@@ -154,11 +154,14 @@ class EntityResultImpl<
   }
 
   toObject(): { [K in Loaded]: EntityFields<E>[K] } {
-    const meta: Record<string, unknown> = {};
+    const obj: Record<string, unknown> = {};
     for (const name of MetaField.defaultNames()) {
-      meta[name] = MetaField.resolve(name, this);
+      obj[name] = MetaField.resolve(name, this);
     }
-    return { ...meta, ...Object.fromEntries(this.data) } as { [K in Loaded]: EntityFields<E>[K] };
+    for (const [k, v] of this.data) {
+      obj[k] = v;
+    }
+    return obj as { [K in Loaded]: EntityFields<E>[K] };
   }
 }
 

@@ -49,12 +49,20 @@ max search linear-1 LinearUser --limit=5
 # Explicit field selection including meta fields
 max search linear-1 LinearUser --fields=_id,displayName,email
 
-# Opt into _ref
-max search linear-1 LinearUser --fields=_ref,displayName
+# Opt into _ref (directly)
+max search linear-1 LinearUser --fields=_id,_ref,displayName
+
+# Optionally: Opt into _ref and _id (or all meta fields) via .meta group selector
+max search linear-1 LinearUser --fields=.meta,displayName
+
+# All meta + all properties
+max search linear-1 LinearUser --fields=.all
 
 # Filter by _id
 max search linear-1 LinearUser --filter="_id=user-abc123"
 ```
+
+See [Field Selection](./field-selection.md) for the full guide on `--fields` and group selectors.
 
 ## Federation semantics
 

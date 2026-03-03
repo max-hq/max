@@ -37,6 +37,20 @@ export class SqliteSchema {
       this.migrateIdColumn(db, tableDef.tableName);
       const sql = generateCreateTableSql(tableDef);
       db.run(sql);
+      this.addMissingColumns(db, tableDef);
+    }
+  }
+
+  /** Add any columns present in the schema but missing from the DB table. */
+  private addMissingColumns(db: Database, tableDef: TableDef): void {
+    const cols = db.query(`PRAGMA table_info(${tableDef.tableName})`).all() as { name: string }[];
+    if (cols.length === 0) return;
+
+    const existing = new Set(cols.map(c => c.name));
+    for (const col of tableDef.columns) {
+      if (!existing.has(col.columnName)) {
+        db.run(`ALTER TABLE ${tableDef.tableName} ADD COLUMN ${col.columnName} ${col.sqlType}`);
+      }
     }
   }
 

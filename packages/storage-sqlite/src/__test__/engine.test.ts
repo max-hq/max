@@ -4,7 +4,7 @@
 
 import { describe, test, expect, beforeEach } from "bun:test";
 import { Database } from "bun:sqlite";
-import { Fields, Query, Projection, PageRequest, RefKey } from "@max/core";
+import { EntityDef, Field, Schema, Fields, Query, Projection, PageRequest, RefKey } from "@max/core";
 import {AcmeUser, AcmeWorkspace, AcmeProject, AcmeSchema} from "@max/connector-acme";
 import { SqliteEngine, SqliteSchema } from "../index.js";
 
@@ -298,6 +298,86 @@ describe("SqliteEngine", () => {
 
       expect(page.items.length).toBe(3);
       expect(page.items[0].fields.displayName).toBeDefined();
+    });
+  });
+
+  describe("addMissingColumns", () => {
+    test("adds new columns when schema evolves", () => {
+      // Start with a v1 entity that has two fields
+      const UserV1 = EntityDef.create("TestUser", {
+        name: Field.string(),
+        email: Field.string(),
+      });
+      const schemaV1 = new SqliteSchema().register(UserV1);
+      const testDb = new Database(":memory:");
+      schemaV1.ensureTables(testDb);
+
+      // Store a row using the v1 schema
+      testDb.run(`INSERT INTO _test_user (_id, name, email) VALUES ('u1', 'Alice', 'alice@test.com')`);
+
+      // Now "evolve" the schema - v2 adds an active boolean and a role string
+      const UserV2 = EntityDef.create("TestUser", {
+        name: Field.string(),
+        email: Field.string(),
+        active: Field.boolean(),
+        role: Field.string(),
+      });
+      const schemaV2 = new SqliteSchema().register(UserV2);
+      schemaV2.ensureTables(testDb);
+
+      // Verify the new columns exist
+      const cols = testDb.query("PRAGMA table_info(_test_user)").all() as { name: string }[];
+      const colNames = cols.map(c => c.name);
+      expect(colNames).toContain("active");
+      expect(colNames).toContain("role");
+
+      // Existing row should have NULL for new columns
+      const row = testDb.query("SELECT * FROM _test_user WHERE _id = 'u1'").get() as any;
+      expect(row.name).toBe("Alice");
+      expect(row.email).toBe("alice@test.com");
+      expect(row.active).toBeNull();
+      expect(row.role).toBeNull();
+
+      // New data can use the new columns
+      testDb.run(`INSERT INTO _test_user (_id, name, email, active, role) VALUES ('u2', 'Bob', 'bob@test.com', 1, 'admin')`);
+      const row2 = testDb.query("SELECT * FROM _test_user WHERE _id = 'u2'").get() as any;
+      expect(row2.active).toBe(1);
+      expect(row2.role).toBe("admin");
+    });
+
+    test("is idempotent - calling ensureTables twice does not error", () => {
+      const User = EntityDef.create("IdempotentUser", {
+        name: Field.string(),
+        score: Field.number(),
+      });
+      const testDb = new Database(":memory:");
+      const s = new SqliteSchema().register(User);
+      s.ensureTables(testDb);
+      s.ensureTables(testDb); // should not throw
+
+      const cols = testDb.query("PRAGMA table_info(_idempotent_user)").all() as { name: string }[];
+      expect(cols.map(c => c.name)).toEqual(["_id", "name", "score"]);
+    });
+
+    test("handles adding a ref column", () => {
+      const Team = EntityDef.create("MigTeam", { name: Field.string() });
+      const UserV1 = EntityDef.create("MigUser", { name: Field.string() });
+      const testDb = new Database(":memory:");
+      new SqliteSchema().register(Team).register(UserV1).ensureTables(testDb);
+
+      testDb.run(`INSERT INTO _mig_user (_id, name) VALUES ('u1', 'Alice')`);
+
+      // v2 adds a team ref
+      const UserV2 = EntityDef.create("MigUser", { name: Field.string(), team: Field.ref(Team) });
+      new SqliteSchema().register(Team).register(UserV2).ensureTables(testDb);
+
+      const cols = testDb.query("PRAGMA table_info(_mig_user)").all() as { name: string }[];
+      expect(cols.map(c => c.name)).toContain("team");
+
+      // Can store a ref value in the new column
+      testDb.run(`INSERT INTO _mig_user (_id, name, team) VALUES ('u2', 'Bob', 't1')`);
+      const row = testDb.query("SELECT * FROM _mig_user WHERE _id = 'u2'").get() as any;
+      expect(row.team).toBe("t1");
     });
   });
 });

@@ -123,7 +123,7 @@ export const OrgUsersLoader = Loader.collection({
   async load(_ref, page, ctx) {
     const data = await ctx.api.graphql<UsersResponse>(
       `query($cursor: String) {
-        users(first: 250, after: $cursor) {
+        users(first: 250, after: $cursor, includeArchived: true, includeDisabled: true) {
           nodes { id name email displayName active admin }
           pageInfo { hasNextPage endCursor }
         }

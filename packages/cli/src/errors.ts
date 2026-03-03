@@ -36,6 +36,13 @@ export const ErrUnknownEntityType = CliBoundary.define('unknown_entity_type', {
   message: (d) => `Unknown entity type "${d.entityType}". Available: ${d.available.join(', ')}`,
 })
 
+/** Unknown field group selector (e.g. ".foo"). */
+export const ErrUnknownFieldGroup = CliBoundary.define('unknown_field_group', {
+  customProps: ErrFacet.props<{ group: string; available: string[] }>(),
+  facets: [BadInput],
+  message: (d) => `Unknown field group "${d.group}". Available: ${d.available.join(', ')}`,
+})
+
 /** Filter expression could not be parsed. */
 export const ErrFilterParse = CliBoundary.define('filter_parse', {
   customProps: ErrFacet.props<{ expression: string; reason: string }>(),

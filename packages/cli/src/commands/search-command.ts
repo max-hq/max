@@ -22,7 +22,7 @@ import type { ValueParser } from '@optique/core/valueparser'
 import { message } from '@optique/core/message'
 import { outputOption } from '../parsers/standard-opts.js'
 import { parseFilter } from '../parsers/filter-parser.js'
-import { parseOrderBy, parseFieldList } from '../parsers/search-args.js'
+import { parseOrderBy, parseFieldList, expandFieldGroups } from '../parsers/search-args.js'
 import { ErrUnknownEntityType, ErrTargetResolutionFailed } from '../errors.js'
 import { SearchTextPrinter, SearchJsonPrinter, SearchNdjsonPrinter } from '../printers/search-printers.js'
 import type { Command, Inferred, CommandOptions } from '../command.js'
@@ -195,7 +195,7 @@ async function runSearch(
   await installation.start()
   const page = await installation.engine.query(query)
 
-  const selectedFields = args.fields ? parseFieldList(args.fields) : undefined
+  const selectedFields = args.fields ? expandFieldGroups(parseFieldList(args.fields), def) : undefined
   const view = { entityType: args.entityType, page, selectedFields }
 
   switch (args.output) {

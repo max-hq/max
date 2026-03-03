@@ -125,6 +125,12 @@ export const ErrRootNotInEntities = Core.define("root_not_in_entities", {
   message: (d) => `Root entity "${d.root}" is not in the entities list`,
 });
 
+/** Connector field name uses reserved `_` prefix */
+export const ErrReservedFieldPrefix = Core.define("reserved_field_prefix", {
+  facets: [BadInput, HasEntityField],
+  message: (d) => `Field '${d.field}' on ${d.entityType} uses reserved prefix '_'. Fields starting with '_' are reserved for Max meta fields.`,
+});
+
 /** Printer key has no registered implementation */
 export const ErrPrinterNotRegistered = Core.define("printer_not_registered", {
   customProps: ErrFacet.props<{ key: string }>(),

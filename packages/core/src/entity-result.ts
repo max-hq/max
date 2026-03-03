@@ -7,6 +7,7 @@ import  { EntityFields, EntityFieldsPick} from "./field-types.js";
 import type { Ref, RefAny } from "./ref.js";
 import {StaticTypeCompanion} from "./companion.js";
 import {ErrFieldNotLoaded} from "./errors/errors.js";
+import {MetaField} from "./meta-fields.js";
 import {Scope} from "./scope.js";
 import {Inspect} from "./inspect.js";
 
@@ -101,17 +102,25 @@ class EntityResultImpl<
   ) {
     this.data = new Map(Object.entries(data));
 
+    const self = this;
+
     // Create proxy for .fields access
     this.fields = new Proxy({} as FieldsProxy<E, Loaded>, {
       get: (_, prop: string) => {
+        const meta = MetaField.get(prop);
+        if (meta) return meta.resolve(self);
         if (!this.data.has(prop)) {
           throw ErrFieldNotLoaded.create({ entityType: this.def.name, field: prop });
         }
         return this.data.get(prop);
       },
-      has: (_, prop: string) => this.data.has(prop),
-      ownKeys: () => Array.from(this.data.keys()),
+      has: (_, prop: string) => MetaField.get(prop) !== undefined || this.data.has(prop),
+      ownKeys: () => [...MetaField.defaultNames(), ...this.data.keys()],
       getOwnPropertyDescriptor: (_, prop: string) => {
+        const meta = MetaField.get(prop);
+        if (meta) {
+          return { configurable: true, enumerable: true, value: meta.resolve(self) };
+        }
         if (this.data.has(prop)) {
           return { configurable: true, enumerable: true, value: this.data.get(prop) };
         }
@@ -121,6 +130,8 @@ class EntityResultImpl<
   }
 
   get<K extends Loaded>(field: K): EntityFields<E>[K] {
+    const meta = MetaField.get(field as string);
+    if (meta) return meta.resolve(this) as EntityFields<E>[K];
     if (!this.data.has(field as string)) {
       throw ErrFieldNotLoaded.create({ entityType: this.def.name, field: String(field) });
     }
@@ -128,19 +139,26 @@ class EntityResultImpl<
   }
 
   maybeGet<K extends keyof EntityFields<E>>(field: K): EntityFields<E>[K] | undefined {
+    const meta = MetaField.get(field as string);
+    if (meta) return meta.resolve(this) as EntityFields<E>[K] | undefined;
     return this.data.get(field as string) as EntityFields<E>[K] | undefined;
   }
 
   has(field: keyof EntityFields<E>): boolean {
+    if (MetaField.get(field as string)) return true;
     return this.data.has(field as string);
   }
 
   loadedFields(): (Loaded extends string ? Loaded : never)[] {
-    return Array.from(this.data.keys()) as (Loaded extends string ? Loaded : never)[];
+    return [...MetaField.defaultNames(), ...this.data.keys()] as (Loaded extends string ? Loaded : never)[];
   }
 
   toObject(): { [K in Loaded]: EntityFields<E>[K] } {
-    return Object.fromEntries(this.data) as { [K in Loaded]: EntityFields<E>[K] };
+    const meta: Record<string, unknown> = {};
+    for (const name of MetaField.defaultNames()) {
+      meta[name] = MetaField.resolve(name, this);
+    }
+    return { ...meta, ...Object.fromEntries(this.data) } as { [K in Loaded]: EntityFields<E>[K] };
   }
 }
 

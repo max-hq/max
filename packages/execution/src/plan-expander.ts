@@ -93,7 +93,7 @@ export class PlanExpander {
   private serialiseTarget(target: StepTarget): SerialisedStepTarget {
     switch (target.kind) {
       case "forAll":
-        return { kind: "forAll", entityType: target.entity.name as EntityType };
+        return { kind: "forAll", entityType: target.entity.name };
       case "forRoot":
         return { kind: "forRoot", entityType: target.ref.entityType, refKey: target.ref.toKey() };
       case "forOne":

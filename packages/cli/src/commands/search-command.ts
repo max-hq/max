@@ -10,7 +10,7 @@
  * Output in text (table), JSON, or NDJSON formats.
  */
 
-import { LazyX, Projection, WhereClause, PrintFormatter } from '@max/core'
+import { LazyX, Projection, WhereClause, PrintFormatter, MetaField } from '@max/core'
 import type { EntityQuery, AllProjection, QueryOrdering, InstallationId } from '@max/core'
 import type { InstallationClient } from '@max/federation'
 import { ErrInstallationNotFound } from '@max/federation'
@@ -174,7 +174,7 @@ async function runSearch(
     })
   }
 
-  const validFields = Object.keys(def.fields)
+  const validFields = [...MetaField.filterableNames(), ...Object.keys(def.fields)]
   const filters = args.filter ? parseFilter(args.filter, validFields) : WhereClause.empty
 
   let ordering: QueryOrdering | undefined

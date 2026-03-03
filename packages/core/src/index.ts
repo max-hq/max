@@ -34,6 +34,10 @@ export * from "./field-types.js";
 export { EntityDef } from "./entity-def.js";
 export type { EntityDefAny } from "./entity-def.js";
 
+// Meta fields (_id, _ref - virtual fields on every entity)
+export { MetaField } from "./meta-fields.js";
+export type { MetaFieldDef, MetaFieldSource } from "./meta-fields.js";
+
 // Schema (Schema is both type and value)
 export { Schema } from "./schema.js";
 export type { EntityRelationship } from "./schema.js";

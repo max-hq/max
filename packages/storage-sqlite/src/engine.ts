@@ -34,6 +34,9 @@ import { SqliteSchema } from "./schema.js";
 import type { TableDef, ColumnDef } from "./table-def.js";
 import { ErrEntityNotFound, ErrFieldNotFound, ErrCollectionNotSupported } from "./errors.js";
 
+/** Synthetic ColumnDef for the _id primary key column (not part of schema fields). */
+const ID_COLUMN: ColumnDef = { columnName: "_id", fieldName: "_id", sqlType: "TEXT", isRef: false };
+
 export class SqliteEngine implements Engine<InstallationScope> {
   readonly db: Database;
   private schema: SqliteSchema;
@@ -60,7 +63,7 @@ export class SqliteEngine implements Engine<InstallationScope> {
     const id = input.ref.id;
 
     // Build column names and values
-    const columnNames: string[] = ["id"];
+    const columnNames: string[] = ["_id"];
     const placeholders: string[] = ["?"];
     const values: SQLQueryBindings[] = [id];
 
@@ -109,7 +112,7 @@ export class SqliteEngine implements Engine<InstallationScope> {
     }
 
     const columnList = columnsToLoad.map(c => c.columnName).join(", ");
-    const sql = `SELECT ${columnList} FROM ${tableDef.tableName} WHERE id = ?`;
+    const sql = `SELECT ${columnList} FROM ${tableDef.tableName} WHERE _id = ?`;
     const row = this.db.query(sql).get(ref.id) as Record<string, unknown> | null;
 
     if (!row) {
@@ -135,7 +138,7 @@ export class SqliteEngine implements Engine<InstallationScope> {
       throw ErrFieldNotFound.create({ entityType: ref.entityType, field: String(field) });
     }
 
-    const sql = `SELECT ${col.columnName} FROM ${tableDef.tableName} WHERE id = ?`;
+    const sql = `SELECT ${col.columnName} FROM ${tableDef.tableName} WHERE _id = ?`;
     const row = this.db.query(sql).get(ref.id) as Record<string, unknown> | null;
 
     if (!row) {
@@ -188,40 +191,40 @@ export class SqliteEngine implements Engine<InstallationScope> {
     switch (projection.kind) {
       case "refs":
         columns = [];
-        columnNames = ["id"];
+        columnNames = ["_id"];
         break;
       case "select":
         columns = projection.fields.map(f => this.getColumn(tableDef, def, f));
-        columnNames = ["id", ...columns.map(c => c.columnName)];
+        columnNames = ["_id", ...columns.map(c => c.columnName)];
         break;
       case "all":
         columns = tableDef.columns;
-        columnNames = ["id", ...columns.map(c => c.columnName)];
+        columnNames = ["_id", ...columns.map(c => c.columnName)];
         break;
     }
 
-    // Cursor-based: WHERE id > cursor ORDER BY id
+    // Cursor-based: WHERE _id > cursor ORDER BY _id
     let sql = `SELECT ${columnNames.join(", ")} FROM ${tableDef.tableName}`;
     const params: SQLQueryBindings[] = [];
 
     if (r.cursor) {
       const parsed = RefKey.parse(r.cursor as RefKey);
-      sql += ` WHERE id > ?`;
+      sql += ` WHERE _id > ?`;
       params.push(parsed.entityId);
     }
 
-    sql += ` ORDER BY id ASC LIMIT ${r.fetchSize}`;
+    sql += ` ORDER BY _id ASC LIMIT ${r.fetchSize}`;
     const rows = this.db.query(sql).all(...params) as Record<string, unknown>[];
 
     switch (projection.kind) {
       case "refs": {
-        const items = rows.map(row => Ref.installation(def, row.id as EntityId));
+        const items = rows.map(row => Ref.installation(def, row._id as EntityId));
         return this.toCursorPage(items, r.limit, ref => ref.toKey() as string);
       }
       case "select":
       case "all": {
         const items = rows.map(row => {
-          const ref = Ref.installation(def, row.id as EntityId);
+          const ref = Ref.installation(def, row._id as EntityId);
           const data: Record<string, unknown> = {};
           for (const col of columns) {
             data[col.fieldName] = this.fromSqlValue(row[col.columnName], col, def);
@@ -260,15 +263,15 @@ export class SqliteEngine implements Engine<InstallationScope> {
     switch (projection.kind) {
       case "refs":
         columns = [];
-        columnNames = ["id"];
+        columnNames = ["_id"];
         break;
       case "select":
         columns = projection.fields.map(f => this.getColumn(tableDef, query.def, f));
-        columnNames = ["id", ...columns.map(c => c.columnName)];
+        columnNames = ["_id", ...columns.map(c => c.columnName)];
         break;
       case "all":
         columns = tableDef.columns;
-        columnNames = ["id", ...columns.map(c => c.columnName)];
+        columnNames = ["_id", ...columns.map(c => c.columnName)];
         break;
     }
 
@@ -280,14 +283,14 @@ export class SqliteEngine implements Engine<InstallationScope> {
     switch (projection.kind) {
       case "refs": {
         const items = rows.map(row =>
-          Ref.installation(query.def, row.id as EntityId)
+          Ref.installation(query.def, row._id as EntityId)
         );
         return this.toCursorPage(items, query.limit, ref => ref.toKey() as string);
       }
       case "select": // fallthrough
       case "all": {
         const items = rows.map(row => {
-          const ref = Ref.installation(query.def, row.id as EntityId);
+          const ref = Ref.installation(query.def, row._id as EntityId);
           const data: Record<string,unknown> = {};
           for (const col of columns) {
             data[col.fieldName] = this.fromSqlValue(row[col.columnName], col, query.def);
@@ -314,24 +317,24 @@ export class SqliteEngine implements Engine<InstallationScope> {
     const userWhere = this.buildWhereSql(query.filters, tableDef, query.def, params);
     if (userWhere) conditions.push(userWhere);
 
-    // Cursor-based pagination: WHERE id > cursor (cursor is a RefKey)
+    // Cursor-based pagination: WHERE _id > cursor (cursor is a RefKey)
     if (query.cursor) {
       const parsed = RefKey.parse(query.cursor as RefKey);
       params.push(parsed.entityId);
-      conditions.push(`id > ?`);
+      conditions.push(`_id > ?`);
     }
 
     if (conditions.length > 0) {
       sql += ` WHERE ${conditions.join(" AND ")}`;
     }
 
-    // ORDER BY: user ordering first, then id as tiebreaker for stable cursor pagination
+    // ORDER BY: user ordering first, then _id as tiebreaker for stable cursor pagination
     const orderParts: string[] = [];
     if (query.ordering) {
       const col = this.getColumn(tableDef, query.def, query.ordering.field);
       orderParts.push(`${col.columnName} ${query.ordering.dir.toUpperCase()}`);
     }
-    orderParts.push("id ASC");
+    orderParts.push("_id ASC");
     sql += ` ORDER BY ${orderParts.join(", ")}`;
 
     if (query.limit !== undefined) {
@@ -396,6 +399,7 @@ export class SqliteEngine implements Engine<InstallationScope> {
 
   /** Look up a ColumnDef by field name, throwing if not found. */
   private getColumn(tableDef: TableDef, entityDef: EntityDefAny, fieldName: string): ColumnDef {
+    if (fieldName === "_id") return ID_COLUMN;
     const col = tableDef.columns.find(c => c.fieldName === fieldName);
     if (!col) {
       throw ErrFieldNotFound.create({ entityType: entityDef.name, field: fieldName });

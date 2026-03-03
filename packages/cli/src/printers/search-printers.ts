@@ -25,12 +25,12 @@ function resolveFields(view: SearchView): string[] {
   return Array.from(fieldSet)
 }
 
-/** Convert an entity result to a plain object filtered by fields. */
+/** Convert an entity result to a plain object filtered by fields (including meta fields). */
 function pickFields(item: EntityResult<EntityDefAny, string>, fields: string[]): Record<string, unknown> {
-  const obj = item.toObject() as Record<string, unknown>
   const picked: Record<string, unknown> = {}
   for (const f of fields) {
-    if (f in obj) picked[f] = obj[f]
+    const val = item.maybeGet(f)
+    if (val !== undefined) picked[f] = val
   }
   return picked
 }
@@ -38,6 +38,45 @@ function pickFields(item: EntityResult<EntityDefAny, string>, fields: string[]):
 // ============================================================================
 // Text — tabular output with pagination hint
 // ============================================================================
+
+const MAX_COL_WIDTH = 80
+const WIDTH_SAMPLE_SIZE = 20
+
+/** Truncate a string to maxLen, adding ellipsis if needed. */
+function truncate(value: string, maxLen: number): string {
+  if (value.length <= maxLen) return value
+  return value.slice(0, maxLen - 1) + '…'
+}
+
+/** Stringify a single entity result into an array of cell values for the given fields. */
+function toRow(item: EntityResult<EntityDefAny, string>, fields: string[]): string[] {
+  const obj = pickFields(item, fields)
+  return fields.map(f => String(obj[f] ?? ''))
+}
+
+/**
+ * Determine column widths from a sample batch. Only the first
+ * WIDTH_SAMPLE_SIZE items are inspected — this keeps the cost bounded
+ * and makes the approach compatible with future streaming.
+ */
+function sampleWidths(
+  fields: string[],
+  items: readonly EntityResult<EntityDefAny, string>[],
+): number[] {
+  const widths = fields.map(h => h.length)
+  const end = Math.min(items.length, WIDTH_SAMPLE_SIZE)
+  for (let r = 0; r < end; r++) {
+    const row = toRow(items[r], fields)
+    for (let c = 0; c < fields.length; c++) {
+      if (row[c].length > widths[c]) widths[c] = row[c].length
+    }
+  }
+  // Cap every column
+  for (let c = 0; c < widths.length; c++) {
+    if (widths[c] > MAX_COL_WIDTH) widths[c] = MAX_COL_WIDTH
+  }
+  return widths
+}
 
 export const SearchTextPrinter = Printer.define<SearchView>((view, fmt) => {
   const { page, entityType } = view
@@ -55,24 +94,15 @@ export const SearchTextPrinter = Printer.define<SearchView>((view, fmt) => {
   }
 
   const fields = resolveFields(view)
-
-  // Build rows
-  const rows = page.items.map(item => {
-    const obj = pickFields(item, fields)
-    return fields.map(f => String(obj[f] ?? ''))
-  })
-
-  // Column widths
-  const widths = fields.map((h, i) =>
-    Math.max(h.length, ...rows.map(r => r[i].length))
-  )
+  const widths = sampleWidths(fields, page.items)
 
   // Header row
   lines.push('  ' + fields.map((h, i) => fmt.dim(h.padEnd(widths[i]))).join('  '))
 
-  // Data rows
-  for (const row of rows) {
-    lines.push('  ' + row.map((c, i) => c.padEnd(widths[i])).join('  '))
+  // Data rows - each item is stringified and truncated independently
+  for (const item of page.items) {
+    const row = toRow(item, fields)
+    lines.push('  ' + row.map((c, i) => truncate(c, widths[i]).padEnd(widths[i])).join('  '))
   }
 
   // Pagination hint

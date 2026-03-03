@@ -64,7 +64,7 @@ export function buildTableDef(entityDef: EntityDefAny): TableDef {
 /** Generate CREATE TABLE SQL for a TableDef */
 export function generateCreateTableSql(tableDef: TableDef): string {
   const columnDefs = [
-    "id TEXT PRIMARY KEY",
+    "_id TEXT PRIMARY KEY",
     ...tableDef.columns.map(col => `${col.columnName} ${col.sqlType}`)
   ];
 

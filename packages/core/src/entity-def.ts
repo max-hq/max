@@ -7,6 +7,8 @@ import { type Ref, Ref as RefStatic, type LocalRef } from "./ref.js";
 import type { Scope, InstallationScope } from "./scope.js";
 import {StaticTypeCompanion} from "./companion.js";
 import {EntityId, EntityType} from "./core-id-types.js";
+import {MetaField} from "./meta-fields.js";
+import {ErrReservedFieldPrefix} from "./errors/errors.js";
 
 /**
  * EntityDef<Fields> - Defines an entity type and its fields.
@@ -55,6 +57,11 @@ class EntityDefImpl<T extends FieldDefinitions> implements EntityDef<T> {
 export const EntityDef = StaticTypeCompanion({
   /** Create a new entity definition */
   create<T extends FieldDefinitions>(name: string, fields: T): EntityDef<T> {
+    for (const fieldName of Object.keys(fields)) {
+      if (MetaField.isMeta(fieldName)) {
+        throw ErrReservedFieldPrefix.create({ entityType: name as EntityType, field: fieldName });
+      }
+    }
     return new EntityDefImpl(name, fields);
   },
 })

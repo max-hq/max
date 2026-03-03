@@ -31,11 +31,25 @@ export class SqliteSchema {
     return tableDef;
   }
 
-  /** Create all registered tables in the database */
+  /** Create all registered tables in the database, migrating old schemas as needed. */
   ensureTables(db: Database): void {
     for (const tableDef of this.tables.values()) {
+      this.migrateIdColumn(db, tableDef.tableName);
       const sql = generateCreateTableSql(tableDef);
       db.run(sql);
+    }
+  }
+
+  /** Rename legacy `id` column to `_id` if the table already exists with the old name. */
+  // NOTE: This is a stop-gap, and won't impact anyone externally. We need an actual versioned migration system. On the roadmap.
+  /** @deprecated (see above) */
+  private migrateIdColumn(db: Database, tableName: string): void {
+    const cols = db.query(`PRAGMA table_info(${tableName})`).all() as { name: string }[];
+    if (cols.length === 0) return; // table doesn't exist yet
+    const hasOldId = cols.some(c => c.name === "id");
+    const hasNewId = cols.some(c => c.name === "_id");
+    if (hasOldId && !hasNewId) {
+      db.run(`ALTER TABLE ${tableName} RENAME COLUMN id TO _id`);
     }
   }
 

@@ -82,7 +82,7 @@ class RefImpl<E extends EntityDefAny, S extends Scope = Scope> implements Ref<E,
     readonly id: EntityId,
     readonly scope: S
   ) {
-    this.entityType = entityDef.name as EntityType;
+    this.entityType = entityDef.name
   }
 
   toKey(): RefKey {

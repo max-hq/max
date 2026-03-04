@@ -29,6 +29,7 @@ import type {Page, PageRequest} from "./pagination.js";
 import type {Batch} from "./batch.js";
 import type {ContextDefAny, InferContext} from "./context-def.js";
 import {ClassOf} from "./type-system-utils.js";
+import type {SourceDerivationAny} from "./source.js";
 
 // ============================================================================
 // Branded Types
@@ -275,8 +276,9 @@ export type Loader<TContext extends ContextDefAny = ContextDefAny> =
 
 /**
  * Any loader type (fully erased).
+ * Includes SourceDerivation (kind: "derivation") alongside the four loader variants.
  */
-export type LoaderAny = Loader<ContextDefAny>;
+export type LoaderAny = Loader<ContextDefAny> | SourceDerivationAny;
 
 // ============================================================================
 // Loader Implementation

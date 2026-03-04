@@ -6,6 +6,9 @@
  * Multiple derivations can share a single source - one API call, one
  * pagination pass, multiple entity types populated.
  *
+ * Sources are stateless - they don't know which derivations consume their
+ * output. Co-derivation discovery is handled by the ExecutionRegistry.
+ *
  * @example
  * const IssuesPage = Source.paginated({
  *   name: "github:repo:issues-page",
@@ -17,7 +20,7 @@
  *   },
  * });
  *
- * const RepoIssuesLoader = IssuesPage.derive({
+ * const RepoIssuesLoader = Source.derive(IssuesPage, {
  *   name: "github:repo:issues",
  *   target: GithubIssue,
  *   extract(data) {
@@ -82,7 +85,8 @@ export const SourcePage = StaticTypeCompanion({
 /**
  * PaginatedSource - Fetches paginated data from an API, bound to a parent entity.
  *
- * Call .derive() to create derivations that extract entities from the fetched data.
+ * Stateless: does not know which derivations consume its output.
+ * Use Source.derive() to create derivations that reference this source.
  */
 export interface PaginatedSource<
   TData,
@@ -93,19 +97,12 @@ export interface PaginatedSource<
   readonly name: SourceName;
   readonly context: ClassOf<TContext>;
   readonly parent: TParent;
-  readonly derivations: readonly SourceDerivation<TData, EntityDefAny, TParent>[];
 
   fetch(
     ref: Ref<TParent>,
     page: PageRequest,
     ctx: InferContext<TContext>,
   ): Promise<SourcePage<TData>>;
-
-  derive<TTarget extends EntityDefAny>(config: {
-    name: LoaderName;
-    target: TTarget;
-    extract: (data: TData) => EntityInput<TTarget>[];
-  }): SourceDerivation<TData, TTarget, TParent>;
 }
 
 // ============================================================================
@@ -117,6 +114,7 @@ export interface PaginatedSource<
  *
  * Like PaginatedSource but without pagination. Useful for endpoints that
  * return all data in one call and yield multiple entity types.
+ * Stateless: does not know which derivations consume its output.
  */
 export interface SingleSource<
   TData,
@@ -127,18 +125,11 @@ export interface SingleSource<
   readonly name: SourceName;
   readonly context: ClassOf<TContext>;
   readonly parent: TParent;
-  readonly derivations: readonly SourceDerivation<TData, EntityDefAny, TParent>[];
 
   fetch(
     ref: Ref<TParent>,
     ctx: InferContext<TContext>,
   ): Promise<TData>;
-
-  derive<TTarget extends EntityDefAny>(config: {
-    name: LoaderName;
-    target: TTarget;
-    extract: (data: TData) => EntityInput<TTarget>[];
-  }): SourceDerivation<TData, TTarget, TParent>;
 }
 
 // ============================================================================
@@ -202,7 +193,6 @@ class PaginatedSourceImpl<
   TContext extends ContextDefAny,
 > implements PaginatedSource<TData, TParent, TContext> {
   readonly kind = "paginated" as const;
-  private _derivations: SourceDerivation<TData, EntityDefAny, TParent>[] = [];
 
   constructor(
     readonly name: SourceName,
@@ -215,33 +205,12 @@ class PaginatedSourceImpl<
     ) => Promise<SourcePage<TData>>,
   ) {}
 
-  get derivations(): readonly SourceDerivation<TData, EntityDefAny, TParent>[] {
-    return this._derivations;
-  }
-
   fetch(
     ref: Ref<TParent>,
     page: PageRequest,
     ctx: InferContext<TContext>,
   ): Promise<SourcePage<TData>> {
     return this.fetchFn(ref, page, ctx);
-  }
-
-  derive<TTarget extends EntityDefAny>(config: {
-    name: LoaderName;
-    target: TTarget;
-    extract: (data: TData) => EntityInput<TTarget>[];
-  }): SourceDerivation<TData, TTarget, TParent> {
-    const derivation = new SourceDerivationImpl(
-      this,
-      config.name,
-      config.target,
-      this.parent,
-      this.context,
-      config.extract,
-    );
-    this._derivations.push(derivation);
-    return derivation;
   }
 }
 
@@ -251,7 +220,6 @@ class SingleSourceImpl<
   TContext extends ContextDefAny,
 > implements SingleSource<TData, TParent, TContext> {
   readonly kind = "single" as const;
-  private _derivations: SourceDerivation<TData, EntityDefAny, TParent>[] = [];
 
   constructor(
     readonly name: SourceName,
@@ -263,32 +231,11 @@ class SingleSourceImpl<
     ) => Promise<TData>,
   ) {}
 
-  get derivations(): readonly SourceDerivation<TData, EntityDefAny, TParent>[] {
-    return this._derivations;
-  }
-
   fetch(
     ref: Ref<TParent>,
     ctx: InferContext<TContext>,
   ): Promise<TData> {
     return this.fetchFn(ref, ctx);
-  }
-
-  derive<TTarget extends EntityDefAny>(config: {
-    name: LoaderName;
-    target: TTarget;
-    extract: (data: TData) => EntityInput<TTarget>[];
-  }): SourceDerivation<TData, TTarget, TParent> {
-    const derivation = new SourceDerivationImpl(
-      this,
-      config.name,
-      config.target,
-      this.parent,
-      this.context,
-      config.extract,
-    );
-    this._derivations.push(derivation);
-    return derivation;
   }
 }
 
@@ -360,6 +307,31 @@ export const Source = StaticTypeCompanion({
       config.context,
       config.parent,
       config.fetch,
+    );
+  },
+
+  /**
+   * Create a derivation from a source
+   */
+  derive<
+    TData,
+    TParent extends EntityDefAny,
+    TTarget extends EntityDefAny,
+  >(
+    source: PaginatedSource<TData, TParent, any> | SingleSource<TData, TParent, any>,
+    config: {
+      name: LoaderName;
+      target: TTarget;
+      extract: (data: TData) => EntityInput<TTarget>[];
+    },
+  ): SourceDerivation<TData, TTarget, TParent> {
+    return new SourceDerivationImpl(
+      source,
+      config.name,
+      config.target,
+      source.parent,
+      source.context,
+      config.extract,
     );
   },
 });

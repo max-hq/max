@@ -282,9 +282,10 @@ export class DefaultTaskRunner implements TaskRunner {
             await this.syncMeta.recordFieldSync(ref, fieldNames, new Date())
           }
         } else if (loader.kind === 'derivation' && loader.source.kind === 'single') {
+          const coDerivations = this.registry.getCoDerivations(loader)
           for (const ref of refs) {
             const data = await loader.source.fetch(ref, ctx)
-            for (const d of loader.source.derivations) {
+            for (const d of coDerivations) {
               const items = d.extract(data)
               for (const input of items) {
                 // FIXME: DISCUSSION: I think we need a bulk store primitive
@@ -444,8 +445,9 @@ export class DefaultTaskRunner implements TaskRunner {
 
       let triggerCount = 0
 
-      // Run ALL derivations from this source - one fetch, multiple entity types
-      for (const d of source.derivations) {
+      // Run ALL co-derivations from this source - one fetch, multiple entity types
+      const coDerivations = this.registry.getCoDerivations(derivation)
+      for (const d of coDerivations) {
         const items = d.extract(sourcePage.data)
         for (const input of items) {
           await this.engine.store(input)

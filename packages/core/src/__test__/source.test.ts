@@ -2,7 +2,8 @@
  * Tests for Source + Derivation model.
  *
  * Verifies the core types: Source.paginated, Source.single, SourcePage,
- * derivation creation, extract, and field() for resolver compatibility.
+ * derivation creation via Source.derive(), extract, and field() for
+ * resolver compatibility.
  */
 
 import { describe, test, expect } from "bun:test";
@@ -79,7 +80,6 @@ describe("Source.paginated", () => {
     expect(source.name).toBe("test:repo:issues-page");
     expect(source.parent).toBe(TestRepo);
     expect(source.context).toBe(TestContext);
-    expect(source.derivations).toEqual([]);
   });
 
   test("fetch() delegates to the provided function", async () => {
@@ -124,7 +124,6 @@ describe("Source.single", () => {
     expect(source.name).toBe("test:user:detail");
     expect(source.parent).toBe(TestUser);
     expect(source.context).toBe(TestContext);
-    expect(source.derivations).toEqual([]);
   });
 
   test("fetch() delegates to the provided function", async () => {
@@ -146,7 +145,7 @@ describe("Source.single", () => {
 });
 
 // ============================================================================
-// Derivations
+// Source.derive()
 // ============================================================================
 
 interface IssuesPageData {
@@ -154,7 +153,7 @@ interface IssuesPageData {
   users: Array<{ id: string; login: string; name: string }>;
 }
 
-describe("source.derive()", () => {
+describe("Source.derive()", () => {
   function makeIssuesSource() {
     return Source.paginated({
       name: "test:repo:issues-page" as SourceName,
@@ -168,7 +167,7 @@ describe("source.derive()", () => {
 
   test("creates a derivation with correct properties", () => {
     const source = makeIssuesSource();
-    const derivation = source.derive({
+    const derivation = Source.derive(source, {
       name: "test:repo:issues" as LoaderName,
       target: TestIssue,
       extract(data) {
@@ -188,43 +187,43 @@ describe("source.derive()", () => {
     expect(derivation.context).toBe(TestContext);
   });
 
-  test("registers derivation on the source", () => {
+  test("source is not mutated by derive", () => {
     const source = makeIssuesSource();
-    expect(source.derivations).toHaveLength(0);
 
-    const d1 = source.derive({
+    Source.derive(source, {
       name: "test:issues" as LoaderName,
       target: TestIssue,
       extract: () => [],
     });
 
-    expect(source.derivations).toHaveLength(1);
-    expect(source.derivations[0]).toBe(d1);
+    // Source has no derivations property — it's stateless
+    expect((source as any).derivations).toBeUndefined();
+    expect((source as any)._derivations).toBeUndefined();
   });
 
-  test("multiple derivations from the same source", () => {
+  test("multiple derivations reference the same source", () => {
     const source = makeIssuesSource();
 
-    const d1 = source.derive({
+    const d1 = Source.derive(source, {
       name: "test:issues" as LoaderName,
       target: TestIssue,
       extract: () => [],
     });
 
-    const d2 = source.derive({
+    const d2 = Source.derive(source, {
       name: "test:issue-authors" as LoaderName,
       target: TestUser,
       extract: () => [],
     });
 
-    expect(source.derivations).toHaveLength(2);
-    expect(source.derivations[0]).toBe(d1);
-    expect(source.derivations[1]).toBe(d2);
+    expect(d1.source).toBe(source);
+    expect(d2.source).toBe(source);
+    expect(d1.source).toBe(d2.source);
   });
 
   test("extract() transforms source data into EntityInputs", () => {
     const source = makeIssuesSource();
-    const derivation = source.derive({
+    const derivation = Source.derive(source, {
       name: "test:issues" as LoaderName,
       target: TestIssue,
       extract(data) {
@@ -251,7 +250,7 @@ describe("source.derive()", () => {
 
   test("field() returns a valid FieldAssignment", () => {
     const source = makeIssuesSource();
-    const derivation = source.derive({
+    const derivation = Source.derive(source, {
       name: "test:issues" as LoaderName,
       target: TestIssue,
       extract: () => [],
@@ -282,7 +281,7 @@ describe("SingleSource derive()", () => {
       },
     });
 
-    const derivation = source.derive({
+    const derivation = Source.derive(source, {
       name: "test:user:profile" as LoaderName,
       target: TestUser,
       extract(data) {
@@ -293,6 +292,5 @@ describe("SingleSource derive()", () => {
     expect(derivation.kind).toBe("derivation");
     expect(derivation.source).toBe(source);
     expect(derivation.source.kind).toBe("single");
-    expect(source.derivations).toHaveLength(1);
   });
 });

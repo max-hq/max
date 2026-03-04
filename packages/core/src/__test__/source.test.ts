@@ -149,14 +149,19 @@ describe("Source.single", () => {
 // Derivations
 // ============================================================================
 
+interface IssuesPageData {
+  issues: Array<{ id: string; title: string; state: string }>;
+  users: Array<{ id: string; login: string; name: string }>;
+}
+
 describe("source.derive()", () => {
   function makeIssuesSource() {
     return Source.paginated({
       name: "test:repo:issues-page" as SourceName,
       context: TestContext,
       parent: TestRepo,
-      async fetch(_ref, _page, _ctx) {
-        return SourcePage.from({ issues: [], users: [] }, false);
+      async fetch(_ref, _page, _ctx): Promise<SourcePage<IssuesPageData>> {
+        return SourcePage.from<IssuesPageData>({ issues: [], users: [] }, false);
       },
     });
   }

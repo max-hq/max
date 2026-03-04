@@ -93,7 +93,7 @@ export interface PaginatedSource<
   readonly name: SourceName;
   readonly context: ClassOf<TContext>;
   readonly parent: TParent;
-  readonly derivations: readonly SourceDerivation<TData, EntityDefAny>[];
+  readonly derivations: readonly SourceDerivation<TData, EntityDefAny, TParent>[];
 
   fetch(
     ref: Ref<TParent>,
@@ -105,7 +105,7 @@ export interface PaginatedSource<
     name: LoaderName;
     target: TTarget;
     extract: (data: TData) => EntityInput<TTarget>[];
-  }): SourceDerivation<TData, TTarget>;
+  }): SourceDerivation<TData, TTarget, TParent>;
 }
 
 // ============================================================================
@@ -127,7 +127,7 @@ export interface SingleSource<
   readonly name: SourceName;
   readonly context: ClassOf<TContext>;
   readonly parent: TParent;
-  readonly derivations: readonly SourceDerivation<TData, EntityDefAny>[];
+  readonly derivations: readonly SourceDerivation<TData, EntityDefAny, TParent>[];
 
   fetch(
     ref: Ref<TParent>,
@@ -138,7 +138,7 @@ export interface SingleSource<
     name: LoaderName;
     target: TTarget;
     extract: (data: TData) => EntityInput<TTarget>[];
-  }): SourceDerivation<TData, TTarget>;
+  }): SourceDerivation<TData, TTarget, TParent>;
 }
 
 // ============================================================================
@@ -156,13 +156,14 @@ export interface SingleSource<
 export interface SourceDerivation<
   TData,
   TTarget extends EntityDefAny = EntityDefAny,
+  TParent extends EntityDefAny = EntityDefAny,
 > {
   readonly kind: "derivation";
   readonly source: PaginatedSource<TData> | SingleSource<TData>;
   readonly name: LoaderName;
   readonly target: TTarget;
   /** The parent entity this derivation hangs off (inherited from source.parent). */
-  readonly parent: EntityDefAny;
+  readonly parent: TParent;
 
   // BaseLoader-compatible properties
   readonly strategy: LoaderStrategy;
@@ -172,7 +173,7 @@ export interface SourceDerivation<
   extract(data: TData): EntityInput<TTarget>[];
 
   /** For use in Resolver.for() - same interface as CollectionLoader.field() */
-  field(sourceField?: string): FieldAssignment;
+  field(sourceField?: string): FieldAssignment<TParent>;
 }
 
 // ============================================================================
@@ -189,7 +190,7 @@ export type SourceAny =
 /**
  * Any derivation type (fully erased).
  */
-export type SourceDerivationAny = SourceDerivation<unknown, EntityDefAny>;
+export type SourceDerivationAny = SourceDerivation<unknown, EntityDefAny, EntityDefAny>;
 
 // ============================================================================
 // Implementations
@@ -201,7 +202,7 @@ class PaginatedSourceImpl<
   TContext extends ContextDefAny,
 > implements PaginatedSource<TData, TParent, TContext> {
   readonly kind = "paginated" as const;
-  private _derivations: SourceDerivation<TData, EntityDefAny>[] = [];
+  private _derivations: SourceDerivation<TData, EntityDefAny, TParent>[] = [];
 
   constructor(
     readonly name: SourceName,
@@ -214,7 +215,7 @@ class PaginatedSourceImpl<
     ) => Promise<SourcePage<TData>>,
   ) {}
 
-  get derivations(): readonly SourceDerivation<TData, EntityDefAny>[] {
+  get derivations(): readonly SourceDerivation<TData, EntityDefAny, TParent>[] {
     return this._derivations;
   }
 
@@ -230,8 +231,8 @@ class PaginatedSourceImpl<
     name: LoaderName;
     target: TTarget;
     extract: (data: TData) => EntityInput<TTarget>[];
-  }): SourceDerivation<TData, TTarget> {
-    const derivation = new SourceDerivationImpl<TData, TTarget>(
+  }): SourceDerivation<TData, TTarget, TParent> {
+    const derivation = new SourceDerivationImpl(
       this,
       config.name,
       config.target,
@@ -239,7 +240,7 @@ class PaginatedSourceImpl<
       this.context,
       config.extract,
     );
-    this._derivations.push(derivation as SourceDerivation<TData, EntityDefAny>);
+    this._derivations.push(derivation);
     return derivation;
   }
 }
@@ -250,7 +251,7 @@ class SingleSourceImpl<
   TContext extends ContextDefAny,
 > implements SingleSource<TData, TParent, TContext> {
   readonly kind = "single" as const;
-  private _derivations: SourceDerivation<TData, EntityDefAny>[] = [];
+  private _derivations: SourceDerivation<TData, EntityDefAny, TParent>[] = [];
 
   constructor(
     readonly name: SourceName,
@@ -262,7 +263,7 @@ class SingleSourceImpl<
     ) => Promise<TData>,
   ) {}
 
-  get derivations(): readonly SourceDerivation<TData, EntityDefAny>[] {
+  get derivations(): readonly SourceDerivation<TData, EntityDefAny, TParent>[] {
     return this._derivations;
   }
 
@@ -277,8 +278,8 @@ class SingleSourceImpl<
     name: LoaderName;
     target: TTarget;
     extract: (data: TData) => EntityInput<TTarget>[];
-  }): SourceDerivation<TData, TTarget> {
-    const derivation = new SourceDerivationImpl<TData, TTarget>(
+  }): SourceDerivation<TData, TTarget, TParent> {
+    const derivation = new SourceDerivationImpl(
       this,
       config.name,
       config.target,
@@ -286,13 +287,13 @@ class SingleSourceImpl<
       this.context,
       config.extract,
     );
-    this._derivations.push(derivation as SourceDerivation<TData, EntityDefAny>);
+    this._derivations.push(derivation);
     return derivation;
   }
 }
 
-class SourceDerivationImpl<TData, TTarget extends EntityDefAny>
-  implements SourceDerivation<TData, TTarget>
+class SourceDerivationImpl<TData, TTarget extends EntityDefAny, TParent extends EntityDefAny>
+  implements SourceDerivation<TData, TTarget, TParent>
 {
   readonly kind = "derivation" as const;
   readonly strategy: LoaderStrategy = "autoload";
@@ -302,7 +303,7 @@ class SourceDerivationImpl<TData, TTarget extends EntityDefAny>
     readonly source: PaginatedSource<TData> | SingleSource<TData>,
     readonly name: LoaderName,
     readonly target: TTarget,
-    readonly parent: EntityDefAny,
+    readonly parent: TParent,
     readonly context: ClassOf<ContextDefAny>,
     private extractFn: (data: TData) => EntityInput<TTarget>[],
   ) {}
@@ -311,7 +312,7 @@ class SourceDerivationImpl<TData, TTarget extends EntityDefAny>
     return this.extractFn(data);
   }
 
-  field(sourceField?: string): FieldAssignment {
+  field(sourceField?: string): FieldAssignment<TParent> {
     return {loader: this, sourceField, _entity: this.parent};
   }
 }

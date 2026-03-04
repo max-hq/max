@@ -125,6 +125,17 @@ export type {
   LoaderAny,
 } from "./loader.js";
 
+// Source (Source and SourcePage are both type and value)
+export { Source, SourcePage } from "./source.js";
+export type {
+  SourceName,
+  PaginatedSource,
+  SingleSource,
+  SourceDerivation,
+  SourceDerivationAny,
+  SourceAny,
+} from "./source.js";
+
 // Resolver (Resolver is both type and value)
 export { Resolver } from "./resolver.js";
 export type { FieldMapping, ResolverAny } from "./resolver.js";

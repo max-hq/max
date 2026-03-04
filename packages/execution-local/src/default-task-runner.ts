@@ -16,6 +16,7 @@ import type {
   OperationKind,
   RefAny,
   RefKey,
+  SourceDerivationAny,
   SyncMeta,
 } from '@max/core'
 import { PageRequest, Projection, Ref as RefStatic } from '@max/core'
@@ -141,9 +142,9 @@ export class DefaultTaskRunner implements TaskRunner {
     // Process this page inline (preserves batching for batched loaders)
     await this.processLoadFieldsForRefs(entityDef, target, fields, page.items)
 
-    const progress = {
+    const progress: TaskProgress = {
       entityType: target.entityType,
-      operation: 'load-fields' as const,
+      operation: 'load-fields',
       count: page.items.length,
     }
 
@@ -157,7 +158,6 @@ export class DefaultTaskRunner implements TaskRunner {
               kind: 'load-fields',
               entityType: target.entityType,
               refKeys: [],
-              loaderName: '' as LoaderName,
               fields,
               cursor: page.cursor,
             },
@@ -185,14 +185,15 @@ export class DefaultTaskRunner implements TaskRunner {
     )
     if (page.items.length === 0) return {}
 
-    // Resolve target entity type from the collection loader
+    // Resolve target entity type from the collection loader or derivation
     const resolver = this.registry.getResolver(target.entityType)
     if (!resolver) throw ErrNoResolver.create({ entityType: target.entityType })
     const loader = resolver.getLoaderForField(field)
-    if (!loader || loader.kind !== 'collection') {
+    if (!loader || (loader.kind !== 'collection' && loader.kind !== 'derivation')) {
       throw ErrNoCollectionLoader.create({ entityType: target.entityType, field })
     }
-    const targetEntityType = (loader as CollectionLoader).target.name as EntityType
+
+    const targetEntityType: EntityType = loader.target.name
 
     const children: TaskChildTemplate[] = []
 
@@ -218,7 +219,6 @@ export class DefaultTaskRunner implements TaskRunner {
           kind: 'load-fields', // Reuse load-fields with cursor for ref pagination
           entityType: target.entityType,
           refKeys: [],
-          loaderName: '' as LoaderName,
           fields: [],
           cursor: page.cursor,
         },
@@ -281,6 +281,22 @@ export class DefaultTaskRunner implements TaskRunner {
             await this.engine.store(input)
             await this.syncMeta.recordFieldSync(ref, fieldNames, new Date())
           }
+        } else if (loader.kind === 'derivation' && loader.source.kind === 'single') {
+          const coDerivations = this.registry.getCoDerivations(loader)
+          for (const ref of refs) {
+            const data = await loader.source.fetch(ref, ctx)
+            for (const d of coDerivations) {
+              const items = d.extract(data)
+              for (const input of items) {
+                // FIXME: DISCUSSION: I think we need a bulk store primitive
+                await this.engine.store(input)
+                const extractedFields = Object.keys(input.fields ?? {})
+                if (extractedFields.length > 0) {
+                  await this.syncMeta.recordFieldSync(input.ref, extractedFields, new Date())
+                }
+              }
+            }
+          }
         }
       } finally {
         this.flowController.release(token)
@@ -333,12 +349,20 @@ export class DefaultTaskRunner implements TaskRunner {
     if (!resolver) throw ErrNoResolver.create({ entityType: entityDef.name })
 
     const loader = resolver.getLoaderForField(field)
+
+    // Source-backed derivation from a paginated source
+    if (loader && loader.kind === 'derivation') {
+      return this.executeSourcePaginatedCollection(
+        entityDef, refKey, field, loader, cursor
+      )
+    }
+
     if (!loader || loader.kind !== 'collection') {
       throw ErrNoCollectionLoader.create({ entityType: entityDef.name, field })
     }
 
     this.assertNoDeps(loader)
-    const collectionLoader = loader as CollectionLoader
+    const collectionLoader = loader
     const ref = RefStatic.fromKey(entityDef, refKey)
     const ctx = await this.contextProvider()
     const token = await this.flowController.acquire(getOperationForLoaderName(loader.name))
@@ -379,6 +403,84 @@ export class DefaultTaskRunner implements TaskRunner {
                 refKey,
                 field,
                 cursor: page.cursor,
+              },
+            },
+          ],
+        }
+      }
+
+      return { progress }
+    } finally {
+      this.flowController.release(token)
+    }
+  }
+
+  /**
+   * Execute a source-backed paginated derivation for a single ref.
+   * Fetches the source once and runs ALL co-derivations on each page.
+   */
+  private async executeSourcePaginatedCollection(
+    entityDef: EntityDefAny,
+    refKey: RefKey,
+    field: string,
+    derivation: SourceDerivationAny,
+    cursor?: string,
+  ): Promise<TaskRunResult> {
+    const source = derivation.source
+    if (source.kind !== 'paginated') {
+      throw ErrNoCollectionLoader.create({ entityType: entityDef.name, field })
+    }
+
+    this.assertNoDeps(derivation)
+    const ref = RefStatic.fromKey(entityDef, refKey)
+    const ctx = await this.contextProvider()
+    const token = await this.flowController.acquire(getOperationForLoaderName(derivation.name))
+
+    try {
+      const sourcePage = await source.fetch(
+        ref,
+        PageRequest.from({ cursor, limit: PAGE_SIZE }),
+        ctx,
+      )
+
+      let triggerCount = 0
+
+      // Run ALL co-derivations from this source - one fetch, multiple entity types
+      const coDerivations = this.registry.getCoDerivations(derivation)
+      for (const d of coDerivations) {
+        const items = d.extract(sourcePage.data)
+        for (const input of items) {
+          await this.engine.store(input)
+          const fieldNames = Object.keys(input.fields ?? {})
+          if (fieldNames.length > 0) {
+            await this.syncMeta.recordFieldSync(input.ref, fieldNames, new Date())
+          }
+        }
+        if (d === derivation) {
+          triggerCount = items.length
+        }
+      }
+
+      const targetEntityType = derivation.target.name
+      const progress: TaskProgress = {
+        entityType: targetEntityType,
+        operation: 'load-collection',
+        count: triggerCount,
+      }
+
+      if (sourcePage.hasMore && sourcePage.cursor) {
+        return {
+          progress,
+          children: [
+            {
+              state: 'pending',
+              payload: {
+                kind: 'load-collection',
+                entityType: entityDef.name,
+                targetEntityType,
+                refKey,
+                field,
+                cursor: sourcePage.cursor,
               },
             },
           ],

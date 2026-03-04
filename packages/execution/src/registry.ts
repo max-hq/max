@@ -12,6 +12,7 @@ import type {
   LoaderName,
   LoaderAny,
   ResolverAny,
+  SourceDerivationAny,
 } from "@max/core";
 
 // ============================================================================
@@ -27,6 +28,9 @@ export interface ExecutionRegistry {
 
   /** Get the resolver for an entity type */
   getResolver(entityType: EntityType): ResolverAny | undefined;
+
+  /** Get all derivations that share the same source as the given derivation. */
+  getCoDerivations(derivation: SourceDerivationAny): readonly SourceDerivationAny[];
 
   /** All registered resolvers */
   readonly resolvers: readonly ResolverAny[];

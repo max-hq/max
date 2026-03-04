@@ -46,7 +46,6 @@ export interface LoadFieldsPayload {
   readonly kind: "load-fields";
   readonly entityType: EntityType;
   readonly refKeys: readonly RefKey[];
-  readonly loaderName: LoaderName;
   readonly fields: readonly string[];
   /** Cursor (last entity id) for ForAll pagination continuations */
   readonly cursor?: string;

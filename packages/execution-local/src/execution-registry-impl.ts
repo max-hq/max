@@ -2,7 +2,8 @@
  * ExecutionRegistryImpl - Builds lookup maps from resolvers.
  *
  * Resolves serialised names (EntityType, LoaderName) back to
- * runtime objects at execution time.
+ * runtime objects at execution time. Also indexes source derivations
+ * by source identity for co-derivation discovery.
  */
 
 import type {
@@ -11,6 +12,8 @@ import type {
   LoaderName,
   LoaderAny,
   ResolverAny,
+  SourceAny,
+  SourceDerivationAny,
 } from "@max/core";
 import type {ExecutionRegistry} from "@max/execution";
 
@@ -22,6 +25,7 @@ export class ExecutionRegistryImpl implements ExecutionRegistry {
   private entities = new Map<EntityType, EntityDefAny>();
   private loaders = new Map<LoaderName, LoaderAny>();
   private resolversByEntity = new Map<EntityType, ResolverAny>();
+  private derivationsBySource = new Map<SourceAny, SourceDerivationAny[]>();
 
   constructor(readonly resolvers: readonly ResolverAny[]) {
     for (const resolver of resolvers) {
@@ -31,6 +35,12 @@ export class ExecutionRegistryImpl implements ExecutionRegistry {
 
       for (const loader of resolver.loaders) {
         this.loaders.set(loader.name, loader);
+
+        if (loader.kind === 'derivation') {
+          const existing = this.derivationsBySource.get(loader.source) ?? [];
+          existing.push(loader);
+          this.derivationsBySource.set(loader.source, existing);
+        }
       }
     }
   }
@@ -45,5 +55,9 @@ export class ExecutionRegistryImpl implements ExecutionRegistry {
 
   getResolver(entityType: EntityType): ResolverAny | undefined {
     return this.resolversByEntity.get(entityType);
+  }
+
+  getCoDerivations(derivation: SourceDerivationAny): readonly SourceDerivationAny[] {
+    return this.derivationsBySource.get(derivation.source) ?? [derivation];
   }
 }

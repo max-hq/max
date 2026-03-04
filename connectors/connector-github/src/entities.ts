@@ -63,6 +63,7 @@ export interface GitHubRepository extends EntityDef<{
   description: ScalarField<"string">;
   url: ScalarField<"string">;
   issues: CollectionField<GitHubIssue>;
+  issueAuthors: CollectionField<GitHubUser>;
 }> {}
 
 export const GitHubRepository: GitHubRepository = EntityDef.create("GitHubRepository", {
@@ -70,4 +71,5 @@ export const GitHubRepository: GitHubRepository = EntityDef.create("GitHubReposi
   description: Field.string(),
   url: Field.string(),
   issues: Field.collection(GitHubIssue),
+  issueAuthors: Field.collection(GitHubUser),
 });

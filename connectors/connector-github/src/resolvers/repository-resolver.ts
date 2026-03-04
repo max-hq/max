@@ -1,20 +1,22 @@
 /**
- * GitHubRepository Resolver - Loads repo metadata and issues collection.
+ * GitHubRepository Resolver - Loads repo metadata, issues, and issue authors.
  *
- * All loaders use the GitHub GraphQL API (v4). The issues connection returns
- * only issues (no PRs), with cursor-based pagination and inline author data.
+ * Uses a paginated Source for the issues GraphQL query, with two co-derivations:
+ * one extracts GitHubIssue entities, the other extracts GitHubUser entities from
+ * the inline author data. Both entity types are populated in a single pagination
+ * pass - no separate user fetches needed.
  *
- * User entities are referenced by login (e.g. GitHubUser.ref("octocat")) -
- * user fields like avatarUrl and url are populated on-demand by
- * UserBasicLoader (autoload).
+ * RepoBasicLoader (entity loader) handles repo metadata independently.
  */
 
 import {
   Loader,
   Resolver,
   EntityInput,
-  Page,
+  Source,
+  SourcePage,
   type LoaderName,
+  type SourceName,
 } from "@max/core";
 import { GitHubRepository, GitHubIssue, GitHubUser } from "../entities.js";
 import { GitHubContext } from "../context.js";
@@ -32,7 +34,7 @@ interface RepoResponse {
   };
 }
 
-interface RepoIssuesResponse {
+interface IssuesPageData {
   repository: {
     issues: {
       nodes: Array<{
@@ -52,7 +54,7 @@ interface RepoIssuesResponse {
 }
 
 // ============================================================================
-// Loaders
+// Repo basic loader (entity)
 // ============================================================================
 
 export const RepoBasicLoader = Loader.entity({
@@ -78,44 +80,81 @@ export const RepoBasicLoader = Loader.entity({
   },
 });
 
-export const RepoIssuesLoader = Loader.collection({
-  name: "github:repo:issues" as LoaderName,
+// ============================================================================
+// Issues page source + co-derivations
+// ============================================================================
+
+const ISSUES_QUERY = `query($owner: String!, $repo: String!, $cursor: String) {
+  repository(owner: $owner, name: $repo) {
+    issues(first: 100, after: $cursor, orderBy: {field: CREATED_AT, direction: ASC}) {
+      nodes {
+        id number title body state createdAt updatedAt
+        labels(first: 20) { nodes { name } }
+        author { login avatarUrl url }
+      }
+      pageInfo { hasNextPage endCursor }
+    }
+  }
+}`;
+
+const IssuesPageSource = Source.paginated({
+  name: "github:repo:issues-page" as SourceName,
   context: GitHubContext,
-  entity: GitHubRepository,
+  parent: GitHubRepository,
+
+  async fetch(_ref, page, ctx) {
+    const data = await ctx.api.graphql<IssuesPageData>(ISSUES_QUERY, {
+      owner: ctx.api.owner,
+      repo: ctx.api.repo,
+      cursor: page.cursor,
+    });
+    const pageInfo = data.repository.issues.pageInfo;
+    return SourcePage.from(data, pageInfo.hasNextPage, pageInfo.endCursor);
+  },
+});
+
+/** Primary derivation: extract issues from each page. */
+export const RepoIssuesLoader = Source.deriveEntities(IssuesPageSource, {
+  name: "github:repo:issues" as LoaderName,
   target: GitHubIssue,
 
-  async load(_ref, page, ctx) {
-    const data = await ctx.api.graphql<RepoIssuesResponse>(
-      `query($owner: String!, $repo: String!, $cursor: String) {
-        repository(owner: $owner, name: $repo) {
-          issues(first: 100, after: $cursor, orderBy: {field: CREATED_AT, direction: ASC}) {
-            nodes {
-              id number title body state createdAt updatedAt
-              labels(first: 20) { nodes { name } }
-              author { login avatarUrl url }
-            }
-            pageInfo { hasNextPage endCursor }
-          }
-        }
-      }`,
-      { owner: ctx.api.owner, repo: ctx.api.repo, cursor: page.cursor },
-    );
-
-    const result = data.repository.issues;
-    const items = result.nodes.map((i) =>
+  extract(data) {
+    return data.repository.issues.nodes.map((i) =>
       EntityInput.create(GitHubIssue.ref(i.id), {
         number: i.number,
         title: i.title,
         body: i.body ?? undefined,
-        state: i.state,
+        state: i.state.toLowerCase(),
         labels: i.labels.nodes.map((l) => l.name).join(", "),
         createdAt: i.createdAt,
         updatedAt: i.updatedAt,
         author: i.author ? GitHubUser.ref(i.author.login) : undefined,
       }),
     );
+  },
+});
 
-    return Page.from(items, result.pageInfo.hasNextPage, result.pageInfo.endCursor);
+/** Co-derivation: extract unique users from inline author data. */
+export const IssueAuthorsLoader = Source.deriveEntities(IssuesPageSource, {
+  name: "github:repo:issue-authors" as LoaderName,
+  target: GitHubUser,
+
+  extract(data) {
+    const seen = new Set<string>();
+    const users: EntityInput<typeof GitHubUser>[] = [];
+    for (const issue of data.repository.issues.nodes) {
+      if (issue.author && !seen.has(issue.author.login)) {
+        seen.add(issue.author.login);
+        users.push(
+          EntityInput.create(GitHubUser.ref(issue.author.login), {
+            login: issue.author.login,
+            avatarUrl: issue.author.avatarUrl,
+            url: issue.author.url,
+          }),
+        );
+      }
+    }
+    return users;
   },
 });
 
@@ -128,4 +167,5 @@ export const GitHubRepositoryResolver = Resolver.for(GitHubRepository, {
   description: RepoBasicLoader.field("description"),
   url: RepoBasicLoader.field("url"),
   issues: RepoIssuesLoader.field(),
+  issueAuthors: IssueAuthorsLoader.field(),
 });

@@ -54,3 +54,10 @@ export const ErrGitHubValidationFailed = GitHub.define("validation_failed", {
   facets: [],
   message: (d) => `GitHub API returned ${d.status}: ${d.statusText}`,
 });
+
+/** GraphQL-level error from the GitHub v4 API. */
+export const ErrGitHubGraphqlError = GitHub.define("graphql_error", {
+  customProps: ErrFacet.props<{ graphqlMessage: string }>(),
+  facets: [],
+  message: (d) => `GitHub GraphQL error: ${d.graphqlMessage}`,
+});

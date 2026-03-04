@@ -1,8 +1,8 @@
 /**
- * GitHubUser Resolver - Loads user profile data.
+ * GitHubUser Resolver - Loads user profile data via GraphQL.
  *
  * User entities are keyed by login (e.g. GitHubUser.ref("octocat")).
- * This autoload loader fetches full profile data from the GitHub API
+ * This autoload loader fetches full profile data from the GitHub GraphQL API
  * when user fields beyond the ref ID are queried.
  */
 
@@ -16,13 +16,15 @@ import { GitHubUser } from "../entities.js";
 import { GitHubContext } from "../context.js";
 
 // ============================================================================
-// Response types
+// GraphQL response types
 // ============================================================================
 
 interface UserResponse {
-  login: string;
-  avatar_url: string;
-  html_url: string;
+  user: {
+    login: string;
+    avatarUrl: string;
+    url: string;
+  };
 }
 
 // ============================================================================
@@ -37,11 +39,18 @@ export const UserBasicLoader = Loader.entity({
 
   async load(ref, ctx) {
     // ref.id is the user's login
-    const data = await ctx.api.request<UserResponse>(`/users/${ref.id}`);
+    const data = await ctx.api.graphql<UserResponse>(
+      `query($login: String!) {
+        user(login: $login) {
+          login avatarUrl url
+        }
+      }`,
+      { login: ref.id },
+    );
     return EntityInput.create(ref, {
-      login: data.login,
-      avatarUrl: data.avatar_url,
-      url: data.html_url,
+      login: data.user.login,
+      avatarUrl: data.user.avatarUrl,
+      url: data.user.url,
     });
   },
 });

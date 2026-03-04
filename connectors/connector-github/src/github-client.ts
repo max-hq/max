@@ -1,17 +1,21 @@
 /**
- * GitHubClient - REST API wrapper for the GitHub v3 API.
+ * GitHubClient — REST + GraphQL wrapper for the GitHub API.
  *
- * Uses raw fetch with token-based auth. Lifecycle: start() resolves
- * the token from the credential handle before any API calls.
+ * Data fetching uses raw GraphQL queries (v4) for exact field selection and
+ * issues-only pagination. REST (v3) is kept for health checks and general use.
+ *
+ * Lifecycle: start() resolves the token from the credential handle before
+ * any API calls.
  */
 
 import type { CredentialHandle } from "@max/connector";
-import { ErrGitHubNotStarted, ErrGitHubApiError } from "./errors.js";
+import { ErrGitHubNotStarted, ErrGitHubApiError, ErrGitHubGraphqlError } from "./errors.js";
 
 const GITHUB_API = "https://api.github.com";
+const GITHUB_GRAPHQL = "https://api.github.com/graphql";
 
 // ============================================================================
-// Response types
+// REST response types
 // ============================================================================
 
 export interface GitHubRepoResponse {
@@ -20,19 +24,6 @@ export interface GitHubRepoResponse {
   full_name: string;
   description: string | null;
   html_url: string;
-}
-
-export interface GitHubIssueResponse {
-  id: number;
-  number: number;
-  title: string;
-  body: string | null;
-  state: string;
-  created_at: string;
-  updated_at: string;
-  user: { id: number; login: string; avatar_url: string; html_url: string } | null;
-  labels: Array<{ id: number; name: string }>;
-  pull_request?: unknown;
 }
 
 // ============================================================================
@@ -61,6 +52,10 @@ export class GitHubClient {
     };
   }
 
+  // --------------------------------------------------------------------------
+  // REST (v3)
+  // --------------------------------------------------------------------------
+
   async request<T>(path: string): Promise<T> {
     const url = `${GITHUB_API}${path}`;
     const response = await fetch(url, { headers: this.headers });
@@ -79,20 +74,51 @@ export class GitHubClient {
     return this.request(`/repos/${this.owner}/${this.repo}`);
   }
 
+  // --------------------------------------------------------------------------
+  // GraphQL (v4)
+  // --------------------------------------------------------------------------
+
   /**
-   * Fetch a page of issues (excludes pull requests).
-   * Returns the issues array and whether there are more pages.
+   * Execute a raw GraphQL query against the GitHub v4 API.
+   *
+   * Preferred over REST for data fetching — allows exact field selection,
+   * issues-only queries (no PR filtering), and cursor-based pagination.
    */
-  async listIssues(page: number): Promise<{ issues: GitHubIssueResponse[]; hasMore: boolean }> {
-    const all = await this.request<GitHubIssueResponse[]>(
-      `/repos/${this.owner}/${this.repo}/issues?state=all&per_page=100&page=${page}&sort=created&direction=asc`,
-    );
-    // GitHub's issues endpoint includes pull requests - filter them out
-    const issues = all.filter((i) => !i.pull_request);
-    // If we got a full page, there are likely more
-    const hasMore = all.length === 100;
-    return { issues, hasMore };
+  async graphql<T>(query: string, variables?: Record<string, unknown>): Promise<T> {
+    if (!this.token) {
+      throw ErrGitHubNotStarted.create({});
+    }
+
+    const response = await fetch(GITHUB_GRAPHQL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${this.token}`,
+      },
+      body: JSON.stringify({ query, variables }),
+    });
+
+    if (!response.ok) {
+      throw ErrGitHubApiError.create({
+        status: response.status,
+        statusText: response.statusText,
+      });
+    }
+
+    const json = (await response.json()) as { data?: T; errors?: Array<{ message: string }> };
+
+    if (json.errors?.length) {
+      throw ErrGitHubGraphqlError.create({
+        graphqlMessage: json.errors[0].message,
+      });
+    }
+
+    return json.data as T;
   }
+
+  // --------------------------------------------------------------------------
+  // Health
+  // --------------------------------------------------------------------------
 
   async health(): Promise<{ ok: boolean; error?: string }> {
     try {

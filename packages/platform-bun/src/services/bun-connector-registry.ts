@@ -1,4 +1,4 @@
-import {ConnectorModuleAny, ConnectorRegistry, ConnectorRegistryEntry, InMemoryConnectorRegistry} from "@max/connector";
+import {ConnectorModuleAny, ConnectorRegistry, ConnectorRegistryEntry, InMemoryConnectorRegistry, parseConnectorPackage, verifyConnectorExport} from "@max/connector";
 import {LifecycleManager, MaxError} from "@max/core";
 import {ErrConnectorNotInstalled} from '@max/federation'
 import * as fs from 'node:fs'
@@ -35,7 +35,8 @@ export class NaiveBunConnectorRegistry implements ConnectorRegistry {
     Object.entries(modules).forEach(([k,v]) => {
       this.addLocalNamed(k,async () => {
         try{
-          return await import(v)
+          const mod = await import(v)
+          return verifyConnectorExport(mod, k, v)
         }catch (e){
           throw ErrConnectorNotInstalled.create({connector: k, location: v})
         }
@@ -80,19 +81,29 @@ export class NaiveBunConnectorRegistry implements ConnectorRegistry {
 
     for (const entry of entries) {
       if (!entry.isDirectory() || !entry.name.startsWith('connector-')) continue
-      const pkgJsonPath = path.join(connectorsDir, entry.name, 'package.json')
+
+      const folderPath = path.join(connectorsDir, entry.name)
+      const pkgJsonPath = path.join(folderPath, 'package.json')
       if (!fs.existsSync(pkgJsonPath)) continue
 
+      // At scan time, only extract the name for registration.
+      // All validation is deferred to the lazy loader at resolve() time.
       const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf-8'))
       const name: string | undefined = pkg.name
       if (!name) continue
 
       this.addLocalNamed(name, async () => {
+        const pkgJson = fs.readFileSync(pkgJsonPath, 'utf-8')
+        const { entryFile } = parseConnectorPackage(pkgJson, folderPath)
+        const importPath = path.resolve(folderPath, entryFile)
+
+        let mod: unknown
         try {
-          return await import(name)
+          mod = await import(importPath)
         } catch (e) {
-          throw ErrConnectorNotInstalled.create({ connector: name, location: name }, undefined, MaxError.wrap(e))
+          throw ErrConnectorNotInstalled.create({ connector: name, location: importPath }, undefined, MaxError.wrap(e))
         }
+        return verifyConnectorExport(mod, name, importPath)
       })
     }
   }

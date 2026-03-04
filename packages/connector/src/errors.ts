@@ -55,3 +55,17 @@ export const ErrAddLocalNotSupported = Connector.define("add_local_not_supported
   facets: [BadInput, NotSupported],
   message: () => `addLocal() requires loading the module to discover its name — use addLocalNamed(name, loader) instead`,
 });
+
+/** Connector package.json is missing or malformed */
+export const ErrConnectorPackageInvalid = Connector.define("connector_package_invalid", {
+  customProps: ErrFacet.props<{ location: string; reason: string }>(),
+  facets: [],
+  message: (d) => `Invalid connector package at ${d.location}: ${d.reason}`,
+});
+
+/** Connector module does not have the expected export shape */
+export const ErrConnectorModuleInvalid = Connector.define("connector_module_invalid", {
+  customProps: ErrFacet.props<{ connector: string; location: string; reason: string }>(),
+  facets: [],
+  message: (d) => `Connector "${d.connector}" at ${d.location} is not a valid connector module: ${d.reason}`,
+});

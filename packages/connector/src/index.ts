@@ -40,6 +40,10 @@ export type { HealthStatus } from "./installation.js";
 export { ConnectorModule } from "./connector-module.js";
 export type { ConnectorModuleAny } from "./connector-module.js";
 
+// Verify Connector (platform-agnostic structural checks)
+export { parseConnectorPackage, verifyConnectorExport } from "./verify-connector.js";
+export type { ConnectorPackageMeta } from "./verify-connector.js";
+
 // ConnectorRegistry (maps connector names to lazy-loaded modules)
 export * from "./connector-registry.js";
 export type { ConnectorRegistryEntry } from "./connector-registry.js";

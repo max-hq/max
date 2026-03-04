@@ -167,7 +167,7 @@ describe("Source.derive()", () => {
 
   test("creates a derivation with correct properties", () => {
     const source = makeIssuesSource();
-    const derivation = Source.derive(source, {
+    const derivation = Source.deriveEntities(source, {
       name: "test:repo:issues" as LoaderName,
       target: TestIssue,
       extract(data) {
@@ -190,7 +190,7 @@ describe("Source.derive()", () => {
   test("source is not mutated by derive", () => {
     const source = makeIssuesSource();
 
-    Source.derive(source, {
+    Source.deriveEntities(source, {
       name: "test:issues" as LoaderName,
       target: TestIssue,
       extract: () => [],
@@ -204,13 +204,13 @@ describe("Source.derive()", () => {
   test("multiple derivations reference the same source", () => {
     const source = makeIssuesSource();
 
-    const d1 = Source.derive(source, {
+    const d1 = Source.deriveEntities(source, {
       name: "test:issues" as LoaderName,
       target: TestIssue,
       extract: () => [],
     });
 
-    const d2 = Source.derive(source, {
+    const d2 = Source.deriveEntities(source, {
       name: "test:issue-authors" as LoaderName,
       target: TestUser,
       extract: () => [],
@@ -223,7 +223,7 @@ describe("Source.derive()", () => {
 
   test("extract() transforms source data into EntityInputs", () => {
     const source = makeIssuesSource();
-    const derivation = Source.derive(source, {
+    const derivation = Source.deriveEntities(source, {
       name: "test:issues" as LoaderName,
       target: TestIssue,
       extract(data) {
@@ -250,7 +250,7 @@ describe("Source.derive()", () => {
 
   test("field() returns a valid FieldAssignment", () => {
     const source = makeIssuesSource();
-    const derivation = Source.derive(source, {
+    const derivation = Source.deriveEntities(source, {
       name: "test:issues" as LoaderName,
       target: TestIssue,
       extract: () => [],
@@ -281,7 +281,7 @@ describe("SingleSource derive()", () => {
       },
     });
 
-    const derivation = Source.derive(source, {
+    const derivation = Source.deriveEntities(source, {
       name: "test:user:profile" as LoaderName,
       target: TestUser,
       extract(data) {

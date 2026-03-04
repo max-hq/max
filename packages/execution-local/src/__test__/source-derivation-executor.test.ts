@@ -104,7 +104,7 @@ const IssuesPageSource = Source.paginated({
 });
 
 // Primary derivation: extract issues
-const RepoIssuesLoader = Source.derive(IssuesPageSource, {
+const RepoIssuesLoader = Source.deriveEntities(IssuesPageSource, {
   name: "test:repo:issues" as LoaderName,
   target: TestIssue,
   extract(data) {
@@ -119,7 +119,7 @@ const RepoIssuesLoader = Source.derive(IssuesPageSource, {
 });
 
 // Co-derivation: extract users discovered in issues
-const IssueAuthorsLoader = Source.derive(IssuesPageSource, {
+const IssueAuthorsLoader = Source.deriveEntities(IssuesPageSource, {
   name: "test:repo:issue-authors" as LoaderName,
   target: TestUser,
   extract(data) {

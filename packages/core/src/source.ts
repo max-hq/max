@@ -311,9 +311,9 @@ export const Source = StaticTypeCompanion({
   },
 
   /**
-   * Create a derivation from a source
+   * Creates a SourceDerivation that produces entities of the given type from the target input Source
    */
-  derive<
+  deriveEntities<
     TData,
     TParent extends EntityDefAny,
     TTarget extends EntityDefAny,

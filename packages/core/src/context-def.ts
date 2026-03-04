@@ -248,6 +248,8 @@ export type ContextValues<C extends Context> = {
   [K in keyof C as C[K] extends Function ? never : K]: C[K];
 };
 
+export type ContextValuesAny = ContextValues<Context>
+
 /**
  * Type alias for context classes (for use in generics).
  */

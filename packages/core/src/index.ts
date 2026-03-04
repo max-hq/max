@@ -99,6 +99,7 @@ export { Context, t } from "./context-def.js";
 export type {
   ContextClass,
   ContextValues,
+  ContextValuesAny,
   ContextDefAny,
   InferContext,
   ContextSchema,

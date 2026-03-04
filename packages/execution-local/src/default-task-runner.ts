@@ -2,42 +2,39 @@
  * DefaultTaskRunner - Concrete task execution for local/dev environments.
  *
  * Handles loader dispatch, engine.store, and syncMeta bookkeeping.
- * Contains all the `as any` casts needed to bridge typed loaders
- * with the erased LoaderAny/ResolverAny types.
  */
 
 import type {
-  Engine,
-  SyncMeta,
-  FlowController,
-  ResolverAny,
-  EntityType,
-  LoaderName,
-  RefKey,
-  RefAny,
-  EntityDefAny,
-  LoaderAny,
-  EntityLoader,
-  EntityLoaderBatched,
   CollectionLoader,
-  NoOpFlowController,
-} from "@max/core";
-import {PageRequest, Projection, Ref as RefStatic} from "@max/core";
+  ContextValuesAny,
+  Engine,
+  EntityDefAny,
+  EntityType,
+  FlowController,
+  LoaderAny,
+  LoaderName,
+  OperationKind,
+  RefAny,
+  RefKey,
+  SyncMeta,
+} from '@max/core'
+import { PageRequest, Projection, Ref as RefStatic } from '@max/core'
 
 import type {
-  TaskRunner,
-  TaskRunResult,
+  ExecutionRegistry,
   TaskChildTemplate,
   TaskPayload,
-  ExecutionRegistry,
-} from "@max/execution";
+  TaskProgress,
+  TaskRunner,
+  TaskRunResult,
+} from '@max/execution'
 import {
-  ErrUnknownEntityType,
-  ErrNoResolver,
-  ErrNoCollectionLoader,
   ErrLoaderDepsNotSupported,
+  ErrNoCollectionLoader,
   ErrNoDepsAvailable,
-} from "@max/execution";
+  ErrNoResolver,
+  ErrUnknownEntityType,
+} from '@max/execution'
 
 // ============================================================================
 // Constants
@@ -50,11 +47,11 @@ const PAGE_SIZE = 100;
 // ============================================================================
 
 export interface DefaultTaskRunnerConfig {
-  engine: Engine;
-  syncMeta: SyncMeta;
-  registry: ExecutionRegistry;
-  flowController: FlowController;
-  contextProvider: () => Promise<unknown>;
+  engine: Engine
+  syncMeta: SyncMeta
+  registry: ExecutionRegistry
+  flowController: FlowController
+  contextProvider: () => Promise<ContextValuesAny>
 }
 
 // ============================================================================
@@ -62,31 +59,31 @@ export interface DefaultTaskRunnerConfig {
 // ============================================================================
 
 export class DefaultTaskRunner implements TaskRunner {
-  private engine: Engine;
-  private syncMeta: SyncMeta;
-  private registry: ExecutionRegistry;
-  private flowController: FlowController;
-  private contextProvider: () => Promise<unknown>;
+  private engine: Engine
+  private syncMeta: SyncMeta
+  private registry: ExecutionRegistry
+  private flowController: FlowController
+  private contextProvider: () => Promise<ContextValuesAny>
 
   constructor(config: DefaultTaskRunnerConfig) {
-    this.engine = config.engine;
-    this.syncMeta = config.syncMeta;
-    this.registry = config.registry;
-    this.flowController = config.flowController;
-    this.contextProvider = config.contextProvider;
+    this.engine = config.engine
+    this.syncMeta = config.syncMeta
+    this.registry = config.registry
+    this.flowController = config.flowController
+    this.contextProvider = config.contextProvider
   }
 
   async execute(task: { readonly payload: TaskPayload }): Promise<TaskRunResult> {
     switch (task.payload.kind) {
-      case "sync-step":
-        return this.executeSyncStep(task.payload);
-      case "load-fields":
-        return this.executeLoadFields(task.payload);
-      case "load-collection":
-        return this.executeLoadCollection(task.payload);
-      case "sync-group":
+      case 'sync-step':
+        return this.executeSyncStep(task.payload)
+      case 'load-fields':
+        return this.executeLoadFields(task.payload)
+      case 'load-collection':
+        return this.executeLoadCollection(task.payload)
+      case 'sync-group':
         // Synthetic group tasks don't execute — they start in awaiting_children
-        return {};
+        return {}
     }
   }
 
@@ -94,29 +91,31 @@ export class DefaultTaskRunner implements TaskRunner {
   // Sync-step execution
   // ============================================================================
 
-  private async executeSyncStep(payload: TaskPayload & { kind: "sync-step" }): Promise<TaskRunResult> {
-    const {target, operation} = payload.step;
-    const entityDef = this.registry.getEntity(target.entityType);
-    if (!entityDef) throw ErrUnknownEntityType.create({ entityType: target.entityType });
+  private async executeSyncStep(
+    payload: TaskPayload & { kind: 'sync-step' }
+  ): Promise<TaskRunResult> {
+    const { target, operation } = payload.step
+    const entityDef = this.registry.getEntity(target.entityType)
+    if (!entityDef) throw ErrUnknownEntityType.create({ entityType: target.entityType })
 
-    if (target.kind === "forRoot" || target.kind === "forOne") {
+    if (target.kind === 'forRoot' || target.kind === 'forOne') {
       // Single ref: execute directly, no children needed
-      if (operation.kind === "loadFields") {
-        await this.processLoadFieldsForRef(entityDef, target.refKey!, operation.fields!);
-      } else if (operation.kind === "loadCollection") {
-        return this.executeLoadCollectionForRef(entityDef, target.refKey!, operation.field!);
+      if (operation.kind === 'loadFields') {
+        await this.processLoadFieldsForRef(entityDef, target.refKey!, operation.fields!)
+      } else if (operation.kind === 'loadCollection') {
+        return this.executeLoadCollectionForRef(entityDef, target.refKey!, operation.field!)
       }
-      return {};
+      return {}
     }
 
     // ForAll: paginated execution
-    if (operation.kind === "loadFields") {
-      return this.executeForAllLoadFields(entityDef, target, operation.fields!);
-    } else if (operation.kind === "loadCollection") {
-      return this.executeForAllLoadCollection(entityDef, target, operation.field!);
+    if (operation.kind === 'loadFields') {
+      return this.executeForAllLoadFields(entityDef, target, operation.fields!)
+    } else if (operation.kind === 'loadCollection') {
+      return this.executeForAllLoadCollection(entityDef, target, operation.field!)
     }
 
-    return {};
+    return {}
   }
 
   // ============================================================================
@@ -130,38 +129,44 @@ export class DefaultTaskRunner implements TaskRunner {
     entityDef: EntityDefAny,
     target: { kind: string; entityType: EntityType },
     fields: readonly string[],
-    cursor?: string,
+    cursor?: string
   ): Promise<TaskRunResult> {
-    const page = await this.engine.loadPage(entityDef, Projection.refs, PageRequest.from({ cursor, limit: PAGE_SIZE }));
-    if (page.items.length === 0) return {};
+    const page = await this.engine.loadPage(
+      entityDef,
+      Projection.refs,
+      PageRequest.from({ cursor, limit: PAGE_SIZE })
+    )
+    if (page.items.length === 0) return {}
 
     // Process this page inline (preserves batching for batched loaders)
-    await this.processLoadFieldsForRefs(entityDef, target, fields, page.items);
+    await this.processLoadFieldsForRefs(entityDef, target, fields, page.items)
 
     const progress = {
       entityType: target.entityType,
-      operation: "load-fields" as const,
+      operation: 'load-fields' as const,
       count: page.items.length,
-    };
+    }
 
     if (page.hasMore) {
       return {
         progress,
-        children: [{
-          state: "pending",
-          payload: {
-            kind: "load-fields",
-            entityType: target.entityType,
-            refKeys: [],
-            loaderName: "" as LoaderName,
-            fields,
-            cursor: page.cursor,
+        children: [
+          {
+            state: 'pending',
+            payload: {
+              kind: 'load-fields',
+              entityType: target.entityType,
+              refKeys: [],
+              loaderName: '' as LoaderName,
+              fields,
+              cursor: page.cursor,
+            },
           },
-        }],
-      };
+        ],
+      }
     }
 
-    return { progress };
+    return { progress }
   }
 
   /**
@@ -171,52 +176,56 @@ export class DefaultTaskRunner implements TaskRunner {
     entityDef: EntityDefAny,
     target: { kind: string; entityType: EntityType },
     field: string,
-    cursor?: string,
+    cursor?: string
   ): Promise<TaskRunResult> {
-    const page = await this.engine.loadPage(entityDef, Projection.refs, PageRequest.from({ cursor, limit: PAGE_SIZE }));
-    if (page.items.length === 0) return {};
+    const page = await this.engine.loadPage(
+      entityDef,
+      Projection.refs,
+      PageRequest.from({ cursor, limit: PAGE_SIZE })
+    )
+    if (page.items.length === 0) return {}
 
     // Resolve target entity type from the collection loader
-    const resolver = this.registry.getResolver(target.entityType);
-    if (!resolver) throw ErrNoResolver.create({ entityType: target.entityType });
-    const loader = resolver.getLoaderForField(field);
-    if (!loader || loader.kind !== "collection") {
-      throw ErrNoCollectionLoader.create({ entityType: target.entityType, field });
+    const resolver = this.registry.getResolver(target.entityType)
+    if (!resolver) throw ErrNoResolver.create({ entityType: target.entityType })
+    const loader = resolver.getLoaderForField(field)
+    if (!loader || loader.kind !== 'collection') {
+      throw ErrNoCollectionLoader.create({ entityType: target.entityType, field })
     }
-    const targetEntityType = (loader as CollectionLoader).target.name as EntityType;
+    const targetEntityType = (loader as CollectionLoader).target.name as EntityType
 
-    const children: TaskChildTemplate[] = [];
+    const children: TaskChildTemplate[] = []
 
     // One collection-load child per ref
     for (const ref of page.items) {
       children.push({
-        state: "pending",
+        state: 'pending',
         payload: {
-          kind: "load-collection",
+          kind: 'load-collection',
           entityType: target.entityType,
           targetEntityType,
           refKey: ref.toKey(),
           field,
         },
-      });
+      })
     }
 
     // Continuation for next page of refs
     if (page.hasMore) {
       children.push({
-        state: "pending",
+        state: 'pending',
         payload: {
-          kind: "load-fields", // Reuse load-fields with cursor for ref pagination
+          kind: 'load-fields', // Reuse load-fields with cursor for ref pagination
           entityType: target.entityType,
           refKeys: [],
-          loaderName: "" as LoaderName,
+          loaderName: '' as LoaderName,
           fields: [],
           cursor: page.cursor,
         },
-      });
+      })
     }
 
-    return { children };
+    return { children }
   }
 
   // ============================================================================
@@ -226,57 +235,55 @@ export class DefaultTaskRunner implements TaskRunner {
   private async processLoadFieldsForRef(
     entityDef: EntityDefAny,
     refKey: RefKey,
-    fields: readonly string[],
+    fields: readonly string[]
   ): Promise<void> {
-    const ref = RefStatic.fromKey(entityDef, refKey);
-    await this.processLoadFieldsForRefs(entityDef, { entityType: entityDef.name }, fields, [ref]);
+    const ref = RefStatic.fromKey(entityDef, refKey)
+    await this.processLoadFieldsForRefs(entityDef, { entityType: entityDef.name }, fields, [ref])
   }
 
   private async processLoadFieldsForRefs(
     entityDef: EntityDefAny,
     target: { entityType: EntityType },
     fields: readonly string[],
-    refs: readonly RefAny[],
+    refs: readonly RefAny[]
   ): Promise<void> {
-    const resolver = this.registry.getResolver(target.entityType);
-    if (!resolver) throw ErrNoResolver.create({ entityType: target.entityType });
+    const resolver = this.registry.getResolver(target.entityType)
+    if (!resolver) throw ErrNoResolver.create({ entityType: target.entityType })
 
     // Group fields by loader
-    const loaderFields = new Map<LoaderAny, string[]>();
+    const loaderFields = new Map<LoaderAny, string[]>()
     for (const field of fields) {
-      const loader = resolver.getLoaderForField(field);
-      if (!loader) continue;
-      const existing = loaderFields.get(loader) ?? [];
-      existing.push(field);
-      loaderFields.set(loader, existing);
+      const loader = resolver.getLoaderForField(field)
+      if (!loader) continue
+      const existing = loaderFields.get(loader) ?? []
+      existing.push(field)
+      loaderFields.set(loader, existing)
     }
 
-    const ctx = await this.contextProvider();
+    const ctx = await this.contextProvider()
 
     for (const [loader, fieldNames] of loaderFields) {
-      this.assertNoDeps(loader);
-      const token = await this.flowController.acquire(loader.name as any);
+      this.assertNoDeps(loader)
+      const token = await this.flowController.acquire(getOperationForLoaderName(loader.name))
       try {
-        if (loader.kind === "entityBatched") {
-          const batchedLoader = loader as EntityLoaderBatched;
-          const batch = await batchedLoader.load(refs as any, ctx as any, emptyDeps);
+        if (loader.kind === 'entityBatched') {
+          const batch = await loader.load(refs, ctx, emptyDeps)
           for (const ref of refs) {
-            const input = batch.get(ref as any);
+            const input = batch.get(ref)
             if (input) {
-              await this.engine.store(input);
-              await this.syncMeta.recordFieldSync(ref, fieldNames, new Date());
+              await this.engine.store(input)
+              await this.syncMeta.recordFieldSync(ref, fieldNames, new Date())
             }
           }
-        } else if (loader.kind === "entity") {
-          const entityLoader = loader as EntityLoader;
+        } else if (loader.kind === 'entity') {
           for (const ref of refs) {
-            const input = await entityLoader.load(ref as any, ctx as any, emptyDeps);
-            await this.engine.store(input);
-            await this.syncMeta.recordFieldSync(ref, fieldNames, new Date());
+            const input = await loader.load(ref, ctx, emptyDeps)
+            await this.engine.store(input)
+            await this.syncMeta.recordFieldSync(ref, fieldNames, new Date())
           }
         }
       } finally {
-        this.flowController.release(token);
+        this.flowController.release(token)
       }
     }
   }
@@ -284,26 +291,28 @@ export class DefaultTaskRunner implements TaskRunner {
   /**
    * Execute a load-fields task (child task for ForAll continuations).
    */
-  private async executeLoadFields(payload: TaskPayload & { kind: "load-fields" }): Promise<TaskRunResult> {
-    const {entityType, refKeys, fields, cursor} = payload;
-    const entityDef = this.registry.getEntity(entityType);
-    if (!entityDef) throw ErrUnknownEntityType.create({ entityType });
+  private async executeLoadFields(
+    payload: TaskPayload & { kind: 'load-fields' }
+  ): Promise<TaskRunResult> {
+    const { entityType, refKeys, fields, cursor } = payload
+    const entityDef = this.registry.getEntity(entityType)
+    if (!entityDef) throw ErrUnknownEntityType.create({ entityType })
     // FIXME: We should know our connector here!
     // Ah. The issue is that the task runner doesn't have a _scope_.
 
     if (refKeys.length > 0) {
       // Direct ref-based load (ForRoot/ForOne style)
-      const refs = refKeys.map((key) => RefStatic.fromKey(entityDef, key));
-      await this.processLoadFieldsForRefs(entityDef, { entityType }, fields, refs);
-      return {};
+      const refs = refKeys.map((key) => RefStatic.fromKey(entityDef, key))
+      await this.processLoadFieldsForRefs(entityDef, { entityType }, fields, refs)
+      return {}
     }
 
     // ForAll continuation: re-query with cursor offset
     if (cursor !== undefined) {
-      return this.executeForAllLoadFields(entityDef, { kind: "forAll", entityType }, fields, cursor);
+      return this.executeForAllLoadFields(entityDef, { kind: 'forAll', entityType }, fields, cursor)
     }
 
-    return {};
+    return {}
   }
 
   // ============================================================================
@@ -318,30 +327,35 @@ export class DefaultTaskRunner implements TaskRunner {
     entityDef: EntityDefAny,
     refKey: RefKey,
     field: string,
-    cursor?: string,
+    cursor?: string
   ): Promise<TaskRunResult> {
-    const resolver = this.registry.getResolver(entityDef.name);
-    if (!resolver) throw ErrNoResolver.create({ entityType: entityDef.name });
+    const resolver = this.registry.getResolver(entityDef.name)
+    if (!resolver) throw ErrNoResolver.create({ entityType: entityDef.name })
 
-    const loader = resolver.getLoaderForField(field);
-    if (!loader || loader.kind !== "collection") {
-      throw ErrNoCollectionLoader.create({ entityType: entityDef.name, field });
+    const loader = resolver.getLoaderForField(field)
+    if (!loader || loader.kind !== 'collection') {
+      throw ErrNoCollectionLoader.create({ entityType: entityDef.name, field })
     }
 
-    this.assertNoDeps(loader);
-    const collectionLoader = loader as CollectionLoader;
-    const ref = RefStatic.fromKey(entityDef, refKey);
-    const ctx = await this.contextProvider();
-    const token = await this.flowController.acquire(loader.name as any);
+    this.assertNoDeps(loader)
+    const collectionLoader = loader as CollectionLoader
+    const ref = RefStatic.fromKey(entityDef, refKey)
+    const ctx = await this.contextProvider()
+    const token = await this.flowController.acquire(getOperationForLoaderName(loader.name))
 
     try {
-      const page = await collectionLoader.load(ref, PageRequest.from({ cursor, limit: PAGE_SIZE }), ctx as any, emptyDeps);
+      const page = await collectionLoader.load(
+        ref,
+        PageRequest.from({ cursor, limit: PAGE_SIZE }),
+        ctx,
+        emptyDeps
+      )
 
       for (const input of page.items) {
-        await this.engine.store(input);
-        const fieldNames = Object.keys((input as any).fields ?? {});
+        await this.engine.store(input)
+        const fieldNames = Object.keys(input.fields ?? {})
         if (fieldNames.length > 0) {
-          await this.syncMeta.recordFieldSync((input as any).ref, fieldNames, new Date());
+          await this.syncMeta.recordFieldSync(input.ref, fieldNames, new Date())
         }
       }
 
@@ -358,27 +372,29 @@ export class DefaultTaskRunner implements TaskRunner {
               field,
               cursor: page.cursor,
             },
-          }],
-        };
+          ],
+        }
       }
 
       return {};
     } finally {
-      this.flowController.release(token);
+      this.flowController.release(token)
     }
   }
 
   /**
    * Execute a load-collection task (child task from pagination or ForAll expansion).
    */
-  private async executeLoadCollection(payload: TaskPayload & { kind: "load-collection" }): Promise<TaskRunResult> {
-    const {entityType, refKey, field, cursor} = payload;
-    const entityDef = this.registry.getEntity(entityType);
-    if (!entityDef) throw ErrUnknownEntityType.create({ entityType });
+  private async executeLoadCollection(
+    payload: TaskPayload & { kind: 'load-collection' }
+  ): Promise<TaskRunResult> {
+    const { entityType, refKey, field, cursor } = payload
+    const entityDef = this.registry.getEntity(entityType)
+    if (!entityDef) throw ErrUnknownEntityType.create({ entityType })
     // FIXME: We should know our connector here!
     // Ah. The issue is that the task runner doesn't have a _scope_.
 
-    return this.executeLoadCollectionForRef(entityDef, refKey, field, cursor);
+    return this.executeLoadCollectionForRef(entityDef, refKey, field, cursor)
   }
 
   // ============================================================================
@@ -387,7 +403,7 @@ export class DefaultTaskRunner implements TaskRunner {
 
   private assertNoDeps(loader: LoaderAny): void {
     if (loader.dependsOn.length > 0) {
-      throw ErrLoaderDepsNotSupported.create({ loaderName: loader.name });
+      throw ErrLoaderDepsNotSupported.create({ loaderName: loader.name })
     }
   }
 }
@@ -401,3 +417,9 @@ const emptyDeps = {
   getOrThrow: (loader: any) => { throw ErrNoDepsAvailable.create({ loaderName: loader.name }); },
   has: () => false,
 };
+
+
+/** This is syntactic signposting only - we haven't really designed "operations" yet - for now we just use the loader's as it is */
+function getOperationForLoaderName(loaderName: LoaderName): OperationKind {
+  return loaderName as OperationKind
+}

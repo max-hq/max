@@ -1,7 +1,6 @@
-
 import {ConnectorModuleAny, ConnectorRegistry, ConnectorRegistryEntry, InMemoryConnectorRegistry} from "@max/connector";
-import {ConnectorVersionIdentifier, LifecycleManager} from "@max/core";
-import { ErrConnectorNotFound, ErrConnectorNotInstalled } from '@max/federation'
+import {LifecycleManager, MaxError} from "@max/core";
+import {ErrConnectorNotInstalled} from '@max/federation'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 
@@ -92,7 +91,7 @@ export class NaiveBunConnectorRegistry implements ConnectorRegistry {
         try {
           return await import(name)
         } catch (e) {
-          throw ErrConnectorNotInstalled.create({ connector: name, location: name })
+          throw ErrConnectorNotInstalled.create({ connector: name, location: name }, undefined, MaxError.wrap(e))
         }
       })
     }

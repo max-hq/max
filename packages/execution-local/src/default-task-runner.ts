@@ -359,24 +359,33 @@ export class DefaultTaskRunner implements TaskRunner {
         }
       }
 
+      const targetEntityType = collectionLoader.target.name
+      const progress: TaskProgress = {
+        entityType: targetEntityType,
+        operation: 'load-collection',
+        count: page.items.length,
+      }
+
       if (page.hasMore && page.cursor) {
-        const targetEntityType = collectionLoader.target.name
         return {
-          children: [{
-            state: "pending",
-            payload: {
-              kind: "load-collection",
-              entityType: entityDef.name,
-              targetEntityType,
-              refKey,
-              field,
-              cursor: page.cursor,
+          progress,
+          children: [
+            {
+              state: 'pending',
+              payload: {
+                kind: 'load-collection',
+                entityType: entityDef.name,
+                targetEntityType,
+                refKey,
+                field,
+                cursor: page.cursor,
+              },
             },
           ],
         }
       }
 
-      return {};
+      return { progress }
     } finally {
       this.flowController.release(token)
     }

@@ -34,7 +34,7 @@ STOP: articulate what tension you are encountering, and we will resolve it toget
 Casting to a branded Id type detected (e.g. "as EntityId"). This codebase uses soft brands (SoftBrand<string, N>) for Id types — plain strings are automatically assignable without casting. Remove the "as" cast; it is unnecessary and adds noise. Only HardBrand types (like RefKey) require factory functions.
 
 ## InvariantViolated sanity-check
-- pattern: `facets: [.*InvariantViolated`
+- pattern: `facets: \[.*InvariantViolated`
 - frequency: once
 
 This facet is very commonly mis-used; InvariantViolated means "this cannot be - this is an extreme surprise". For example, reaching a branch of code that's designated as unreachable by the compiler.

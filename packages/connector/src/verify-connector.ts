@@ -1,5 +1,5 @@
 /**
- * Verify Connector — Platform-agnostic structural checks for connector packages.
+ * Verify Connector - basic structural checks for connector packages.
  *
  * Two levels of verification:
  * 1. Package metadata: parse and validate a package.json string for required fields.

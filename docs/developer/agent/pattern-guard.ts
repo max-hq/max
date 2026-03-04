@@ -163,6 +163,8 @@ if (extraPath) {
 }
 
 // Check each pattern
+const matches: string[] = [];
+
 for (const pattern of patterns) {
   if (!matchesFileFilter(filePath, pattern.files)) continue;
   if (!pattern.regex.test(content)) continue;
@@ -173,16 +175,17 @@ for (const pattern of patterns) {
     markFired(sessionId, pattern.id);
   }
 
-  // Emit guidance for first matching pattern
+  matches.push(`PATTERN GUARD [${pattern.id}]: ${pattern.guidance}`);
+}
+
+if (matches.length > 0) {
   const output = {
     hookSpecificOutput: {
       hookEventName: "PostToolUse",
-      additionalContext: `PATTERN GUARD [${pattern.id}]: ${pattern.guidance}`,
+      additionalContext: matches.join("\n"),
     },
   };
-
   console.log(JSON.stringify(output));
-  process.exit(0);
 }
 
 process.exit(0);

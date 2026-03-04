@@ -221,8 +221,6 @@
         "@max/storage-sqlite": "workspace:*",
       },
       "devDependencies": {
-        "@max/connector-acme": "workspace:*",
-        "@max/connector-linear": "workspace:*",
         "@types/bun": "latest",
         "typescript": "catalog:",
       },

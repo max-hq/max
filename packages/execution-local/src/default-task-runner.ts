@@ -5,7 +5,6 @@
  */
 
 import type {
-  CollectionLoader,
   ContextValuesAny,
   Engine,
   EntityDefAny,
@@ -19,7 +18,7 @@ import type {
   SourceDerivationAny,
   SyncMeta,
 } from '@max/core'
-import { PageRequest, Projection, Ref as RefStatic } from '@max/core'
+import { PageRequest, Projection, Ref } from '@max/core'
 
 import type {
   ExecutionRegistry,
@@ -237,7 +236,7 @@ export class DefaultTaskRunner implements TaskRunner {
     refKey: RefKey,
     fields: readonly string[]
   ): Promise<void> {
-    const ref = RefStatic.fromKey(entityDef, refKey)
+    const ref = Ref.fromKey(entityDef, refKey)
     await this.processLoadFieldsForRefs(entityDef, { entityType: entityDef.name }, fields, [ref])
   }
 
@@ -318,7 +317,7 @@ export class DefaultTaskRunner implements TaskRunner {
 
     if (refKeys.length > 0) {
       // Direct ref-based load (ForRoot/ForOne style)
-      const refs = refKeys.map((key) => RefStatic.fromKey(entityDef, key))
+      const refs = refKeys.map((key) => Ref.fromKey(entityDef, key))
       await this.processLoadFieldsForRefs(entityDef, { entityType }, fields, refs)
       return {}
     }
@@ -363,7 +362,7 @@ export class DefaultTaskRunner implements TaskRunner {
 
     this.assertNoDeps(loader)
     const collectionLoader = loader
-    const ref = RefStatic.fromKey(entityDef, refKey)
+    const ref = Ref.fromKey(entityDef, refKey)
     const ctx = await this.contextProvider()
     const token = await this.flowController.acquire(getOperationForLoaderName(loader.name))
 
@@ -432,7 +431,7 @@ export class DefaultTaskRunner implements TaskRunner {
     }
 
     this.assertNoDeps(derivation)
-    const ref = RefStatic.fromKey(entityDef, refKey)
+    const ref = Ref.fromKey(entityDef, refKey)
     const ctx = await this.contextProvider()
     const token = await this.flowController.acquire(getOperationForLoaderName(derivation.name))
 

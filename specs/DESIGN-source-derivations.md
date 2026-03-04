@@ -246,7 +246,9 @@ When the executor processes `loadCollection("issues")`:
 6. Stores all resulting `EntityInput` values
 7. Records field syncs for both entity types
 
-If the plan also contains `loadCollection("issueAuthors")` as a separate step, the executor recognises that the source was already fully paginated for that parent ref and the step becomes a no-op (via staleness checks in `syncMeta`).
+The key mechanism here is **opportunistic field sync**. When a source is fetched and its derivations run, the executor doesn't just record sync for the triggering field — it walks the resolver to find all fields served by every co-derivation from that source and records sync for all of them. This is the same principle that already applies to standalone loaders: if a `UserBasicLoader` fetches `name` and `address` in one API call, both fields are recorded as synced, even if the step only asked for `name`. A source with multiple derivations is no different — the data is available, so all derived fields are recorded.
+
+If the plan also contains `loadCollection("issueAuthors")` as a separate step, the executor resolves it to `IssueAuthorsLoader`, finds its source (`IssuesPage`), and checks whether the `issueAuthors` field has already been synced for each parent ref. Since the earlier `loadCollection("issues")` step already triggered the same source and recorded sync for all co-derived fields, the second step becomes a no-op.
 
 The plan author can list both for clarity, or list just one and trust the co-derivation. Either way produces the same result.
 
@@ -347,17 +349,20 @@ interface SingleSource<
 
 ### SourceDerivation
 
-A derivation acts as a loader from the resolver's perspective. It has a `target`, an `entity` (inherited from the source's parent), and a `.field()` method for use in `Resolver.for()`.
+A derivation acts as a loader from the resolver's perspective. It has a `kind: "derivation"` discriminant, a `target`, a `parent` (inherited from the source's parent), and a `.field()` method for use in `Resolver.for()`.
+
+`SourceDerivation` is included in the `LoaderAny` union type alongside `EntityLoader`, `EntityLoaderBatched`, `CollectionLoader`, and `RawLoader`. This means it can be used anywhere a loader is expected — in `FieldAssignment`, in the `ExecutionRegistry`, and in task runner dispatch. The `kind: "derivation"` discriminant allows the task runner to detect source-backed loaders and delegate to the source.
 
 ```typescript
 interface SourceDerivation<
   TData,
   TTarget extends EntityDefAny = EntityDefAny,
 > {
+  readonly kind: "derivation";
   readonly source: PaginatedSource<TData> | SingleSource<TData>;
   readonly name: LoaderName;
   readonly target: TTarget;
-  readonly entity: EntityDefAny;  // inherited from source.parent
+  readonly parent: EntityDefAny;  // inherited from source.parent
 
   extract(data: TData): EntityInput<TTarget>[];
 
@@ -472,7 +477,7 @@ This is a natural follow-on once the primitive exists. Not required for the init
 | Area | Change |
 |------|--------|
 | `@max/core` | New `Source` companion, `SourcePage`, `PaginatedSource`, `SingleSource`, `SourceDerivation` types |
-| `@max/core` | `SourceDerivation` implements the same interface contract as loaders for resolver compatibility |
+| `@max/core` | `SourceDerivation` added to `LoaderAny` union with `kind: "derivation"` discriminant |
 | `@max/core` | Deprecate `Loader.raw()` |
 | `@max/execution-local` | `DefaultTaskRunner` gains source-aware dispatch path (detect derivation → delegate to source → run all co-derivations) |
 | `@max/execution` | `ExecutionRegistry` indexes derivations by source for co-derivation discovery |
@@ -674,10 +679,12 @@ SyncPlan.create([
 
 ---
 
+## Resolved Questions
+
+1. **Derivation ordering within a source.** Order does not matter. Each derivation produces independent `EntityInput` values that are stored independently. `engine.store()` already handles forward references — the existing Linear connector's `TeamIssuesLoader` produces `EntityInput<LinearIssue>` with `assignee: LinearUser.ref(...)` where that user may not yet be stored. The store creates or updates the target entity regardless. The same applies to co-derivations storing entities that reference each other.
+
+2. **Partial field coverage semantics.** When `IssueAuthorsLoader` populates 3 of 5 fields on a `GithubUser`, and a later `loadFields` step triggers `UserBasicLoader`, the loader fetches all 5 fields because that's what the API returns. All 5 fields are stored and recorded as synced. This is data for free — the loader doesn't need to know which fields were already populated. The extra writes are idempotent and the `recordFieldSync` timestamps update. This is the same opportunistic update principle that applies to any loader: a source represents an atomic data load operation, and all fields that come back from it are recorded. No field-level partial loading is needed.
+
 ## Open Questions
 
-1. **Derivation ordering within a source.** When multiple derivations run on the same page, does the order matter? Probably not — each derivation produces independent `EntityInput` values that are stored independently. But if a derivation's output references entities produced by a sibling derivation (e.g., the issue references a user created by the co-derivation), the store order might matter for foreign key constraints. Need to verify that `engine.store()` handles forward references gracefully.
-
-2. **Partial field coverage semantics.** When `IssueAuthorsLoader` populates 3 of 5 fields on a `GithubUser`, and a later `loadFields` step asks for all 5, the staleness check should recognise that 3 are fresh and only load the remaining 2. This requires the executor to be field-granular when deciding what to load — which it already is via `syncMeta.staleFields()`. Verify this works end-to-end with source-derived data.
-
-3. **Source naming convention.** Sources need names for serialisation and debugging. Proposed convention: `{namespace}:{parent-entity}:{description}-page` for paginated, `{namespace}:{parent-entity}:{description}` for single. Open to alternatives.
+1. **Source naming convention.** Sources need names for serialisation and debugging. Proposed convention: `{namespace}:{parent-entity}:{description}-page` for paginated, `{namespace}:{parent-entity}:{description}` for single. Open to alternatives.

@@ -37,6 +37,7 @@ import { CmdDaemon } from './commands/daemon-command.js'
 import { CmdLsGlobal, CmdLsWorkspace } from './commands/ls-command.js'
 import { CmdStatusGlobal, CmdStatusWorkspace, CmdStatusInstallation } from './commands/status-command.js'
 import { CmdSearchGlobal, CmdSearchInstallation, CmdSearchWorkspace } from './commands/search-command.js'
+import { CmdLlmBootstrap } from './commands/llm-bootstrap-command.js'
 import { Command } from './command.js'
 
 // ============================================================================
@@ -146,6 +147,7 @@ export class CLI {
           search: new CmdSearchGlobal(services, targetVP),
           ls: new CmdLsGlobal(services),
           status: new CmdStatusGlobal(services),
+          'llm-bootstrap': new CmdLlmBootstrap(services),
         }
         return {
           commands: cmds,
@@ -155,6 +157,7 @@ export class CLI {
             cmds.search.parser.get,
             cmds.ls.parser.get,
             cmds.status.parser.get,
+            cmds['llm-bootstrap'].parser.get,
           )),
         }
       }

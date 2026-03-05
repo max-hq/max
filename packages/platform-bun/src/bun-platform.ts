@@ -83,6 +83,7 @@ import {
 } from '@max/connector'
 import { SyncExecutor, type TaskStore } from '@max/execution'
 import { DefaultTaskRunner, ExecutionRegistryImpl } from '@max/execution-local'
+import * as fs from 'node:fs'
 import path from 'node:path'
 import { InProcessDeploymentConfig } from './deployers/types.js'
 import { SqliteEngine } from '@max/storage-sqlite'
@@ -293,6 +294,19 @@ function createInstallationBootstrap(
 
     // Async: load connector (only truly async operation — everything else resolves synchronously)
     const connector = await connectorRegistry.resolve(spec.connector)
+
+    // FIXME: Crutch — ensure the installation data directory exists.
+    // Previously this happened as a side-effect of FsCredentialStore.write(),
+    // which meant connectors without credentials (e.g. local filesystem
+    // connectors) would fail at SqliteEngine.open() because the directory
+    // didn't exist yet. The real fix is an explicit "provision installation
+    // storage" step, likely owned by an FS-aware deployer or a dedicated
+    // InstallationProvisioner, not scattered across individual service impls.
+    if (!ephemeral && config.dataDir) {
+      if (!fs.existsSync(config.dataDir)) {
+        fs.mkdirSync(config.dataDir, { recursive: true })
+      }
+    }
 
     // Sync: resolve all deps via graph
     const deps = graph.resolve({

@@ -29,18 +29,8 @@ export class CliServices<L extends MaxUrlLevel = MaxUrlLevel> {
   lazy = makeLazy({
     completers: () => {
       return new ProjectCompleters(
-        makeLazy({ workspace: () => {
-            const ctx = this.ctx as CLIAnyContext
-            if (ctx.level === 'workspace' || ctx.level === 'installation'){
-              return ctx.workspace
-            }else{
-              throw ErrInvariant.create({
-                detail:
-                  'Max attempted to build ProjectCompleters for a non-project context. This is unexpected',
-              })
-            }
-        }}),
-        Fmt.usingColor(this.useColor)
+        this.ctx as CLIAnyContext,
+        Fmt.usingColor(this.useColor),
       )
     }
   })

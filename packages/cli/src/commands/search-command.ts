@@ -18,8 +18,9 @@ import { command, constant, argument, option } from '@optique/core/primitives'
 import { object } from '@optique/core/constructs'
 import { optional } from '@optique/core/modifiers'
 import { string, integer } from '@optique/core/valueparser'
-import type { ValueParser } from '@optique/core/valueparser'
+import type { ValueParser, ValueParserResult } from '@optique/core/valueparser'
 import { message } from '@optique/core/message'
+import { dependency } from '@optique/core/dependency'
 import { outputOption } from '../parsers/standard-opts.js'
 import { parseFilter } from '../parsers/filter-parser.js'
 import { parseOrderBy, parseFieldList, expandFieldGroups } from '../parsers/search-args.js'
@@ -28,6 +29,7 @@ import { SearchTextPrinter, SearchJsonPrinter, SearchNdjsonPrinter } from '../pr
 import type { Command, Inferred, CommandOptions } from '../command.js'
 import type { CliServices } from '../cli-services.js'
 import type { ResolvedContext } from '../resolved-context.js'
+import {ProjectCompleters} from "../parsers/project-completers.js";
 
 // ============================================================================
 // Search options shared by both variants
@@ -65,20 +67,38 @@ export class CmdSearchGlobal implements Command {
     private targetVP: ValueParser<'async', ResolvedContext>,
   ) {}
 
-  parser = LazyX.once(() => command(
-    'search',
-    object({
-      cmd: constant('search'),
-      target: argument(this.targetVP, {
-        description: message`Target installation (workspace/installation)`,
+  parser = LazyX.once(() => {
+    const targetDep = dependency(this.targetVP)
+
+    const entityTypeVP = targetDep.deriveAsync<string>({
+      metavar: 'ENTITY',
+      defaultValue: () => ({ level: 'global', url: null!, global: null! }) as ResolvedContext,
+      factory: (ctx) => ({
+        $mode: 'async',
+        metavar: 'ENTITY',
+        async parse(input: string): Promise<ValueParserResult<string>> {
+          return { success: true, value: input }
+        },
+        format: (v: string) => v,
+        async *suggest() { yield* ProjectCompleters.suggestEntityTypes(ctx) },
       }),
-      entityType: argument(string(), {
-        description: message`Entity type to search`,
+    })
+
+    return command(
+      'search',
+      object({
+        cmd: constant('search'),
+        target: argument(targetDep, {
+          description: message`Target installation (workspace/installation)`,
+        }),
+        entityType: argument(entityTypeVP, {
+          description: message`Entity type to search`,
+        }),
+        ...searchOptions,
       }),
-      ...searchOptions,
-    }),
-    { description: message`Search entities in a target installation` }
-  ))
+      { description: message`Search entities in a target installation` }
+    )
+  })
 
   async run(args: Inferred<this>, opts: CommandOptions) {
     const resolved = args.target

@@ -2,9 +2,15 @@ import { makeLazy } from '@max/core'
 import { ValueParser, type ValueParserResult } from '@optique/core/valueparser'
 import type { Suggestion } from '@optique/core/parser'
 import { message, text } from '@optique/core/message'
-import { ErrConnectorNotFound } from '@max/federation'
-import type { WorkspaceClient } from '@max/federation'
+import { ErrConnectorNotFound, ErrInvariant } from '@max/federation'
 import { Fmt } from '@max/core'
+import type { CLIAnyContext } from '../resolved-context.js'
+
+/** Narrow ctx to a level that has a workspace client, or throw. */
+function requireWorkspace(ctx: CLIAnyContext) {
+  if (ctx.level === 'workspace' || ctx.level === 'installation') return ctx
+  throw ErrInvariant.create({ detail: 'Completer requires workspace context' })
+}
 
 export class ProjectCompleters {
   lazy = makeLazy({
@@ -17,23 +23,12 @@ export class ProjectCompleters {
         metavar: 'SOURCE',
         async parse(input: string): Promise<ValueParserResult<string>> {
           return ({ success: true, value: input })
-          /** On reflection: I've avoided validating at the parse layer - it's better to fail at execution time */
-          // return self.workspace.connectorSchema(input).then(
-          //   () => ({ success: true, value: input }),
-          //   (e): ValueParserResult<string> => {
-          //     if (ErrConnectorNotFound.is(e)) {
-          //       return { success: false, error: message`${e.message}` }
-          //     } else {
-          //       return { success: false, error: e.message }
-          //     }
-          //   }
-          // )
         },
         format(value: string): string {
           return value
         },
         async *suggest(): AsyncGenerator<Suggestion> {
-          const sources = await self.workspace.listConnectors()
+          const sources = await requireWorkspace(self.ctx).workspace.listConnectors()
           for (const source of sources) {
             yield { kind: 'literal', text: source.name, description: message`${source.name}` }
           }
@@ -48,7 +43,7 @@ export class ProjectCompleters {
         $mode: 'async',
         metavar: 'CONNECTOR',
         async parse(input: string): Promise<ValueParserResult<string>> {
-          return self.workspace.connectorSchema(input).then(
+          return requireWorkspace(self.ctx).workspace.connectorSchema(input).then(
             () => ({ success: true, value: input }),
             (e): ValueParserResult<string> => {
               if (ErrConnectorNotFound.is(e)) {
@@ -63,8 +58,9 @@ export class ProjectCompleters {
           return value
         },
         async *suggest(): AsyncGenerator<Suggestion> {
-          const connectors = await self.workspace.listConnectors()
-          const installations = await self.workspace.listInstallations()
+          const ws = requireWorkspace(self.ctx).workspace
+          const connectors = await ws.listConnectors()
+          const installations = await ws.listInstallations()
           const installed = new Set(installations.map((i) => i.connector))
 
           for (const c of connectors) {
@@ -98,7 +94,7 @@ export class ProjectCompleters {
           return value
         },
         async *suggest(): AsyncGenerator<Suggestion> {
-          const installations = await self.workspace.listInstallations()
+          const installations = await requireWorkspace(self.ctx).workspace.listInstallations()
           for (const inst of installations) {
             yield {
               kind: 'literal',
@@ -110,7 +106,7 @@ export class ProjectCompleters {
       }
     },
 
-    /** Completer for entity type names (across all installations) */
+    /** Completer for entity type names - scoped based on resolved context level. */
     entityTypeName: (): ValueParser<'async', string> => {
       const self = this
       return {
@@ -123,22 +119,11 @@ export class ProjectCompleters {
           return value
         },
         async *suggest(): AsyncGenerator<Suggestion> {
-          const installations = await self.workspace.listInstallations()
-          const connectors = new Set(installations.map(i => i.connector))
-          for (const connector of connectors) {
-            const schema = await self.workspace.connectorSchema(connector)
-            for (const entityType of schema.entityTypes) {
-              yield { kind: 'literal', text: entityType, description: message`${connector}` }
-            }
-          }
+          yield* ProjectCompleters.suggestEntityTypes(self.ctx)
         },
       }
     },
   })
-
-  get workspace(){
-    return this.lazyInput.workspace
-  }
 
   get connectorSource() {
     return this.lazy.connectorSource
@@ -158,10 +143,33 @@ export class ProjectCompleters {
   }
 
   constructor(
-    // nested to allow laziness
-    private lazyInput:{
-      workspace: WorkspaceClient,
-    },
-    private fmt: Fmt
+    readonly ctx: CLIAnyContext,
+    private fmt: Fmt,
   ) {}
+
+  /** Yield entity type suggestions scoped to the given context level. */
+  static async * suggestEntityTypes(ctx: CLIAnyContext): AsyncGenerator<Suggestion> {
+    switch (ctx.level) {
+      case 'installation': {
+        const desc = await ctx.installation.describe()
+        const schema = await ctx.installation.schema()
+        for (const entityType of schema.entityTypes) {
+          yield { kind: 'literal', text: entityType, description: message`${desc.connector}` }
+        }
+        break
+      }
+      case 'workspace': {
+        const installations = await ctx.workspace.listInstallations()
+        const connectors = new Set(installations.map(i => i.connector))
+        for (const connector of connectors) {
+          const schema = await ctx.workspace.connectorSchema(connector)
+          for (const entityType of schema.entityTypes) {
+            yield { kind: 'literal', text: entityType, description: message`${connector}` }
+          }
+        }
+        break
+      }
+      // global level: no workspace context, no suggestions
+    }
+  }
 }

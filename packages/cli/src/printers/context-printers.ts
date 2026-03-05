@@ -13,12 +13,7 @@ import type { WorkspaceListEntry, InstallationDescription } from '@max/federatio
 // ============================================================================
 
 function contextHeader(url: MaxUrl, fmt: Fmt): string {
-  const name = url.installation ?? url.workspace ?? url.host
-  const levelLabel =
-    url.level === 'global'       ? fmt.yellow('Global') :
-    url.level === 'workspace'    ? fmt.yellow('Project') :
-                                   fmt.yellow('Installation')
-  return `${levelLabel}: ${fmt.bold(name)} ${fmt.dim(`(${url})`)}`
+  return `${fmt.yellow('Node:')} ${fmt.bold(url.toString())}  ${fmt.dim(`[${url.level}]`)}`
 }
 
 function healthLabel(health: HealthStatus, fmt: Fmt): string {

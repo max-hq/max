@@ -1,475 +1,383 @@
 # Max CLI - Agent Usage Guide
 
-Max is a data pipe CLI that syncs and queries data from various sources ({{SOURCES_LIST}}).
+Max is a data pipe CLI that syncs and queries data from various sources via connectors.
+
+Example connectors that come pre-bundled include:
+- @max/connector-linear
+- @max/connector-github
+- @max/connector-claude-code-conversations
+
+but connectors are unfettered in what data they may target or provide.
 
 ## How Max Works
 
-Max mirrors data locally from external sources. When Max is integrated, data is fetched once and stored in a local SQLite database called a mirror. All subsequent queries run against this local copy.
+Max mirrors data locally from external sources. Data is fetched once and stored in a local SQLite database. All queries run against this local copy. All data from connectors is _schematic_.
 
 **This means:**
 - Queries are fast and free - no API calls, no rate limits
-- Large result sets are fine - request 500 or 5000 results without worry
+- Large result sets are fine - request 5,000 or 50,000 results without worry
 - You can iterate and explore without cost concerns
+- You can inspect the schema of all possible data shapes from your connectors
 
-### Thinking in Max
+## Concepts
 
-Unlike direct API calls where you'd minimize requests, with Max you should:
+Max organizes data in a hierarchy:
 
-1. **Count first, then query:** Before fetching data, check how much you're dealing with:
-   ```bash
-   # How many contacts total?
-   max count hubspot --type=contact
-   # Output: 98543
+```
+Global (@)
+└── Workspace (e.g. "my-project")
+    └── Installation (e.g. "linear-1", "github-prod")
+        └── Entity (e.g. LinearIssue, GitHubUser)
+```
 
-   # How many match my filter?
-   max count hubspot --type=contact --filter "lifecycleStage=lead"
-   # Output: 12301
-   ```
+- A **workspace** is a project directory containing a `.max/` folder (created by `max init`)
+- An **installation** is a connected data source within a workspace (e.g. a Linear workspace, a GitHub org)
+- Each installation has **entity types** with their own schema (e.g. `LinearIssue`, `LinearUser`, `GitHubRepository`)
 
-   **Use count to decide your approach:**
+## Getting Oriented
 
-   | Count | Approach |
-   |-------|----------|
-   | < 2,000 | Fetch with `--all`, inspect results |
-   | 2,000 - 20,000 | Use `--all` with `--fields`, or paginate with state file |
-   | 20,000+ | Paginate with state file, process in batches |
+### 1. Find where you are
 
-2. **Use `--all` for complete data:** Don't guess limits; get all matching records:
-   ```bash
-   # Get ALL contacts (no limit)
-   max search hubspot --type=contact --all --fields firstName -o ndjson
-   ```
-
-3. **Use `--fields` for token efficiency:** Only fetch the fields you need:
-   ```bash
-   # Instead of full entities with 20+ fields:
-   max search hubspot --type=contact --limit 500 -o json
-
-   # Fetch only what you need:
-   max search hubspot --type=contact --limit 500 --fields firstName,lastName,email -o json
-   ```
-
-4. **Script for complex analysis:** For aggregations, joins across sources, or data transformations, pipe Max output to scripts:
-   ```bash
-   # Count contacts by lifecycle stage (use --all to get complete data)
-   max search hubspot --type=contact --all --fields lifecycleStage -o ndjson \
-     | jq -r '.lifecycleStage' | sort | uniq -c | sort -rn
-
-   # Find top 10 contact first names
-   max search hubspot --type=contact --all --fields firstName -o ndjson \
-     | jq -r '.firstName' | grep -v '^$' | sort | uniq -c | sort -rn | head -10
-
-   # Cross-source: find files mentioning top contacts
-   TOP_NAMES=$(max search hubspot --type=contact --all --fields firstName -o ndjson \
-     | jq -r '.firstName' | sort | uniq -c | sort -rn | head -5 | awk '{print $2}')
-   for name in $TOP_NAMES; do
-     echo "=== Files mentioning $name ==="
-     max search gdrive --type=file --filter "name~=*$name*" --fields name,path
-   done
-   ```
-
-5. **Iterate freely:** Run exploratory queries, refine filters, check counts - it's all local.
-
-### When to use Max vs direct scripting
-
-| Task | Approach |
-|------|----------|
-| Find specific entities | `max search` with filters |
-| Get entity details | `max get <id>` |
-| Count/aggregate data | Script with `jq`, `awk`, Python |
-| Join across sources | Script piping multiple `max search` calls |
-| Complex transformations | Python/Node script consuming Max JSON output |
-
-## Available Sources
-
-{{SOURCES_SUMMARY}}
-
-## Quick Reference
-
-### Discover available fields
+Max resolves your context from the current directory, like npm. Run `max status` to see where you are:
 
 ```bash
-max schema <source>
+# From within a workspace directory:
+max status
+# Shows: workspace name, installations, health
+
+# Explicitly target a workspace:
+max -t my-project status
+
+# See the global view (all workspaces):
+max -g status
 ```
 
-Example:
-```bash
-{{SCHEMA_COMMANDS}}
-```
-
-This shows entity types and their filterable fields.
-
-### Count entities
-
-```bash
-max count <source> [options]
-```
-
-Options:
-- `-t, --type <type>` - Filter by entity type
-- `-f, --filter <expr>` - Filter expression
-
-Outputs just a number (easy to capture in scripts):
-```bash
-max count hubspot --type=contact
-# 98543
-
-max count hubspot --type=contact --filter "lifecycleStage=lead"
-# 12301
-```
-
-### Search for entities
+### 2. See what's available
 
 ```bash
-max search <source> [options]
+# List what's at your current level
+max ls
+
+# List installations in a workspace
+max -t my-project ls
+
+# List all workspaces (global)
+max -g ls
 ```
 
-Options:
-- `-t, --type <type>` - Filter by entity type
-- `-f, --filter <expr>` - Filter expression (e.g., "name=foo AND state=open")
-- `--all` - Return all results (no limit)
-- `--limit <n>` - Max results (default: 50)
-- `--offset <n>` - Skip first n results
-- `-o, --output json` - Output as JSON for parsing (see [JSON Pagination](#json-pagination))
+Note: `max ls` shows whatever is at your current context level. If you're inside a workspace, it lists installations. Use `max -g ls` to reliably list workspaces.
 
-### Filter syntax
+### 3. Discover entity types and schemas
 
-Filters support boolean logic and grouping:
-
-| Syntax | Meaning |
-|--------|---------|
-| `field=value` | Exact match |
-| `field!=value` | Not equal |
-| `field>value` | Greater than |
-| `field>=value` | Greater than or equal |
-| `field<value` | Less than |
-| `field<=value` | Less than or equal |
-| `field~=value` | Contains (substring match) |
-| `field~=value*` | Starts with |
-| `field~=*value` | Ends with |
-| `field~=*value*` | Glob/wildcard match |
-
-**Combinators:**
-| Syntax | Meaning |
-|--------|---------|
-| `expr AND expr` | Both must match |
-| `expr OR expr` | Either must match |
-| `NOT expr` | Negation |
-| `(expr)` | Grouping |
-
-**Examples:**
-```bash
-# Simple equality
-max search hubspot --type=contact --filter "email=john@example.com"
-
-# Contains (substring match)
-max search linear --type=issue --filter "title~=Mark"
-
-# Wildcard match
-max search gdrive --type=file --filter "name~=*report*"
-
-# AND (both conditions)
-max search linear --type=issue --filter "state=In Progress AND assignee=alice@example.com"
-
-# OR (either condition)
-max search hubspot --type=contact --filter "lifecycleStage=lead OR lifecycleStage=customer"
-
-# Grouping with parentheses
-max search linear --type=issue --filter "(state=Todo OR state=In Progress) AND priority>2"
-
-# NOT (negation)
-max search gdrive --type=file --filter "NOT owner=me@example.com"
-
-# Complex combination
-max search hubspot --type=deal --filter "(stage=closedwon OR stage=closedlost) AND amount>=10000"
-```
-
-**Important:** Always quote the filter string to prevent shell interpretation.
-
-**Values with spaces:** Use quotes inside the filter for values containing spaces:
-```bash
-max search linear --filter "state=\"In Progress\""
-max search linear --filter "title~=\"quarterly report\""
-```
-
-{{SEARCH_EXAMPLES}}
-
-### Filter best practices for agents
-
-1. **Start broad, then narrow:** Begin with a simple filter, then add conditions if too many results
-2. **Use `~=` for text search:** When looking for entities by name/title, `~=` (contains) is usually what you want
-3. **Combine type and filter:** Always specify `--type` when possible to reduce result set
-4. **Check field names first:** Run `max schema <source>` to see valid filterable fields before constructing filters
-5. **Use JSON output for parsing:** Always use `-o json` when you need to process results programmatically
-
-**Common patterns:**
-```bash
-# Find issues assigned to someone
-max search linear --type=issue --filter "assignee~=alice"
-
-# Find open items
-max search linear --type=issue --filter "state=Todo OR state=\"In Progress\""
-
-# Find recent high-priority items
-max search linear --type=issue --filter "priority>=3 AND state!=Done"
-
-# Search by partial name
-max search hubspot --type=contact --filter "firstName~=John"
-```
-
-### Get a single entity
+Use `schema` with a connector source name to see available entity types and their fields:
 
 ```bash
-max get <source> <id> [options]
+max -t my-project schema @max/connector-linear
 ```
 
-Options:
-- `--content` - Include extracted content
-- `-o, --output json` - Output as JSON
-
-Example:
-```bash
-{{GET_EXAMPLES}}
-```
-
-## NDJSON Output (Streaming)
-
-Use `-o ndjson` for newline-delimited JSON output, ideal for streaming and piping to `jq`.
+To find an installation's connector, check its status:
 
 ```bash
-# Process data with jq
-max search hubspot --type=contact --limit 5 -o ndjson | jq '.email'
+max -t my-project/linear-2 status
+# Shows connector name (e.g. @max/connector-linear), full max-url, health
 ```
 
-Output (stdout):
-```
-{"id":"1","source":"hubspot","type":"contact","firstName":"Ben","lastName":"Smith","email":"ben@example.com"}
-{"id":"2","source":"hubspot","type":"contact","firstName":"Alice","lastName":"Jones","email":"alice@example.com"}
-```
-
-The default limit is 50 if `--limit` is not specified.
-
-### Merged stream (--merged-stream)
-
-Use `--merged-stream` to include metadata as the last line of stdout:
+### 4. Browse a few records
 
 ```bash
-max search hubspot --type=contact --limit 5 -o ndjson --merged-stream
+# See some issues (default table view)
+max -t my-project search linear-1 LinearIssue --limit 5
 ```
 
-Output:
-```
-{"id":"1","source":"hubspot","type":"contact","firstName":"Ben","lastName":"Smith","email":"ben@example.com"}
-{"id":"2","source":"hubspot","type":"contact","firstName":"Alice","lastName":"Jones","email":"alice@example.com"}
-{"_meta":{"pagination":{"offset":0,"limit":5,"total":1234,"hasMore":true}}}
-```
+This shows a human-readable table with all fields. Use it to understand the data shape before writing more targeted queries.
 
-### Field selection with NDJSON
+## Searching
 
-Use `--fields` to include only specific fields:
+The `search` command is the primary way to query data. There are two equivalent ways to invoke it:
 
 ```bash
-max search hubspot --type=contact --limit 5 --fields firstName,email -o ndjson
+# Option 1: Target the workspace, pass installation as an argument
+max -t <workspace> search <installation> <EntityType> [options]
+
+# Option 2: Target the installation directly
+max -t <workspace>/<installation> search <EntityType> [options]
 ```
 
-Output:
-```
-{"id":"1","source":"hubspot","type":"contact","firstName":"Ben","email":"ben@example.com"}
-{"id":"2","source":"hubspot","type":"contact","firstName":"Alice","email":"alice@example.com"}
-```
+Both are equivalent. Use whichever is more convenient.
 
-Note: `id`, `source`, and `type` are always included.
+### Options
 
-### When to use NDJSON vs JSON
+| Flag | Description |
+|------|-------------|
+| `--limit <n>` | Max results per page (use large numbers freely) |
+| `--all` | Return all results with no limit (*release imminent — may not be available yet; if unavailable, use a very large `--limit` instead*) |
+| `-f, --filter <expr>` | Filter expression |
+| `--fields <list>` | Comma-separated fields to include |
+| `--after <cursor>` | Cursor for next page (from previous result) |
+| `--order-by <field[:dir]>` | Sort by field, optionally `:asc` or `:desc` |
+| `-o, --output <format>` | Output format: `text` (default), `json`, `ndjson` |
 
-| Use case | Format |
-|----------|--------|
-| Pipe to jq for filtering/transformation | `-o ndjson` |
-| Process large result sets line by line | `-o ndjson` |
-| Need structured response with data array | `-o json` |
-| Inspect pagination and data together | `-o json` |
+### Output formats
 
-## Pagination with State Files
-
-When search results exceed your limit, Max creates a state file for continuation and prints a hint to stderr:
-
+**`text`** (default) - Human-readable table. Good for exploration:
 ```bash
-max search hubspot --type=contact --limit=500 -o ndjson
-# stdout: 500 records
-# stderr: More results (500 of 12500). Continue: --state=max:a1b2c3d
+max -t wp search inst LinearIssue --limit 3
+```
+```
+LinearIssue: 3 results, more available
+
+  _id        identifier  title                        state
+  001b2c..   ATL-811     Validate TinyBird POC        Done
+  00482b..   MET-3898    Delete redshift cluster 1    Done
+  005610..   FEA-98      Feature Improvement: FP...   Canceled
+
+Next page: --after ein:LinearIssue:005610bf-bb79-469e-937e-52ede288d413
 ```
 
-State files use a short `max:` prefix format (e.g., `max:a1b2c3d`) for convenience. Continue fetching:
+**`json`** - Structured JSON object. Best for programmatic use:
 ```bash
-max search hubspot --type=contact --limit=500 --state=max:a1b2c3d -o ndjson
-# stdout: next 500 records
-# stderr: More results (1000 of 12500). Continue: --state=max:a1b2c3d
+max -t wp search inst LinearIssue --limit 2 -o json
 ```
-
-Repeat until complete:
-```bash
-# stderr: Complete (12500 results).
-```
-
-Clean up when done (optional):
-```bash
-max search --close --state=max:a1b2c3d
-```
-
-### Proactive pagination from count
-
-When count exceeds 2000, `max count` includes a state reference in its output:
-
-```bash
-max count hubspot --type=contact -o json
-# {"count": 12500, "state": "max:a1b2c3d"}
-
-# Use state from the start
-max search hubspot --type=contact --limit=500 --state=max:a1b2c3d -o ndjson
-```
-
-### Pre-create state file (for scripting)
-
-```bash
-# Create a virgin state file before knowing the query
-state=$(max search --init)
-# Output: max:a1b2c3d
-
-# Use it with any query - first use locks in the query params
-max search gdrive --type=file --filter='size>0' --limit=500 --state=$state -o ndjson
-
-# Subsequent calls must use the same query params
-max search gdrive --type=file --filter='size>0' --limit=500 --state=$state -o ndjson
-```
-
-### Agent pagination loop
-
-```bash
-#!/bin/bash
-# Example: Process all contacts in batches
-
-STATE=""
-while true; do
-  if [ -n "$STATE" ]; then
-    OUTPUT=$(max search hubspot --type=contact --limit=500 --state="$STATE" -o ndjson 2>&1)
-  else
-    OUTPUT=$(max search hubspot --type=contact --limit=500 -o ndjson 2>&1)
-  fi
-
-  # Separate stdout (data) from stderr (status)
-  DATA=$(echo "$OUTPUT" | grep -v "^More results\|^Complete")
-  STATUS=$(echo "$OUTPUT" | grep "^More results\|^Complete")
-
-  # Process data...
-  echo "$DATA" | jq '.email'
-
-  # Check if done
-  if echo "$STATUS" | grep -q "^Complete"; then
-    break
-  fi
-
-  # Extract state reference for next iteration
-  STATE=$(echo "$STATUS" | sed -n 's/.*--state=\([^ ]*\).*/\1/p')
-done
-
-# Cleanup
-[ -n "$STATE" ] && max search --close --state="$STATE"
-```
-
-## JSON Pagination
-
-When using `-o json`, the response includes pagination metadata:
-
 ```json
 {
-  "pagination": {
-    "offset": 0,
-    "limit": 50,
-    "total": 1234,
-    "hasMore": true
-  },
+  "type": "LinearIssue",
   "data": [
-    { "id": "1", "type": "contact", ... },
-    { "id": "2", "type": "contact", ... }
-  ]
+    { "_id": "001b...", "identifier": "ATL-811", "title": "...", "state": "Done" },
+    { "_id": "004b...", "identifier": "MET-3898", "title": "...", "state": "Done" }
+  ],
+  "hasMore": true,
+  "cursor": "ein:LinearIssue:00482baa-..."
 }
 ```
 
-### Pagination fields
-
-| Field | Description |
-|-------|-------------|
-| `offset` | Number of results skipped |
-| `limit` | Maximum results requested |
-| `total` | Total matching results |
-| `hasMore` | `true` if more results exist |
-
-### Fetching the next page
-
-Use `--offset` to paginate through results:
-
+**`ndjson`** - One JSON object per line, with a `_meta` line at the end. Good for piping:
 ```bash
-# First page
-max search hubspot --type=contact --limit 50 -o json
-
-# Next page (offset = previous offset + limit)
-max search hubspot --type=contact --limit 50 --offset 50 -o json
+max -t wp search inst LinearIssue --limit 2 -o ndjson
 ```
-
-### Agent pagination pattern
-
-```bash
-# Loop until hasMore is false
-OFFSET=0
-LIMIT=500
-
-while true; do
-  RESULT=$(max search hubspot --type=contact --limit $LIMIT --offset $OFFSET -o json)
-  # Process $RESULT...
-
-  HAS_MORE=$(echo "$RESULT" | jq '.pagination.hasMore')
-  if [ "$HAS_MORE" = "false" ]; then
-    break
-  fi
-  OFFSET=$((OFFSET + LIMIT))
-done
+```
+{"_id":"001b...","identifier":"ATL-811","title":"...","state":"Done"}
+{"_id":"004b...","identifier":"MET-3898","title":"...","state":"Done"}
+{"_meta":{"type":"LinearIssue","hasMore":true,"cursor":"ein:LinearIssue:00482baa-..."}}
 ```
 
 ### Field selection
 
-Use `--fields` to return only specific fields (reduces output size):
+Use `--fields` to control which fields appear:
 
 ```bash
-# Comma-separated
-max search hubspot --type=contact --fields name,email,phone -o json
+# Specific fields
+--fields "title,state,assignee"
 
-# Or repeatable
-max search hubspot --type=contact --fields name --fields email -o json
+# Special selectors
+--fields ".props"     # All schema properties (no meta fields)
+--fields ".meta"      # Only meta fields (_id, _ref)
+--fields ".all"       # Everything
+
+# Combine freely — mix named fields with selectors
+--fields "name,email,.meta"
 ```
 
-Output with field selection:
-```json
-{
-  "pagination": { ... },
-  "data": [
-    { "id": "1", "source": "hubspot", "type": "contact", "name": "Alice", "email": "alice@example.com" }
-  ]
-}
+Fields not present on an entity are simply omitted from its output (no nulls).
+
+### Filtering
+
+Use `-f` / `--filter` for boolean filter expressions.
+
+**Operators:**
+
+| Operator | Meaning |
+|----------|---------|
+| `=` | Equals |
+| `!=` | Not equals |
+| `>` | Greater than |
+| `>=` | Greater than or equal |
+| `<` | Less than |
+| `<=` | Less than or equal |
+| `~=` | Pattern match (substring/regex) |
+
+**Combinators:** `AND`, `OR`, parentheses for grouping.
+
+**Examples:**
+```bash
+# Exact match
+--filter 'state=Done'
+
+# Comparison
+--filter 'priority > 2'
+
+# Pattern match (contains)
+--filter 'title~="Zendesk"'
+
+# Compound
+--filter 'state=Done AND priority > 2'
+
+# Grouped
+--filter '(state=Todo OR state="In Progress") AND priority >= 3'
 ```
 
-Note: `id`, `source`, and `type` are always included. Selected fields are flattened from `properties`.
+**Important:** Quote the filter string to prevent shell interpretation. Use inner quotes for values with spaces: `--filter 'state="In Progress"'`
+
+### Pagination
+
+Max uses cursor-based pagination. When results are truncated:
+- The `text` output shows: `Next page: --after ein:EntityType:uuid`
+- The `json` output includes: `"hasMore": true, "cursor": "ein:EntityType:uuid"`
+- The `ndjson` output includes a `_meta` line with the cursor
+
+To get the next page, pass the cursor to `--after`:
+
+```bash
+max -t wp search inst LinearIssue --limit 100 --after "ein:LinearIssue:2c0f3edc-..."
+```
+
+**Tip:** Use `--all` to fetch everything without a limit. If `--all` is not yet available in your version, use a very large `--limit` (e.g. `--limit 50000`) as a fallback — there's no hard cap.
+
+### Ordering
+
+```bash
+--order-by priority          # Ascending (default)
+--order-by priority:desc     # Descending
+--order-by identifier:asc    # Explicit ascending
+```
+
+## IDs and Refs
+
+Entities have two identity fields:
+
+- **`_id`** — The installation-native ID. This is typically what the upstream tool uses (e.g. a Linear issue UUID, a GitHub user ID). Use this for filtering and lookups within an installation.
+- **`_ref`** — An opaque reference that uniquely identifies an entity across the federation graph. Refs get transformed as they traverse federation layers, so **treat them as opaque** — don't parse or introspect them.
+
+When an entity field references another entity (e.g. an issue's `assignee`), the value is a ref string. To resolve it, look up the referenced entity by `_id`. For example, if you see `assignee` containing a ref to a LinearUser, fetch all LinearUser entities and build a lookup map by `_id` to join them.
+
+## Targeting (`-t`)
+
+Every Max command runs against a target context. If you don't provide `-t`, the target is derived from your current directory — like how npm finds the nearest `package.json`.
+
+A full Max URL has the form: `max://<host>/<workspace>/<installation>`
+
+- `@` means "this machine" and can be omitted as shorthand
+- So `max://@/my-project/linear-2` and `my-project/linear-2` are equivalent (when `@` is your only host)
+
+**Relative resolution:** `-t` values are resolved relative to your current context:
+
+```bash
+# If you're inside the my-project workspace directory:
+max search linear-1 LinearIssue          # implicit: -t is derived from cwd
+max -t linear-1 search LinearIssue       # relative: resolves to my-project/linear-1
+
+# Explicit workspace targeting (from anywhere):
+max -t my-project ls                     # target workspace → list installations
+max -t my-project search linear-1 Issue  # target workspace → workspace-level search
+max -t my-project/linear-1 search Issue  # target installation → installation-level search
+
+# Fully qualified:
+max -t max://@/my-project/linear-1 search LinearIssue
+```
+
+**Global targeting:** Use `-g` (shorthand for `-t max://@`) to target the global level:
+
+```bash
+max -g ls        # Always lists workspaces, regardless of cwd
+max -g status    # Global health overview
+```
+
+**See where you are:** Run `max status` with no arguments to see your current context — it shows your resolved target, available children, and health.
+
+## Thinking in Max
+
+Unlike direct API calls where you'd minimize requests, with Max you should:
+
+1. **Explore first:** Run broad queries with small limits to understand the data shape, field names, and entity relationships
+2. **Go big on limits:** Data is local. `--limit 10000` costs nothing. Use `--all` if available, or a very large `--limit` as a fallback
+3. **Use `--fields` for token efficiency:** Only fetch fields you need when processing large result sets
+4. **Iterate freely:** Run exploratory queries, refine filters, try different approaches — it's all instant
+5. **Script for analysis:** For aggregations or cross-entity joins, pipe `json`/`ndjson` output to scripts
+
+### Workflow for answering questions about data
+
+```
+1. max status / max -t wp status             → see where you are
+2. max -t wp ls                              → see what installations exist
+3. max -t wp/inst status                     → see connector name
+4. max -t wp schema @max/connector-xyz       → see entity types and fields
+5. max -t wp/inst search Entity --limit 5    → browse sample data
+6. Formulate query with --filter, --fields, --limit (or --all)
+7. If > 1 entity type needed, query each and join in a script
+```
+
+### Cross-entity analysis example
+
+To find the most active user per team from Linear issues:
+
+```bash
+# Step 1: Get all issues with assignee info
+max -t wp/inst search LinearIssue --all --fields "_id,identifier,assignee" -o json > /tmp/issues.json
+
+# Step 2: Get all users (for name resolution)
+max -t wp/inst search LinearUser --all --fields "_id,name,displayName" -o json > /tmp/users.json
+
+# Step 3: Get teams
+max -t wp/inst search LinearTeam --all --fields "_id,name,key" -o json > /tmp/teams.json
+
+# Step 4: Join and analyze in a script
+python3 -c "
+import json
+from collections import defaultdict
+issues = json.load(open('/tmp/issues.json'))['data']
+users = {u['_id']: u.get('displayName') or u.get('name') for u in json.load(open('/tmp/users.json'))['data']}
+# ... aggregate and report
+"
+```
+
+## Other Commands
+
+### `schema`
+
+View the entity schema for a connector:
+
+```bash
+max -t <workspace> schema <connector-source>
+```
+
+Note: `schema` takes a connector package name (e.g. `@max/connector-linear`, `@max/connector-github`), not an installation name. Find the connector name for an installation via `max -t <workspace>/<installation> status`.
+
+### `sync`
+
+Refresh data from a connected source:
+
+```bash
+max -t <workspace> sync <installation>
+```
+
+**WARNING: Do NOT run `sync` unless explicitly authorized by the user.** Syncs hit upstream APIs and can be expensive (API quota, rate limits, time).
+
+### `connect`
+
+Connect a new data source:
+
+```bash
+max -t <workspace> connect <source> [-n <name>]
+```
+
+**Note:** This command typically requires interactive user input (credentials, OAuth flows). It's usually better to ask the user to run it themselves rather than running it autonomously.
+
+### `status`
+
+Check health at any level:
+
+```bash
+max status                     # Global
+max -t <workspace> status      # Workspace
+```
 
 ## Tips
 
-1. Always check `max schema <source>` first to see available filterable fields
-2. Use `-o json` when you need to parse the output programmatically
-3. Entity types vary by source:
-{{ENTITY_TYPES_LIST}}
-4. Filter fields are validated against the schema - use `max schema` to see what's available
-5. **Don't be shy with limits** - data is local, so `--limit 500` or `--limit 5000` is fine
-6. **Use `--fields`** to reduce output size and save tokens
-7. **Pipe to scripts** for counting, aggregating, or joining data across sources
-8. **Count before querying** - Use `max count` to understand data size before fetching
-9. **Use `--all` for aggregations** - Don't guess limits; get complete data
-10. **Prefer ndjson for piping** - Use `-o ndjson` when piping to jq
-11. **Use state files for large datasets** - When results exceed your limit, continue with `--state`
+1. **Use `schema` to discover entity types:** `max -t wp schema @max/connector-xyz` shows entity types and fields. Find the connector name via `max -t wp/inst status`
+2. **Use `--fields` to reduce noise:** Especially useful when you need specific columns from wide entities. Combine named fields with selectors: `--fields "name,email,.meta"`
+3. **Don't be shy with `--limit`:** Data is local. 10,000 rows is fine. Use `--all` when available
+4. **Use `_id` to join entities:** When a field references another entity, look up the target entity by `_id`. Don't try to parse ref strings — they're opaque
+5. **Use `json` for scripting:** `-o json` gives you a clean structure with `data` array and `hasMore`/`cursor` for pagination
+6. **Filter fields must exist:** Use `schema` to see valid field names, or expect a helpful error message listing them
+7. **Multiple installations can share entities:** The same user might appear in `linear-1` and `linear-2` with different data completeness — check both if one is sparse
+8. **Never `sync` without permission:** Syncs hit upstream APIs and can be expensive. Always ask the user first
+9. **Let the user run `connect`:** It requires interactive input (credentials, OAuth). Suggest it rather than running it

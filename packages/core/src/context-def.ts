@@ -16,9 +16,9 @@
  * });
  *
  * // Use in loaders
- * Loader.entity({
+ * Source.entity({
  *   context: AcmeAppContext,
- *   load(ref, ctx, deps) {
+ *   load(ref, ctx) {
  *     ctx.api  // ✅ Typed as AcmeApiClient
  *   }
  * })

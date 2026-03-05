@@ -15,7 +15,7 @@ import type {
   OperationKind,
   RefAny,
   RefKey,
-  SourceDerivationAny,
+  DerivedEntityLoaderAny,
   SyncMeta,
 } from '@max/core'
 import { PageRequest, Projection, Ref } from '@max/core'
@@ -29,9 +29,7 @@ import type {
   TaskRunResult,
 } from '@max/execution'
 import {
-  ErrLoaderDepsNotSupported,
   ErrNoCollectionLoader,
-  ErrNoDepsAvailable,
   ErrNoResolver,
   ErrUnknownEntityType,
 } from '@max/execution'
@@ -262,11 +260,10 @@ export class DefaultTaskRunner implements TaskRunner {
     const ctx = await this.contextProvider()
 
     for (const [loader, fieldNames] of loaderFields) {
-      this.assertNoDeps(loader)
       const token = await this.flowController.acquire(getOperationForLoaderName(loader.name))
       try {
         if (loader.kind === 'entityBatched') {
-          const batch = await loader.load(refs, ctx, emptyDeps)
+          const batch = await loader.load(refs, ctx)
           for (const ref of refs) {
             const input = batch.get(ref)
             if (input) {
@@ -276,7 +273,7 @@ export class DefaultTaskRunner implements TaskRunner {
           }
         } else if (loader.kind === 'entity') {
           for (const ref of refs) {
-            const input = await loader.load(ref, ctx, emptyDeps)
+            const input = await loader.load(ref, ctx)
             await this.engine.store(input)
             await this.syncMeta.recordFieldSync(ref, fieldNames, new Date())
           }
@@ -360,7 +357,6 @@ export class DefaultTaskRunner implements TaskRunner {
       throw ErrNoCollectionLoader.create({ entityType: entityDef.name, field })
     }
 
-    this.assertNoDeps(loader)
     const collectionLoader = loader
     const ref = Ref.fromKey(entityDef, refKey)
     const ctx = await this.contextProvider()
@@ -371,7 +367,6 @@ export class DefaultTaskRunner implements TaskRunner {
         ref,
         PageRequest.from({ cursor, limit: PAGE_SIZE }),
         ctx,
-        emptyDeps
       )
 
       for (const input of page.items) {
@@ -422,7 +417,7 @@ export class DefaultTaskRunner implements TaskRunner {
     entityDef: EntityDefAny,
     refKey: RefKey,
     field: string,
-    derivation: SourceDerivationAny,
+    derivation: DerivedEntityLoaderAny,
     cursor?: string,
   ): Promise<TaskRunResult> {
     const source = derivation.source
@@ -430,7 +425,6 @@ export class DefaultTaskRunner implements TaskRunner {
       throw ErrNoCollectionLoader.create({ entityType: entityDef.name, field })
     }
 
-    this.assertNoDeps(derivation)
     const ref = Ref.fromKey(entityDef, refKey)
     const ctx = await this.contextProvider()
     const token = await this.flowController.acquire(getOperationForLoaderName(derivation.name))
@@ -507,27 +501,7 @@ export class DefaultTaskRunner implements TaskRunner {
     return this.executeLoadCollectionForRef(entityDef, refKey, field, cursor)
   }
 
-  // ============================================================================
-  // Helpers
-  // ============================================================================
-
-  private assertNoDeps(loader: LoaderAny): void {
-    if (loader.dependsOn.length > 0) {
-      throw ErrLoaderDepsNotSupported.create({ loaderName: loader.name })
-    }
-  }
 }
-
-// ============================================================================
-// Empty deps stub
-// ============================================================================
-
-const emptyDeps = {
-  get: () => undefined,
-  getOrThrow: (loader: any) => { throw ErrNoDepsAvailable.create({ loaderName: loader.name }); },
-  has: () => false,
-};
-
 
 /** This is syntactic signposting only - we haven't really designed "operations" yet - for now we just use the loader's as it is */
 function getOperationForLoaderName(loaderName: LoaderName): OperationKind {

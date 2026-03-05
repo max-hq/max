@@ -21,7 +21,7 @@ export const ProjectBasicLoader = Loader.entity({
   context: AcmeAppContext,
   entity: AcmeProject,
 
-  async load(ref, ctx, deps) {
+  async load(ref, ctx) {
     const ws = await ctx.api.client.getProject(ref.id);
     return EntityInput.create(ref, {
       description: ws.description || undefined,
@@ -38,7 +38,7 @@ export const ProjectTasksLoader = Loader.collection({
   entity: AcmeProject,
   target: AcmeTask,
 
-  async load(ref, page, ctx, deps) {
+  async load(ref, page, ctx) {
     const tasks = await ctx.api.client.listTasks(ref.id);
     const items = tasks.map((t) =>
       EntityInput.create(AcmeTask.ref(t.id), {

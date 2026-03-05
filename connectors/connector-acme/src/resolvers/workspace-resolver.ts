@@ -21,7 +21,7 @@ export const WorkspaceBasicLoader = Loader.entity({
   context: AcmeAppContext,
   entity: AcmeWorkspace,
 
-  async load(ref, ctx, deps) {
+  async load(ref, ctx) {
     const ws = await ctx.api.client.getWorkspace(ref.id);
     return EntityInput.create(ref, {
       name: ws.name,
@@ -35,7 +35,7 @@ export const WorkspaceUsersLoader = Loader.collection({
   entity: AcmeWorkspace,
   target: AcmeUser,
 
-  async load(ref, page, ctx, deps) {
+  async load(ref, page, ctx) {
     const users = await ctx.api.client.listUsers(ref.id);
     const items = users.map((u) =>
       EntityInput.create(AcmeUser.ref(u.id), {}),
@@ -50,7 +50,7 @@ export const WorkspaceProjectsLoader = Loader.collection({
   entity: AcmeWorkspace,
   target: AcmeProject,
 
-  async load(ref, page, ctx, deps) {
+  async load(ref, page, ctx) {
     const projects = await ctx.api.client.listProjects(ref.id);
     const items = projects.map((p) =>
       EntityInput.create(AcmeProject.ref(p.id), {}),

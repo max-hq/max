@@ -6,7 +6,6 @@
  */
 
 import {ErrFacet, MaxError} from "../max-error.js";
-import {Execution} from "@max/execution";
 import {LoaderName} from "../loader.js";
 import { EntityId, EntityType } from '../core-id-types.js'
 
@@ -85,12 +84,6 @@ export const ErrConfigNotSupported = Core.define('config_not_supported', {
 export const ErrFieldNotLoaded = Core.define("field_not_loaded", {
   facets: [HasEntityField],
   message: (d) => `Field '${d.field}' not loaded on ${d.entityType}`,
-});
-
-/** Loader result not available in dependency map */
-export const ErrLoaderResultNotAvailable = Core.define("loader_result_not_available", {
-  facets: [NotFound, HasLoaderName],
-  message: (d) => `Loader result not available: ${d.loaderName}`,
 });
 
 /** Context build failed (direct instantiation, invalid descriptor, or missing field) */

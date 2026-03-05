@@ -10,7 +10,7 @@
  * output. Co-derivation discovery is handled by the ExecutionRegistry.
  *
  * @example
- * const IssuesPage = Source.paginated({
+ * const IssuesPage = Loader.paginatedSource({
  *   name: "github:repo:issues-page",
  *   context: GithubContext,
  *   parent: GithubRepo,
@@ -20,7 +20,7 @@
  *   },
  * });
  *
- * const RepoIssuesLoader = Source.derive(IssuesPage, {
+ * const RepoIssuesLoader = Loader.deriveEntities(IssuesPage, {
  *   name: "github:repo:issues",
  *   target: GithubIssue,
  *   extract(data) {
@@ -29,15 +29,15 @@
  * });
  */
 
-import {StaticTypeCompanion} from "./companion.js";
-import type {Id} from "./brand.js";
-import type {EntityDefAny} from "./entity-def.js";
-import type {EntityInput} from "./entity-input.js";
-import type {Ref} from "./ref.js";
-import type {PageRequest} from "./pagination.js";
-import type {ContextDefAny, InferContext} from "./context-def.js";
-import type {ClassOf} from "./type-system-utils.js";
-import type {LoaderName, LoaderStrategy, LoaderAny, FieldAssignment} from "./loader.js";
+import { StaticTypeCompanion } from './companion.js'
+import type { Id } from './brand.js'
+import type { EntityDefAny } from './entity-def.js'
+import type { EntityInput } from './entity-input.js'
+import type { Ref } from './ref.js'
+import type { PageRequest } from './pagination.js'
+import type { ContextDefAny, InferContext } from './context-def.js'
+import type { ClassOf } from './type-system-utils.js'
+import type { BaseLoader, FieldAssignment, LoaderName, LoaderStrategy } from './loader.js'
 
 // ============================================================================
 // Branded Types
@@ -86,7 +86,7 @@ export const SourcePage = StaticTypeCompanion({
  * PaginatedSource - Fetches paginated data from an API, bound to a parent entity.
  *
  * Stateless: does not know which derivations consume its output.
- * Use Source.derive() to create derivations that reference this source.
+ * Use Loader.deriveEntities() to create derivations that reference this source.
  */
 export interface PaginatedSource<
   TData,
@@ -133,33 +133,27 @@ export interface SingleSource<
 }
 
 // ============================================================================
-// SourceDerivation
+// DerivedEntityLoader
 // ============================================================================
 
 /**
- * SourceDerivation - A pure function that extracts EntityInput[] for one entity
+ * DerivedEntityLoader - A pure function that extracts EntityInput[] for one entity
  * type from source output. Acts as a loader from the resolver's perspective.
  *
- * Included in the LoaderAny union with kind: "derivation". Has BaseLoader-
- * compatible properties (name, strategy, dependsOn, context) so it works
- * with the execution registry and task runner unchanged.
+ * Included in the LoaderAny union with kind: "derivation". Extends BaseLoader
+ * so it works with the execution registry and task runner unchanged.
  */
-export interface SourceDerivation<
+export interface DerivedEntityLoader<
   TData,
   TTarget extends EntityDefAny = EntityDefAny,
   TParent extends EntityDefAny = EntityDefAny,
-> {
+> extends BaseLoader<ContextDefAny> {
   readonly kind: "derivation";
   readonly source: PaginatedSource<TData> | SingleSource<TData>;
   readonly name: LoaderName;
   readonly target: TTarget;
   /** The parent entity this derivation hangs off (inherited from source.parent). */
   readonly parent: TParent;
-
-  // BaseLoader-compatible properties
-  readonly strategy: LoaderStrategy;
-  readonly dependsOn: readonly LoaderAny[];
-  readonly context: ClassOf<ContextDefAny>;
 
   extract(data: TData): EntityInput<TTarget>[];
 
@@ -175,24 +169,24 @@ export interface SourceDerivation<
  * Any source type (fully erased).
  */
 export type SourceAny =
-  | PaginatedSource<any, EntityDefAny, ContextDefAny>
-  | SingleSource<any, EntityDefAny, ContextDefAny>;
+  | PaginatedSource<any>
+  | SingleSource<any>;
 
 /**
  * Any derivation type (fully erased).
  */
-export type SourceDerivationAny = SourceDerivation<unknown, EntityDefAny, EntityDefAny>;
+export type DerivedEntityLoaderAny = DerivedEntityLoader<unknown>;
 
 // ============================================================================
 // Implementations
 // ============================================================================
 
-class PaginatedSourceImpl<
+export class PaginatedSourceImpl<
   TData,
   TParent extends EntityDefAny,
   TContext extends ContextDefAny,
 > implements PaginatedSource<TData, TParent, TContext> {
-  readonly kind = "paginated" as const;
+  readonly kind = 'paginated' as const
 
   constructor(
     readonly name: SourceName,
@@ -201,50 +195,45 @@ class PaginatedSourceImpl<
     private fetchFn: (
       ref: Ref<TParent>,
       page: PageRequest,
-      ctx: InferContext<TContext>,
-    ) => Promise<SourcePage<TData>>,
+      ctx: InferContext<TContext>
+    ) => Promise<SourcePage<TData>>
   ) {}
 
   fetch(
     ref: Ref<TParent>,
     page: PageRequest,
-    ctx: InferContext<TContext>,
+    ctx: InferContext<TContext>
   ): Promise<SourcePage<TData>> {
-    return this.fetchFn(ref, page, ctx);
+    return this.fetchFn(ref, page, ctx)
   }
 }
 
-class SingleSourceImpl<
+export class SingleSourceImpl<
   TData,
   TParent extends EntityDefAny,
   TContext extends ContextDefAny,
 > implements SingleSource<TData, TParent, TContext> {
-  readonly kind = "single" as const;
+  readonly kind = 'single' as const
 
   constructor(
     readonly name: SourceName,
     readonly context: ClassOf<TContext>,
     readonly parent: TParent,
-    private fetchFn: (
-      ref: Ref<TParent>,
-      ctx: InferContext<TContext>,
-    ) => Promise<TData>,
+    private fetchFn: (ref: Ref<TParent>, ctx: InferContext<TContext>) => Promise<TData>
   ) {}
 
-  fetch(
-    ref: Ref<TParent>,
-    ctx: InferContext<TContext>,
-  ): Promise<TData> {
-    return this.fetchFn(ref, ctx);
+  fetch(ref: Ref<TParent>, ctx: InferContext<TContext>): Promise<TData> {
+    return this.fetchFn(ref, ctx)
   }
 }
 
-class SourceDerivationImpl<TData, TTarget extends EntityDefAny, TParent extends EntityDefAny>
-  implements SourceDerivation<TData, TTarget, TParent>
-{
-  readonly kind = "derivation" as const;
-  readonly strategy: LoaderStrategy = "autoload";
-  readonly dependsOn: readonly LoaderAny[] = [];
+export class DerivedEntityLoaderImpl<
+  TData,
+  TTarget extends EntityDefAny,
+  TParent extends EntityDefAny,
+> implements DerivedEntityLoader<TData, TTarget, TParent> {
+  readonly kind = 'derivation' as const
+  readonly strategy: LoaderStrategy = 'autoload'
 
   constructor(
     readonly source: PaginatedSource<TData> | SingleSource<TData>,
@@ -252,86 +241,14 @@ class SourceDerivationImpl<TData, TTarget extends EntityDefAny, TParent extends 
     readonly target: TTarget,
     readonly parent: TParent,
     readonly context: ClassOf<ContextDefAny>,
-    private extractFn: (data: TData) => EntityInput<TTarget>[],
+    private extractFn: (data: TData) => EntityInput<TTarget>[]
   ) {}
 
   extract(data: TData): EntityInput<TTarget>[] {
-    return this.extractFn(data);
+    return this.extractFn(data)
   }
 
   field(sourceField?: string): FieldAssignment<TParent> {
-    return {loader: this, sourceField, _entity: this.parent};
+    return { loader: this, sourceField, _entity: this.parent }
   }
 }
-
-// ============================================================================
-// Source Static Companion
-// ============================================================================
-
-export const Source = StaticTypeCompanion({
-  /**
-   * Create a paginated source.
-   */
-  paginated<TData, TParent extends EntityDefAny, TContext extends ContextDefAny>(config: {
-    name: SourceName;
-    context: ClassOf<TContext>;
-    parent: TParent;
-    fetch: (
-      ref: Ref<TParent>,
-      page: PageRequest,
-      ctx: InferContext<TContext>,
-    ) => Promise<SourcePage<TData>>;
-  }): PaginatedSource<TData, TParent, TContext> {
-    return new PaginatedSourceImpl(
-      config.name,
-      config.context,
-      config.parent,
-      config.fetch,
-    );
-  },
-
-  /**
-   * Create a single-fetch source.
-   */
-  single<TData, TParent extends EntityDefAny, TContext extends ContextDefAny>(config: {
-    name: SourceName;
-    context: ClassOf<TContext>;
-    parent: TParent;
-    fetch: (
-      ref: Ref<TParent>,
-      ctx: InferContext<TContext>,
-    ) => Promise<TData>;
-  }): SingleSource<TData, TParent, TContext> {
-    return new SingleSourceImpl(
-      config.name,
-      config.context,
-      config.parent,
-      config.fetch,
-    );
-  },
-
-  /**
-   * Creates a SourceDerivation that produces entities of the given type from the target input Source
-   */
-  deriveEntities<
-    TData,
-    TParent extends EntityDefAny,
-    TTarget extends EntityDefAny,
-  >(
-    source: PaginatedSource<TData, TParent, any> | SingleSource<TData, TParent, any>,
-    config: {
-      name: LoaderName;
-      target: TTarget;
-      extract: (data: TData) => EntityInput<TTarget>[];
-    },
-  ): SourceDerivation<TData, TTarget, TParent> {
-    return new SourceDerivationImpl(
-      source,
-      config.name,
-      config.target,
-      source.parent,
-      source.context,
-      config.extract,
-    );
-  },
-});

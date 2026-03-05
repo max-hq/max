@@ -7,14 +7,14 @@
  */
 
 import { describe, test, expect } from "bun:test";
-import { Source, SourcePage } from "../source.js";
+import { SourcePage } from "../source.js";
 import { EntityDef } from "../entity-def.js";
 import { EntityInput } from "../entity-input.js";
 import { Field } from "../field.js";
 import { Context, t } from "../context-def.js";
 import { PageRequest } from "../pagination.js";
-import type { LoaderName } from "../loader.js";
-import type { SourceName } from "../source.js";
+import { Loader, LoaderName } from '../loader.js'
+import type { SourceName } from '../source.js'
 import type { EntityId } from "../core-id-types.js";
 
 // ============================================================================
@@ -67,7 +67,7 @@ describe("SourcePage", () => {
 
 describe("Source.paginated", () => {
   test("creates a source with correct properties", () => {
-    const source = Source.paginated({
+    const source = Loader.paginatedSource({
       name: "test:repo:issues-page" as SourceName,
       context: TestContext,
       parent: TestRepo,
@@ -83,7 +83,7 @@ describe("Source.paginated", () => {
   });
 
   test("fetch() delegates to the provided function", async () => {
-    const source = Source.paginated({
+    const source = Loader.paginatedSource({
       name: "test:issues" as SourceName,
       context: TestContext,
       parent: TestRepo,
@@ -111,7 +111,7 @@ describe("Source.paginated", () => {
 
 describe("Source.single", () => {
   test("creates a source with correct properties", () => {
-    const source = Source.single({
+    const source = Loader.singleSource({
       name: "test:user:detail" as SourceName,
       context: TestContext,
       parent: TestUser,
@@ -127,7 +127,7 @@ describe("Source.single", () => {
   });
 
   test("fetch() delegates to the provided function", async () => {
-    const source = Source.single({
+    const source = Loader.singleSource({
       name: "test:user:detail" as SourceName,
       context: TestContext,
       parent: TestUser,
@@ -155,7 +155,7 @@ interface IssuesPageData {
 
 describe("Source.derive()", () => {
   function makeIssuesSource() {
-    return Source.paginated({
+    return Loader.paginatedSource({
       name: "test:repo:issues-page" as SourceName,
       context: TestContext,
       parent: TestRepo,
@@ -167,7 +167,7 @@ describe("Source.derive()", () => {
 
   test("creates a derivation with correct properties", () => {
     const source = makeIssuesSource();
-    const derivation = Source.deriveEntities(source, {
+    const derivation = Loader.deriveEntities(source, {
       name: "test:repo:issues" as LoaderName,
       target: TestIssue,
       extract(data) {
@@ -183,14 +183,13 @@ describe("Source.derive()", () => {
     expect(derivation.parent).toBe(TestRepo);
     expect(derivation.source).toBe(source);
     expect(derivation.strategy).toBe("autoload");
-    expect(derivation.dependsOn).toEqual([]);
     expect(derivation.context).toBe(TestContext);
   });
 
   test("source is not mutated by derive", () => {
     const source = makeIssuesSource();
 
-    Source.deriveEntities(source, {
+    Loader.deriveEntities(source, {
       name: "test:issues" as LoaderName,
       target: TestIssue,
       extract: () => [],
@@ -204,13 +203,13 @@ describe("Source.derive()", () => {
   test("multiple derivations reference the same source", () => {
     const source = makeIssuesSource();
 
-    const d1 = Source.deriveEntities(source, {
+    const d1 = Loader.deriveEntities(source, {
       name: "test:issues" as LoaderName,
       target: TestIssue,
       extract: () => [],
     });
 
-    const d2 = Source.deriveEntities(source, {
+    const d2 = Loader.deriveEntities(source, {
       name: "test:issue-authors" as LoaderName,
       target: TestUser,
       extract: () => [],
@@ -223,7 +222,7 @@ describe("Source.derive()", () => {
 
   test("extract() transforms source data into EntityInputs", () => {
     const source = makeIssuesSource();
-    const derivation = Source.deriveEntities(source, {
+    const derivation = Loader.deriveEntities(source, {
       name: "test:issues" as LoaderName,
       target: TestIssue,
       extract(data) {
@@ -250,7 +249,7 @@ describe("Source.derive()", () => {
 
   test("field() returns a valid FieldAssignment", () => {
     const source = makeIssuesSource();
-    const derivation = Source.deriveEntities(source, {
+    const derivation = Loader.deriveEntities(source, {
       name: "test:issues" as LoaderName,
       target: TestIssue,
       extract: () => [],
@@ -272,7 +271,7 @@ describe("Source.derive()", () => {
 
 describe("SingleSource derive()", () => {
   test("creates derivations on a single source", () => {
-    const source = Source.single({
+    const source = Loader.singleSource({
       name: "test:user:detail" as SourceName,
       context: TestContext,
       parent: TestUser,
@@ -281,7 +280,7 @@ describe("SingleSource derive()", () => {
       },
     });
 
-    const derivation = Source.deriveEntities(source, {
+    const derivation = Loader.deriveEntities(source, {
       name: "test:user:profile" as LoaderName,
       target: TestUser,
       extract(data) {

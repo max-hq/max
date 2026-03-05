@@ -7,10 +7,7 @@
 import {
   MaxError,
   NotFound,
-  NotImplemented,
-  InvariantViolated,
   HasEntityField,
-  HasLoaderName,
   HasEntityType,
   ErrFacet
 } from "@max/core";
@@ -50,14 +47,3 @@ export const ErrTaskNotFound = Execution.define("task_not_found", {
   message: (d) => `Task not found: ${d.taskId}`,
 });
 
-/** Loader has dependencies but dependency resolution is not yet supported */
-export const ErrLoaderDepsNotSupported = Execution.define("loader_deps_not_supported", {
-  facets: [NotImplemented, HasLoaderName],
-  message: (d) => `Loader "${d.loaderName}" has dependencies, but loader dependency resolution is not yet supported`,
-});
-
-/** Loader dependency results not available */
-export const ErrNoDepsAvailable = Execution.define("no_deps_available", {
-  facets: [InvariantViolated, HasLoaderName],
-  message: (d) => `No deps available: ${d.loaderName}`,
-});

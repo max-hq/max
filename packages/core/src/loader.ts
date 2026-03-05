@@ -1,26 +1,23 @@
 /**
  * Loader - Units of execution that fetch data from external APIs.
  *
- * Four loader types:
+ * Three loader types:
  * - EntityLoader: Single ref → EntityInput<E>
  * - EntityLoaderBatched: Multiple refs → Batch<EntityInput<E>, Ref<E>>
  * - CollectionLoader: Parent ref → Page<EntityInput<TTarget>>
- * - RawLoader: No ref → TData (for config, metadata, etc.)
  *
  * @example
  * const UserLoader = Loader.entity({
  *   name: "acme:user:basic",
  *   context: AcmeContext,
  *   entity: AcmeUser,
- *   async load(ref, ctx, deps) {
+ *   async load(ref, ctx) {
  *     const user = await ctx.api.users.get(ref.id);
  *     return EntityInput.create(ref, { name: user.name, email: user.email });
  *   }
  * });
  */
 
-import {StaticTypeCompanion} from "./companion.js";
-import {ErrLoaderResultNotAvailable} from "./errors/errors.js";
 import type {Id} from "./brand.js";
 import type {EntityDefAny} from "./entity-def.js";
 import type {EntityInput} from "./entity-input.js";
@@ -29,7 +26,18 @@ import type {Page, PageRequest} from "./pagination.js";
 import type {Batch} from "./batch.js";
 import type {ContextDefAny, InferContext} from "./context-def.js";
 import {ClassOf} from "./type-system-utils.js";
-import type {SourceDerivationAny} from "./source.js";
+import {
+  PaginatedSource,
+  PaginatedSourceImpl,
+  SingleSource,
+  SingleSourceImpl,
+  DerivedEntityLoader,
+  DerivedEntityLoaderAny,
+  DerivedEntityLoaderImpl,
+  SourceName,
+  SourcePage,
+} from './source.js'
+import {StaticTypeCompanion} from "./companion.js";
 
 // ============================================================================
 // Branded Types
@@ -53,57 +61,6 @@ export type LoaderName = Id<"loader-name">;
 export type LoaderStrategy = "autoload" | "manual";
 
 // ============================================================================
-// LoaderResults - Typed access to dependency results
-// ============================================================================
-
-/**
- * LoaderResults provides typed access to results from dependency loaders.
- */
-export interface LoaderResults {
-  /**
-   * Get the result of a raw loader, or undefined if not available.
-   */
-  get<TData>(loader: RawLoader<TData, ContextDefAny>): TData | undefined;
-
-  /**
-   * Get the result of a raw loader, or throw if not available.
-   */
-  getOrThrow<TData>(loader: RawLoader<TData, ContextDefAny>): TData;
-
-  /**
-   * Check if a loader's result is available.
-   */
-  has(loader: LoaderAny): boolean;
-}
-
-/**
- * Implementation of LoaderResults.
- */
-export class LoaderResultsImpl implements LoaderResults {
-  private results = new Map<LoaderAny, unknown>();
-
-  set<T>(loader: LoaderAny, result: T): void {
-    this.results.set(loader, result);
-  }
-
-  get<TData>(loader: RawLoader<TData, ContextDefAny>): TData | undefined {
-    return this.results.get(loader) as TData | undefined;
-  }
-
-  getOrThrow<TData>(loader: RawLoader<TData, ContextDefAny>): TData {
-    const result = this.get(loader);
-    if (result === undefined) {
-      throw ErrLoaderResultNotAvailable.create({ loaderName: loader.name });
-    }
-    return result;
-  }
-
-  has(loader: LoaderAny): boolean {
-    return this.results.has(loader);
-  }
-}
-
-// ============================================================================
 // Field Assignment (for Resolver.for syntax)
 // ============================================================================
 
@@ -124,17 +81,20 @@ export interface FieldAssignment<E extends EntityDefAny = EntityDefAny> {
  * Common properties for all loader types.
  */
 export interface BaseLoader<TContext extends ContextDefAny = ContextDefAny> {
+  /** Loader kind discriminant */
+  readonly kind: string;
+
   /** Unique name for this loader */
   readonly name: LoaderName;
 
   /** When to run: "autoload" (default) or "manual" */
   readonly strategy: LoaderStrategy;
 
-  /** Loaders that must run before this one */
-  readonly dependsOn: readonly LoaderAny[];
-
   /** Context class (not instance) */
   readonly context: ClassOf<TContext>;
+
+  /** Create a field assignment for use in Resolver.for(). */
+  field(sourceField?: string): FieldAssignment;
 }
 
 // ============================================================================
@@ -159,7 +119,6 @@ export interface EntityLoader<
   load(
     ref: Ref<E>,
     ctx: InferContext<TContext>,
-    deps: LoaderResults
   ): Promise<EntityInput<E>>;
 
   /**
@@ -169,15 +128,15 @@ export interface EntityLoader<
 }
 
 // ============================================================================
-// EntityLoaderBatched - Multiple refs, returns Batch
+// BatchedEntityLoader - Multiple refs, returns Batch
 // ============================================================================
 
 /**
- * EntityLoaderBatched<E, TContext> - Loads fields for multiple entities.
+ * BatchedEntityLoader<E, TContext> - Loads fields for multiple entities.
  *
  * Returns Batch<EntityInput<E>, Ref<E>> for efficient bulk operations.
  */
-export interface EntityLoaderBatched<
+export interface BatchedEntityLoader<
   E extends EntityDefAny = EntityDefAny,
   TContext extends ContextDefAny = ContextDefAny
 > extends BaseLoader<TContext> {
@@ -190,7 +149,6 @@ export interface EntityLoaderBatched<
   load(
     refs: readonly Ref<E>[],
     ctx: InferContext<TContext>,
-    deps: LoaderResults
   ): Promise<Batch<EntityInput<E>, Ref<E>>>;
 
   /**
@@ -228,37 +186,12 @@ export interface CollectionLoader<
     ref: Ref<E>,
     page: PageRequest,
     ctx: InferContext<TContext>,
-    deps: LoaderResults
   ): Promise<Page<EntityInput<TTarget>>>;
 
   /**
    * Create a field assignment for use in Resolver.for().
    */
   field(sourceField?: string): FieldAssignment<E>;
-}
-
-// ============================================================================
-// RawLoader - Returns arbitrary data
-// ============================================================================
-
-/**
- * RawLoader<TData, TContext> - Loads arbitrary data (config, metadata, etc.)
- *
- * Not tied to any entity. Useful for data that other loaders depend on.
- */
-export interface RawLoader<
-  TData = unknown,
-  TContext extends ContextDefAny = ContextDefAny
-> extends BaseLoader<TContext> {
-  readonly kind: "raw";
-
-  /**
-   * Load raw data.
-   */
-  load(
-    ctx: InferContext<TContext>,
-    deps: LoaderResults
-  ): Promise<TData>;
 }
 
 // ============================================================================
@@ -270,21 +203,20 @@ export interface RawLoader<
  */
 export type Loader<TContext extends ContextDefAny = ContextDefAny> =
   | EntityLoader<EntityDefAny, TContext>
-  | EntityLoaderBatched<EntityDefAny, TContext>
-  | CollectionLoader<EntityDefAny, EntityDefAny, TContext>
-  | RawLoader<unknown, TContext>;
+  | BatchedEntityLoader<EntityDefAny, TContext>
+  | CollectionLoader<EntityDefAny, EntityDefAny, TContext>;
 
 /**
  * Any loader type (fully erased).
- * Includes SourceDerivation (kind: "derivation") alongside the four loader variants.
+ * Includes DerivedEntityLoader (kind: "derivation") alongside the three loader variants.
  */
-export type LoaderAny = Loader<ContextDefAny> | SourceDerivationAny;
+export type LoaderAny = Loader | DerivedEntityLoaderAny;
 
 // ============================================================================
 // Loader Implementation
 // ============================================================================
 
-class EntityLoaderImpl<E extends EntityDefAny, TContext extends ContextDefAny>
+export class EntityLoaderImpl<E extends EntityDefAny, TContext extends ContextDefAny>
   implements EntityLoader<E, TContext>
 {
   readonly kind = "entity" as const;
@@ -294,20 +226,17 @@ class EntityLoaderImpl<E extends EntityDefAny, TContext extends ContextDefAny>
     readonly context: ClassOf<TContext>,
     readonly entity: E,
     readonly strategy: LoaderStrategy,
-    readonly dependsOn: readonly LoaderAny[],
     private loadFn: (
       ref: Ref<E>,
       ctx: InferContext<TContext>,
-      deps: LoaderResults
     ) => Promise<EntityInput<E>>
   ) {}
 
   load(
     ref: Ref<E>,
     ctx: InferContext<TContext>,
-    deps: LoaderResults
   ): Promise<EntityInput<E>> {
-    return this.loadFn(ref, ctx, deps);
+    return this.loadFn(ref, ctx);
   }
 
   field(sourceField?: string): FieldAssignment<E> {
@@ -315,8 +244,8 @@ class EntityLoaderImpl<E extends EntityDefAny, TContext extends ContextDefAny>
   }
 }
 
-class EntityLoaderBatchedImpl<E extends EntityDefAny, TContext extends ContextDefAny>
-  implements EntityLoaderBatched<E, TContext>
+export class BatchedEntityLoaderImpl<E extends EntityDefAny, TContext extends ContextDefAny>
+  implements BatchedEntityLoader<E, TContext>
 {
   readonly kind = "entityBatched" as const;
 
@@ -325,20 +254,17 @@ class EntityLoaderBatchedImpl<E extends EntityDefAny, TContext extends ContextDe
     readonly context: ClassOf<TContext>,
     readonly entity: E,
     readonly strategy: LoaderStrategy,
-    readonly dependsOn: readonly LoaderAny[],
     private loadFn: (
       refs: readonly Ref<E>[],
       ctx: InferContext<TContext>,
-      deps: LoaderResults
     ) => Promise<Batch<EntityInput<E>, Ref<E>>>
   ) {}
 
   load(
     refs: readonly Ref<E>[],
     ctx: InferContext<TContext>,
-    deps: LoaderResults
   ): Promise<Batch<EntityInput<E>, Ref<E>>> {
-    return this.loadFn(refs, ctx, deps);
+    return this.loadFn(refs, ctx);
   }
 
   field(sourceField?: string): FieldAssignment<E> {
@@ -346,7 +272,7 @@ class EntityLoaderBatchedImpl<E extends EntityDefAny, TContext extends ContextDe
   }
 }
 
-class CollectionLoaderImpl<
+export class CollectionLoaderImpl<
   E extends EntityDefAny,
   TTarget extends EntityDefAny,
   TContext extends ContextDefAny
@@ -360,12 +286,10 @@ class CollectionLoaderImpl<
     readonly entity: E,
     readonly target: TTarget,
     readonly strategy: LoaderStrategy,
-    readonly dependsOn: readonly LoaderAny[],
     private loadFn: (
       ref: Ref<E>,
       page: PageRequest,
       ctx: InferContext<TContext>,
-      deps: LoaderResults
     ) => Promise<Page<EntityInput<TTarget>>>
   ) {}
 
@@ -373,9 +297,8 @@ class CollectionLoaderImpl<
     ref: Ref<E>,
     page: PageRequest,
     ctx: InferContext<TContext>,
-    deps: LoaderResults
   ): Promise<Page<EntityInput<TTarget>>> {
-    return this.loadFn(ref, page, ctx, deps);
+    return this.loadFn(ref, page, ctx);
   }
 
   field(sourceField?: string): FieldAssignment<E> {
@@ -384,33 +307,77 @@ class CollectionLoaderImpl<
 }
 
 
-
-class RawLoaderImpl<TData, TContext extends ContextDefAny>
-  implements RawLoader<TData, TContext>
-{
-  readonly kind = "raw" as const;
-
-  constructor(
-    readonly name: LoaderName,
-    readonly context: ClassOf<TContext>,
-    readonly strategy: LoaderStrategy,
-    readonly dependsOn: readonly LoaderAny[],
-    private loadFn: (
-      ctx: InferContext<TContext>,
-      deps: LoaderResults
-    ) => Promise<TData>
-  ) {}
-
-  load(ctx: InferContext<TContext>, deps: LoaderResults): Promise<TData> {
-    return this.loadFn(ctx, deps);
-  }
-}
-
 // ============================================================================
 // Loader Static Companion
 // ============================================================================
 
 export const Loader = StaticTypeCompanion({
+  /**
+   * Create a paginated source.
+   */
+  paginatedSource<TData, TParent extends EntityDefAny, TContext extends ContextDefAny>(config: {
+    name: SourceName;
+    context: ClassOf<TContext>;
+    parent: TParent;
+    fetch: (
+      ref: Ref<TParent>,
+      page: PageRequest,
+      ctx: InferContext<TContext>,
+    ) => Promise<SourcePage<TData>>;
+  }): PaginatedSource<TData, TParent, TContext> {
+    return new PaginatedSourceImpl(
+      config.name,
+      config.context,
+      config.parent,
+      config.fetch,
+    );
+  },
+
+  /**
+   * Create a single-fetch source.
+   */
+  singleSource<TData, TParent extends EntityDefAny, TContext extends ContextDefAny>(config: {
+    name: SourceName;
+    context: ClassOf<TContext>;
+    parent: TParent;
+    fetch: (
+      ref: Ref<TParent>,
+      ctx: InferContext<TContext>,
+    ) => Promise<TData>;
+  }): SingleSource<TData, TParent, TContext> {
+    return new SingleSourceImpl(
+      config.name,
+      config.context,
+      config.parent,
+      config.fetch,
+    );
+  },
+
+  /**
+   * Creates a DerivedEntityLoader that produces entities of the given type from the target input Source
+   */
+  deriveEntities<
+    TData,
+    TParent extends EntityDefAny,
+    TTarget extends EntityDefAny,
+  >(
+    source: PaginatedSource<TData, TParent, any> | SingleSource<TData, TParent, any>,
+    config: {
+      name: LoaderName;
+      target: TTarget;
+      extract: (data: TData) => EntityInput<TTarget>[];
+    },
+  ): DerivedEntityLoader<TData, TTarget, TParent> {
+    return new DerivedEntityLoaderImpl(
+      source,
+      config.name,
+      config.target,
+      source.parent,
+      source.context,
+      config.extract,
+    );
+  },
+
   /**
    * Create an entity loader (single ref).
    */
@@ -419,11 +386,9 @@ export const Loader = StaticTypeCompanion({
     context: ClassOf<TContext>;
     entity: E;
     strategy?: LoaderStrategy;
-    dependsOn?: readonly LoaderAny[];
     load: (
       ref: Ref<E>,
       ctx: InferContext<TContext>,
-      deps: LoaderResults
     ) => Promise<EntityInput<E>>;
   }): EntityLoader<E, TContext> {
     return new EntityLoaderImpl(
@@ -431,8 +396,7 @@ export const Loader = StaticTypeCompanion({
       config.context,
       config.entity,
       config.strategy ?? "autoload",
-      config.dependsOn ?? [],
-      config.load
+      config.load,
     );
   },
 
@@ -444,20 +408,17 @@ export const Loader = StaticTypeCompanion({
     context: ClassOf<TContext>;
     entity: E;
     strategy?: LoaderStrategy;
-    dependsOn?: readonly LoaderAny[];
     load: (
       refs: readonly Ref<E>[],
       ctx: InferContext<TContext>,
-      deps: LoaderResults
     ) => Promise<Batch<EntityInput<E>, Ref<E>>>;
-  }): EntityLoaderBatched<E, TContext> {
-    return new EntityLoaderBatchedImpl(
+  }): BatchedEntityLoader<E, TContext> {
+    return new BatchedEntityLoaderImpl(
       config.name,
       config.context,
       config.entity,
       config.strategy ?? "autoload",
-      config.dependsOn ?? [],
-      config.load
+      config.load,
     );
   },
 
@@ -474,12 +435,10 @@ export const Loader = StaticTypeCompanion({
     entity: E;
     target: TTarget;
     strategy?: LoaderStrategy;
-    dependsOn?: readonly LoaderAny[];
     load: (
       ref: Ref<E>,
       page: PageRequest,
       ctx: InferContext<TContext>,
-      deps: LoaderResults
     ) => Promise<Page<EntityInput<TTarget>>>;
   }): CollectionLoader<E, TTarget, TContext> {
     return new CollectionLoaderImpl(
@@ -488,30 +447,7 @@ export const Loader = StaticTypeCompanion({
       config.entity,
       config.target,
       config.strategy ?? "autoload",
-      config.dependsOn ?? [],
-      config.load
-    );
-  },
-
-  /**
-   * Create a raw loader (arbitrary data).
-   */
-  raw<TData, TContext extends ContextDefAny>(config: {
-    name: LoaderName;
-    context: ClassOf<TContext>;
-    strategy?: LoaderStrategy;
-    dependsOn?: readonly LoaderAny[];
-    load: (
-      ctx: InferContext<TContext>,
-      deps: LoaderResults
-    ) => Promise<TData>;
-  }): RawLoader<TData, TContext> {
-    return new RawLoaderImpl(
-      config.name,
-      config.context,
-      config.strategy ?? "autoload",
-      config.dependsOn ?? [],
-      config.load
+      config.load,
     );
   },
 });

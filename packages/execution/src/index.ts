@@ -52,4 +52,4 @@ export type { SyncExecutorConfig } from "./sync-executor.js";
 export type { SyncObserver, SyncProgressEvent } from "./sync-observer.js";
 
 // Errors
-export { Execution, ErrUnknownEntityType, ErrNoResolver, ErrNoCollectionLoader, ErrTaskNotFound, ErrLoaderDepsNotSupported, ErrNoDepsAvailable } from "./errors.js";
+export { Execution, ErrUnknownEntityType, ErrNoResolver, ErrNoCollectionLoader, ErrTaskNotFound } from "./errors.js";

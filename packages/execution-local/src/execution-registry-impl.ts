@@ -13,7 +13,7 @@ import type {
   LoaderAny,
   ResolverAny,
   SourceAny,
-  SourceDerivationAny,
+  DerivedEntityLoaderAny,
 } from "@max/core";
 import type {ExecutionRegistry} from "@max/execution";
 
@@ -25,7 +25,7 @@ export class ExecutionRegistryImpl implements ExecutionRegistry {
   private entities = new Map<EntityType, EntityDefAny>();
   private loaders = new Map<LoaderName, LoaderAny>();
   private resolversByEntity = new Map<EntityType, ResolverAny>();
-  private derivationsBySource = new Map<SourceAny, SourceDerivationAny[]>();
+  private derivationsBySource = new Map<SourceAny, DerivedEntityLoaderAny[]>();
 
   constructor(readonly resolvers: readonly ResolverAny[]) {
     for (const resolver of resolvers) {
@@ -57,7 +57,7 @@ export class ExecutionRegistryImpl implements ExecutionRegistry {
     return this.resolversByEntity.get(entityType);
   }
 
-  getCoDerivations(derivation: SourceDerivationAny): readonly SourceDerivationAny[] {
+  getCoDerivations(derivation: DerivedEntityLoaderAny): readonly DerivedEntityLoaderAny[] {
     return this.derivationsBySource.get(derivation.source) ?? [derivation];
   }
 }

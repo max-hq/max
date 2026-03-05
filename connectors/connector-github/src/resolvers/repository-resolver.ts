@@ -10,10 +10,9 @@
  */
 
 import {
-  Loader,
   Resolver,
   EntityInput,
-  Source,
+  Loader,
   SourcePage,
   type LoaderName,
   type SourceName,
@@ -97,7 +96,7 @@ const ISSUES_QUERY = `query($owner: String!, $repo: String!, $cursor: String) {
   }
 }`;
 
-const IssuesPageSource = Source.paginated({
+const IssuesPageSource = Loader.paginatedSource({
   name: "github:repo:issues-page" as SourceName,
   context: GitHubContext,
   parent: GitHubRepository,
@@ -114,7 +113,7 @@ const IssuesPageSource = Source.paginated({
 });
 
 /** Primary derivation: extract issues from each page. */
-export const RepoIssuesLoader = Source.deriveEntities(IssuesPageSource, {
+export const RepoIssuesLoader = Loader.deriveEntities(IssuesPageSource, {
   name: "github:repo:issues" as LoaderName,
   target: GitHubIssue,
 
@@ -135,7 +134,7 @@ export const RepoIssuesLoader = Source.deriveEntities(IssuesPageSource, {
 });
 
 /** Co-derivation: extract unique users from inline author data. */
-export const IssueAuthorsLoader = Source.deriveEntities(IssuesPageSource, {
+export const IssueAuthorsLoader = Loader.deriveEntities(IssuesPageSource, {
   name: "github:repo:issue-authors" as LoaderName,
   target: GitHubUser,
 

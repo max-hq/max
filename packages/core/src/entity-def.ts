@@ -3,7 +3,7 @@
  */
 
 import type { FieldDefinitions } from "./field.js";
-import { type Ref, Ref as RefStatic, type LocalRef } from "./ref.js";
+import { Ref, type LocalRef } from "./ref.js";
 import type { Scope, InstallationScope } from "./scope.js";
 import {StaticTypeCompanion} from "./companion.js";
 import {EntityId, EntityType} from "./core-id-types.js";
@@ -43,9 +43,9 @@ class EntityDefImpl<T extends FieldDefinitions> implements EntityDef<T> {
   ref<S extends Scope>(id: EntityId, scope: S): Ref<this, S>;
   ref<S extends Scope>(id: EntityId, scope?: S): Ref<this, S | InstallationScope> {
     if (scope) {
-      return RefStatic.create(this, id, scope);
+      return Ref.create(this, id, scope);
     }
-    return RefStatic.installation(this, id);
+    return Ref.installation(this, id);
   }
 }
 

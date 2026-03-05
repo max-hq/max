@@ -22,7 +22,7 @@ export const RootWorkspacesLoader = Loader.collection({
   entity: AcmeRoot,
   target: AcmeWorkspace,
 
-  async load(ref, page, ctx, deps) {
+  async load(ref, page, ctx) {
     const workspaces = await ctx.api.client.listWorkspaces();
     const items = workspaces.map((ws) =>
       EntityInput.create(AcmeWorkspace.ref(ws.id), {}),

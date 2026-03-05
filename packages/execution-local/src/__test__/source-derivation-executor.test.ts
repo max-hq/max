@@ -13,7 +13,6 @@ import {
   EntityInput,
   Field,
   Fields,
-  Loader,
   NoOpFlowController,
   Page,
   PageRequest,
@@ -21,7 +20,7 @@ import {
   Resolver,
   Schema,
   Seeder,
-  Source,
+  Loader,
   SourcePage,
   Step,
   SyncPlan,
@@ -92,7 +91,7 @@ class TestContext extends Context {
 // Source + Derivations
 // ============================================================================
 
-const IssuesPageSource = Source.paginated({
+const IssuesPageSource = Loader.paginatedSource({
   name: "test:repo:issues-page" as SourceName,
   context: TestContext,
   parent: TestRepo,
@@ -104,7 +103,7 @@ const IssuesPageSource = Source.paginated({
 });
 
 // Primary derivation: extract issues
-const RepoIssuesLoader = Source.deriveEntities(IssuesPageSource, {
+const RepoIssuesLoader = Loader.deriveEntities(IssuesPageSource, {
   name: "test:repo:issues" as LoaderName,
   target: TestIssue,
   extract(data) {
@@ -119,7 +118,7 @@ const RepoIssuesLoader = Source.deriveEntities(IssuesPageSource, {
 });
 
 // Co-derivation: extract users discovered in issues
-const IssueAuthorsLoader = Source.deriveEntities(IssuesPageSource, {
+const IssueAuthorsLoader = Loader.deriveEntities(IssuesPageSource, {
   name: "test:repo:issue-authors" as LoaderName,
   target: TestUser,
   extract(data) {

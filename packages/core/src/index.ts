@@ -110,29 +110,25 @@ export type {
   InstanceTypeDesc,
 } from "./context-def.js";
 
-// Loader (Loader is both type and value)
-export { Loader, LoaderResultsImpl } from "./loader.js";
+// Loader types
 export type {
   LoaderName,
   LoaderStrategy,
-  LoaderResults,
   FieldAssignment,
-  BaseLoader,
   EntityLoader,
-  EntityLoaderBatched,
+  BatchedEntityLoader,
   CollectionLoader,
-  RawLoader,
   LoaderAny,
 } from "./loader.js";
+export { Loader } from './loader.js'
 
-// Source (Source and SourcePage are both type and value)
-export { Source, SourcePage } from "./source.js";
+export { SourcePage } from "./source.js";
 export type {
   SourceName,
   PaginatedSource,
   SingleSource,
-  SourceDerivation,
-  SourceDerivationAny,
+  DerivedEntityLoader,
+  DerivedEntityLoaderAny,
   SourceAny,
 } from "./source.js";
 

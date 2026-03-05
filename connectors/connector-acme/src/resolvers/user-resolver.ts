@@ -21,7 +21,7 @@ export const UserBasicLoader = Loader.entity({
   entity: AcmeUser,
   strategy: "autoload",
 
-  async load(ref, ctx, deps) {
+  async load(ref, ctx) {
     const user = await ctx.api.client.getUser(ref.id);
     return EntityInput.create(ref, {
       displayName: user.displayName,

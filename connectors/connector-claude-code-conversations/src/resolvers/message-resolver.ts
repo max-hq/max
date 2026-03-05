@@ -16,6 +16,7 @@ import {
 import { Message, Session } from "../entities.js";
 import { CCConversationsContext } from "../context.js";
 import { parseMessageId, sessionId } from "../claude-client.js";
+import { ErrMessageNotFound } from "../errors.js";
 
 // ============================================================================
 // Loaders
@@ -32,7 +33,7 @@ export const MessageBasicLoader = Loader.entity({
     const msg = await ctx.client.getMessage(projectDir, sessionUuid, messageUuid);
 
     if (!msg) {
-      throw new Error(`Message not found: ${ref.id}`);
+      throw ErrMessageNotFound.create({ messageId: ref.id });
     }
 
     return EntityInput.create(ref, {

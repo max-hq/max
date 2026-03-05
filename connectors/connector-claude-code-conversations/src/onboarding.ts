@@ -10,6 +10,7 @@ import { stat } from "node:fs/promises";
 import { join } from "node:path";
 import { OnboardingFlow, InputStep, ValidationStep } from "@max/connector";
 import type { CCConversationsConfig } from "./config.js";
+import { ErrInvalidClaudeDir } from "./errors.js";
 
 const DEFAULT_CLAUDE_DIR = join(homedir(), ".claude");
 
@@ -34,7 +35,7 @@ export const ConversationsOnboarding = OnboardingFlow.create<CCConversationsConf
       const projectsDir = join(claudeDir, "projects");
       const s = await stat(projectsDir);
       if (!s.isDirectory()) {
-        throw new Error(`${projectsDir} is not a directory`);
+        throw ErrInvalidClaudeDir.create({ path: projectsDir });
       }
     },
   }),

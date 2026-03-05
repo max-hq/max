@@ -168,7 +168,7 @@ describe("Source.derive()", () => {
   test("creates a derivation with correct properties", () => {
     const source = makeIssuesSource();
     const derivation = Loader.deriveEntities(source, {
-      name: "test:repo:issues" as LoaderName,
+      name: "test:repo:issues",
       target: TestIssue,
       extract(data) {
         return data.issues.map((i: any) =>
@@ -190,7 +190,7 @@ describe("Source.derive()", () => {
     const source = makeIssuesSource();
 
     Loader.deriveEntities(source, {
-      name: "test:issues" as LoaderName,
+      name: "test:issues",
       target: TestIssue,
       extract: () => [],
     });
@@ -204,13 +204,13 @@ describe("Source.derive()", () => {
     const source = makeIssuesSource();
 
     const d1 = Loader.deriveEntities(source, {
-      name: "test:issues" as LoaderName,
+      name: "test:issues",
       target: TestIssue,
       extract: () => [],
     });
 
     const d2 = Loader.deriveEntities(source, {
-      name: "test:issue-authors" as LoaderName,
+      name: "test:issue-authors",
       target: TestUser,
       extract: () => [],
     });
@@ -223,7 +223,7 @@ describe("Source.derive()", () => {
   test("extract() transforms source data into EntityInputs", () => {
     const source = makeIssuesSource();
     const derivation = Loader.deriveEntities(source, {
-      name: "test:issues" as LoaderName,
+      name: "test:issues",
       target: TestIssue,
       extract(data) {
         return data.issues.map((i: any) =>
@@ -250,7 +250,7 @@ describe("Source.derive()", () => {
   test("field() returns a valid FieldAssignment", () => {
     const source = makeIssuesSource();
     const derivation = Loader.deriveEntities(source, {
-      name: "test:issues" as LoaderName,
+      name: "test:issues",
       target: TestIssue,
       extract: () => [],
     });
@@ -281,7 +281,7 @@ describe("SingleSource derive()", () => {
     });
 
     const derivation = Loader.deriveEntities(source, {
-      name: "test:user:profile" as LoaderName,
+      name: "test:user:profile",
       target: TestUser,
       extract(data) {
         return [EntityInput.create(TestUser.ref("u-1" as EntityId), { name: data.name, login: "alice" })];

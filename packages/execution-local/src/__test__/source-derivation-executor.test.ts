@@ -104,7 +104,7 @@ const IssuesPageSource = Loader.paginatedSource({
 
 // Primary derivation: extract issues
 const RepoIssuesLoader = Loader.deriveEntities(IssuesPageSource, {
-  name: "test:repo:issues" as LoaderName,
+  name: "test:repo:issues",
   target: TestIssue,
   extract(data) {
     return data.issues.map((i) =>
@@ -119,7 +119,7 @@ const RepoIssuesLoader = Loader.deriveEntities(IssuesPageSource, {
 
 // Co-derivation: extract users discovered in issues
 const IssueAuthorsLoader = Loader.deriveEntities(IssuesPageSource, {
-  name: "test:repo:issue-authors" as LoaderName,
+  name: "test:repo:issue-authors",
   target: TestUser,
   extract(data) {
     const seen = new Set<string>();
@@ -142,7 +142,7 @@ const IssueAuthorsLoader = Loader.deriveEntities(IssuesPageSource, {
 // Standalone loaders for root and repo basics
 
 const RootReposLoaderClean = Loader.collection({
-  name: "test:root:repos" as LoaderName,
+  name: "test:root:repos",
   context: TestContext,
   entity: TestRoot,
   target: TestRepo,
@@ -155,7 +155,7 @@ const RootReposLoaderClean = Loader.collection({
 });
 
 const RepoBasicLoader = Loader.entity({
-  name: "test:repo:basic" as LoaderName,
+  name: "test:repo:basic",
   context: TestContext,
   entity: TestRepo,
   async load(ref, _ctx) {
@@ -165,7 +165,7 @@ const RepoBasicLoader = Loader.entity({
 
 // Canonical user loader (fallback, not used in this test's sync plan)
 const UserBasicLoader = Loader.entity({
-  name: "test:user:basic" as LoaderName,
+  name: "test:user:basic",
   context: TestContext,
   entity: TestUser,
   async load(ref, _ctx) {
@@ -175,7 +175,7 @@ const UserBasicLoader = Loader.entity({
 
 // Issue basic loader (fallback)
 const IssueBasicLoader = Loader.entity({
-  name: "test:issue:basic" as LoaderName,
+  name: "test:issue:basic",
   context: TestContext,
   entity: TestIssue,
   async load(ref, _ctx) {

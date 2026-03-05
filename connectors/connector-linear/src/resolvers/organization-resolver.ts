@@ -72,7 +72,7 @@ interface ProjectsResponse {
 // ============================================================================
 
 export const OrgBasicLoader = Loader.entity({
-  name: "linear:org:basic" as LoaderName,
+  name: "linear:org:basic",
   context: LinearContext,
   entity: LinearOrganization,
 
@@ -88,7 +88,7 @@ export const OrgBasicLoader = Loader.entity({
 });
 
 export const OrgTeamsLoader = Loader.collection({
-  name: "linear:org:teams" as LoaderName,
+  name: "linear:org:teams",
   context: LinearContext,
   entity: LinearOrganization,
   target: LinearTeam,
@@ -115,7 +115,7 @@ export const OrgTeamsLoader = Loader.collection({
 });
 
 export const OrgUsersLoader = Loader.collection({
-  name: "linear:org:users" as LoaderName,
+  name: "linear:org:users",
   context: LinearContext,
   entity: LinearOrganization,
   target: LinearUser,
@@ -144,7 +144,7 @@ export const OrgUsersLoader = Loader.collection({
 });
 
 export const OrgProjectsLoader = Loader.collection({
-  name: "linear:org:projects" as LoaderName,
+  name: "linear:org:projects",
   context: LinearContext,
   entity: LinearOrganization,
   target: LinearProject,

@@ -23,7 +23,7 @@ import { ErrMessageNotFound } from "../errors.js";
 // ============================================================================
 
 export const MessageBasicLoader = Loader.entity({
-  name: "conversations:message:basic" as LoaderName,
+  name: "conversations:message:basic",
   context: CCConversationsContext,
   entity: Message,
   strategy: "autoload",

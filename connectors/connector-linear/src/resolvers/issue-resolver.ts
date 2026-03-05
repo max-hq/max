@@ -36,7 +36,7 @@ interface IssueResponse {
 // ============================================================================
 
 export const IssueBasicLoader = Loader.entity({
-  name: "linear:issue:basic" as LoaderName,
+  name: "linear:issue:basic",
   context: LinearContext,
   entity: LinearIssue,
   strategy: "autoload",

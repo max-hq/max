@@ -17,7 +17,7 @@ import { AcmeAppContext } from "../context.js";
 // ============================================================================
 
 export const ProjectBasicLoader = Loader.entity({
-  name: "acme:project:basic" as LoaderName,
+  name: "acme:project:basic",
   context: AcmeAppContext,
   entity: AcmeProject,
 
@@ -33,7 +33,7 @@ export const ProjectBasicLoader = Loader.entity({
 });
 
 export const ProjectTasksLoader = Loader.collection({
-  name: "acme:project:tasks" as LoaderName,
+  name: "acme:project:tasks",
   context: AcmeAppContext,
   entity: AcmeProject,
   target: AcmeTask,

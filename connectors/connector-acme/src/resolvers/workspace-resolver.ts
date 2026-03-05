@@ -17,7 +17,7 @@ import { AcmeAppContext } from "../context.js";
 // ============================================================================
 
 export const WorkspaceBasicLoader = Loader.entity({
-  name: "acme:workspace:basic" as LoaderName,
+  name: "acme:workspace:basic",
   context: AcmeAppContext,
   entity: AcmeWorkspace,
 
@@ -30,7 +30,7 @@ export const WorkspaceBasicLoader = Loader.entity({
 });
 
 export const WorkspaceUsersLoader = Loader.collection({
-  name: "acme:workspace:users" as LoaderName,
+  name: "acme:workspace:users",
   context: AcmeAppContext,
   entity: AcmeWorkspace,
   target: AcmeUser,
@@ -45,7 +45,7 @@ export const WorkspaceUsersLoader = Loader.collection({
 });
 
 export const WorkspaceProjectsLoader = Loader.collection({
-  name: "acme:workspace:projects" as LoaderName,
+  name: "acme:workspace:projects",
   context: AcmeAppContext,
   entity: AcmeWorkspace,
   target: AcmeProject,

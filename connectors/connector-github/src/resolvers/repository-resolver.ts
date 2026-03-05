@@ -57,7 +57,7 @@ interface IssuesPageData {
 // ============================================================================
 
 export const RepoBasicLoader = Loader.entity({
-  name: "github:repo:basic" as LoaderName,
+  name: "github:repo:basic",
   context: GitHubContext,
   entity: GitHubRepository,
   strategy: "autoload",
@@ -114,7 +114,7 @@ const IssuesPageSource = Loader.paginatedSource({
 
 /** Primary derivation: extract issues from each page. */
 export const RepoIssuesLoader = Loader.deriveEntities(IssuesPageSource, {
-  name: "github:repo:issues" as LoaderName,
+  name: "github:repo:issues",
   target: GitHubIssue,
 
   extract(data) {
@@ -135,7 +135,7 @@ export const RepoIssuesLoader = Loader.deriveEntities(IssuesPageSource, {
 
 /** Co-derivation: extract unique users from inline author data. */
 export const IssueAuthorsLoader = Loader.deriveEntities(IssuesPageSource, {
-  name: "github:repo:issue-authors" as LoaderName,
+  name: "github:repo:issue-authors",
   target: GitHubUser,
 
   extract(data) {

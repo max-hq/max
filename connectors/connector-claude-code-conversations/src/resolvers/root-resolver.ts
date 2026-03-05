@@ -17,7 +17,7 @@ import { CCConversationsContext } from "../context.js";
 // ============================================================================
 
 export const RootProjectsLoader = Loader.collection({
-  name: "conversations:root:projects" as LoaderName,
+  name: "conversations:root:projects",
   context: CCConversationsContext,
   entity: Root,
   target: Project,

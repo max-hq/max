@@ -46,7 +46,7 @@ const testSeeder = Seeder.create({
 });
 
 const testLoader = Loader.entity({
-  name: "test:user:basic" as LoaderName,
+  name: "test:user:basic",
   context: TestContext,
   entity: TestUser,
   strategy: "autoload",

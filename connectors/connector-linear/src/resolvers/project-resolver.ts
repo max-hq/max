@@ -54,7 +54,7 @@ interface ProjectIssuesResponse {
 // ============================================================================
 
 export const ProjectBasicLoader = Loader.entity({
-  name: "linear:project:basic" as LoaderName,
+  name: "linear:project:basic",
   context: LinearContext,
   entity: LinearProject,
 
@@ -78,7 +78,7 @@ export const ProjectBasicLoader = Loader.entity({
 });
 
 export const ProjectIssuesLoader = Loader.collection({
-  name: "linear:project:issues" as LoaderName,
+  name: "linear:project:issues",
   context: LinearContext,
   entity: LinearProject,
   target: LinearIssue,

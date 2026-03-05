@@ -21,7 +21,7 @@ import { parseSessionId, messageId } from "../claude-client.js";
 // ============================================================================
 
 export const SessionBasicLoader = Loader.entity({
-  name: "conversations:session:basic" as LoaderName,
+  name: "conversations:session:basic",
   context: CCConversationsContext,
   entity: Session,
   strategy: "autoload",
@@ -47,7 +47,7 @@ export const SessionBasicLoader = Loader.entity({
 });
 
 export const SessionMessagesLoader = Loader.collection({
-  name: "conversations:session:messages" as LoaderName,
+  name: "conversations:session:messages",
   context: CCConversationsContext,
   entity: Session,
   target: Message,

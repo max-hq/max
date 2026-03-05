@@ -17,7 +17,7 @@ import { AcmeAppContext } from "../context.js";
 // ============================================================================
 
 export const RootWorkspacesLoader = Loader.collection({
-  name: "acme:root:workspaces" as LoaderName,
+  name: "acme:root:workspaces",
   context: AcmeAppContext,
   entity: AcmeRoot,
   target: AcmeWorkspace,

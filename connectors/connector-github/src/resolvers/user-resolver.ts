@@ -32,7 +32,7 @@ interface UserResponse {
 // ============================================================================
 
 export const UserBasicLoader = Loader.entity({
-  name: "github:user:basic" as LoaderName,
+  name: "github:user:basic",
   context: GitHubContext,
   entity: GitHubUser,
   strategy: "autoload",

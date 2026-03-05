@@ -37,7 +37,7 @@ interface IssueNodeResponse {
 // ============================================================================
 
 export const IssueBasicLoader = Loader.entity({
-  name: "github:issue:basic" as LoaderName,
+  name: "github:issue:basic",
   context: GitHubContext,
   entity: GitHubIssue,
   strategy: "autoload",

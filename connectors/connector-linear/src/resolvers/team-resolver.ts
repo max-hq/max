@@ -67,7 +67,7 @@ interface TeamMembersResponse {
 // ============================================================================
 
 export const TeamBasicLoader = Loader.entity({
-  name: "linear:team:basic" as LoaderName,
+  name: "linear:team:basic",
   context: LinearContext,
   entity: LinearTeam,
 
@@ -87,7 +87,7 @@ export const TeamBasicLoader = Loader.entity({
 });
 
 export const TeamIssuesLoader = Loader.collection({
-  name: "linear:team:issues" as LoaderName,
+  name: "linear:team:issues",
   context: LinearContext,
   entity: LinearTeam,
   target: LinearIssue,
@@ -126,7 +126,7 @@ export const TeamIssuesLoader = Loader.collection({
 });
 
 export const TeamMembersLoader = Loader.collection({
-  name: "linear:team:members" as LoaderName,
+  name: "linear:team:members",
   context: LinearContext,
   entity: LinearTeam,
   target: LinearUser,

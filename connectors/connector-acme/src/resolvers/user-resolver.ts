@@ -16,7 +16,7 @@ import { AcmeAppContext } from "../context.js";
 // ============================================================================
 
 export const UserBasicLoader = Loader.entity({
-  name: "acme:user:basic" as LoaderName,
+  name: "acme:user:basic",
   context: AcmeAppContext,
   entity: AcmeUser,
   strategy: "autoload",

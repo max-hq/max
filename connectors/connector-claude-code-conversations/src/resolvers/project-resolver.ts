@@ -18,7 +18,7 @@ import { sessionId } from "../claude-client.js";
 // ============================================================================
 
 export const ProjectBasicLoader = Loader.entity({
-  name: "conversations:project:basic" as LoaderName,
+  name: "conversations:project:basic",
   context: CCConversationsContext,
   entity: Project,
 
@@ -32,7 +32,7 @@ export const ProjectBasicLoader = Loader.entity({
 });
 
 export const ProjectSessionsLoader = Loader.collection({
-  name: "conversations:project:sessions" as LoaderName,
+  name: "conversations:project:sessions",
   context: CCConversationsContext,
   entity: Project,
   target: Session,

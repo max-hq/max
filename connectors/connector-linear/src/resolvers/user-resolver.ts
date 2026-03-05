@@ -30,7 +30,7 @@ interface UserResponse {
 // ============================================================================
 
 export const UserBasicLoader = Loader.entity({
-  name: "linear:user:basic" as LoaderName,
+  name: "linear:user:basic",
   context: LinearContext,
   entity: LinearUser,
   strategy: "autoload",

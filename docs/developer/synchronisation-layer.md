@@ -61,7 +61,7 @@ Fetches fields for a single entity.
 
 ```typescript
 const TeamBasicLoader = Loader.entity({
-  name: "acme:team:basic" as LoaderName,
+  name: "acme:team:basic",
   context: AcmeAppContext,
   entity: AcmeTeam,
 
@@ -82,7 +82,7 @@ Fetches fields for many entities in a single API call. Preferred when the API su
 
 ```typescript
 const BasicUserLoader = Loader.entityBatched({
-  name: "acme:user:basic" as LoaderName,
+  name: "acme:user:basic",
   context: AcmeAppContext,
   entity: AcmeUser,
 
@@ -104,7 +104,7 @@ Fetches a paginated list of child entities belonging to a parent.
 
 ```typescript
 const TeamMembersLoader = Loader.collection({
-  name: "acme:team:members" as LoaderName,
+  name: "acme:team:members",
   context: AcmeAppContext,
   entity: AcmeTeam,
   target: AcmeUser,

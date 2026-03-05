@@ -10,8 +10,8 @@ import {
   type LoaderName,
 } from "@max/core";
 import { Project, Session } from "../entities.js";
-import { ConversationsContext } from "../context.js";
-import { sessionId } from "../conversations-client.js";
+import { CCConversationsContext } from "../context.js";
+import { sessionId } from "../claude-client.js";
 
 // ============================================================================
 // Loaders
@@ -19,7 +19,7 @@ import { sessionId } from "../conversations-client.js";
 
 export const ProjectBasicLoader = Loader.entity({
   name: "conversations:project:basic" as LoaderName,
-  context: ConversationsContext,
+  context: CCConversationsContext,
   entity: Project,
 
   async load(ref, ctx) {
@@ -33,7 +33,7 @@ export const ProjectBasicLoader = Loader.entity({
 
 export const ProjectSessionsLoader = Loader.collection({
   name: "conversations:project:sessions" as LoaderName,
-  context: ConversationsContext,
+  context: CCConversationsContext,
   entity: Project,
   target: Session,
 

@@ -3,8 +3,8 @@
  */
 
 import { Context } from "@max/core";
-import type { ConversationsClient } from "./conversations-client.js";
+import type { ClaudeClient } from "./claude-client.js";
 
-export class ConversationsContext extends Context {
-  client = Context.instance<ConversationsClient>();
+export class CCConversationsContext extends Context {
+  client = Context.instance<ClaudeClient>();
 }

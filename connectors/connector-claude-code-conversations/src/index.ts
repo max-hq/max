@@ -14,17 +14,17 @@ import { ProjectResolver } from "./resolvers/project-resolver.js";
 import { SessionResolver } from "./resolvers/session-resolver.js";
 import { MessageResolver } from "./resolvers/message-resolver.js";
 import { ConversationsOnboarding } from "./onboarding.js";
-import { ConversationsContext } from "./context.js";
-import { ConversationsClient } from "./conversations-client.js";
-import type { ConversationsConfig } from "./config.js";
+import { CCConversationsContext } from "./context.js";
+import { ClaudeClient } from "./claude-client.js";
+import type { CCConversationsConfig } from "./config.js";
 
 // ============================================================================
 // Named exports
 // ============================================================================
 
 export { Root, Project, Session, Message } from "./entities.js";
-export { ConversationsContext } from "./context.js";
-export { ConversationsClient } from "./conversations-client.js";
+export { CCConversationsContext } from "./context.js";
+export { ClaudeClient } from "./claude-client.js";
 export { RootResolver } from "./resolvers/root-resolver.js";
 export { ProjectResolver } from "./resolvers/project-resolver.js";
 export { SessionResolver } from "./resolvers/session-resolver.js";
@@ -32,13 +32,13 @@ export { MessageResolver } from "./resolvers/message-resolver.js";
 export { ConversationsSeeder } from "./seeder.js";
 export { ConversationsSchema } from "./schema.js";
 export { ConversationsOnboarding } from "./onboarding.js";
-export type { ConversationsConfig } from "./config.js";
+export type { CCConversationsConfig } from "./config.js";
 
 // ============================================================================
 // ConnectorDef
 // ============================================================================
 
-const ConversationsDef = ConnectorDef.create<ConversationsConfig>({
+const ConversationsDef = ConnectorDef.create<CCConversationsConfig>({
   name: "claude-code-conversations",
   displayName: "Claude Code Conversations",
   description: "Reads Claude Code conversation history from the local filesystem",
@@ -62,13 +62,13 @@ const ConversationsDef = ConnectorDef.create<ConversationsConfig>({
 
 const DEFAULT_CLAUDE_DIR = join(homedir(), ".claude");
 
-const ConversationsConnector = ConnectorModule.create<ConversationsConfig>({
+const ConversationsConnector = ConnectorModule.create<CCConversationsConfig>({
   def: ConversationsDef,
   initialise(config, _credentials) {
     const claudeDir = config.claudeDir || DEFAULT_CLAUDE_DIR;
-    const client = new ConversationsClient(claudeDir);
+    const client = new ClaudeClient(claudeDir);
 
-    const ctx = Context.build(ConversationsContext, { client });
+    const ctx = Context.build(CCConversationsContext, { client });
 
     return Installation.create({
       context: ctx,

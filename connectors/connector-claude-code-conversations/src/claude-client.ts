@@ -87,7 +87,7 @@ export function parseMessageId(id: string): { projectDir: string; sessionUuid: s
 // Client
 // ============================================================================
 
-export class ConversationsClient {
+export class ClaudeClient {
   private readonly projectsDir: string;
 
   constructor(private readonly claudeDir: string) {

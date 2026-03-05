@@ -9,11 +9,11 @@ import { homedir } from "node:os";
 import { stat } from "node:fs/promises";
 import { join } from "node:path";
 import { OnboardingFlow, InputStep, ValidationStep } from "@max/connector";
-import type { ConversationsConfig } from "./config.js";
+import type { CCConversationsConfig } from "./config.js";
 
 const DEFAULT_CLAUDE_DIR = join(homedir(), ".claude");
 
-export const ConversationsOnboarding = OnboardingFlow.create<ConversationsConfig>([
+export const ConversationsOnboarding = OnboardingFlow.create<CCConversationsConfig>([
   InputStep.create({
     label: "Claude directory",
     description: `Path to your .claude directory (default: ${DEFAULT_CLAUDE_DIR})`,

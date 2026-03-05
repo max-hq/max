@@ -2,6 +2,6 @@
  * Claude Code Conversations connector config — produced by onboarding.
  */
 
-export interface ConversationsConfig {
+export interface CCConversationsConfig {
   readonly claudeDir: string;
 }

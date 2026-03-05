@@ -14,8 +14,8 @@ import {
   type LoaderName,
 } from "@max/core";
 import { Message, Session } from "../entities.js";
-import { ConversationsContext } from "../context.js";
-import { parseMessageId, sessionId } from "../conversations-client.js";
+import { CCConversationsContext } from "../context.js";
+import { parseMessageId, sessionId } from "../claude-client.js";
 
 // ============================================================================
 // Loaders
@@ -23,7 +23,7 @@ import { parseMessageId, sessionId } from "../conversations-client.js";
 
 export const MessageBasicLoader = Loader.entity({
   name: "conversations:message:basic" as LoaderName,
-  context: ConversationsContext,
+  context: CCConversationsContext,
   entity: Message,
   strategy: "autoload",
 

@@ -7,10 +7,10 @@
 
 import { Seeder, SyncPlan, Step, EntityInput } from "@max/core";
 import { Root, Project, Session } from "./entities.js";
-import { ConversationsContext } from "./context.js";
+import { CCConversationsContext } from "./context.js";
 
 export const ConversationsSeeder = Seeder.create({
-  context: ConversationsContext,
+  context: CCConversationsContext,
 
   async seed(_ctx, engine) {
     const rootRef = Root.ref("root");

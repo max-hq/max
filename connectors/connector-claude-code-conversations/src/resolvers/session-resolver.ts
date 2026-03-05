@@ -13,8 +13,8 @@ import {
   type LoaderName,
 } from "@max/core";
 import { Session, Message, Project } from "../entities.js";
-import { ConversationsContext } from "../context.js";
-import { parseSessionId, messageId } from "../conversations-client.js";
+import { CCConversationsContext } from "../context.js";
+import { parseSessionId, messageId } from "../claude-client.js";
 
 // ============================================================================
 // Loaders
@@ -22,7 +22,7 @@ import { parseSessionId, messageId } from "../conversations-client.js";
 
 export const SessionBasicLoader = Loader.entity({
   name: "conversations:session:basic" as LoaderName,
-  context: ConversationsContext,
+  context: CCConversationsContext,
   entity: Session,
   strategy: "autoload",
 
@@ -48,7 +48,7 @@ export const SessionBasicLoader = Loader.entity({
 
 export const SessionMessagesLoader = Loader.collection({
   name: "conversations:session:messages" as LoaderName,
-  context: ConversationsContext,
+  context: CCConversationsContext,
   entity: Session,
   target: Message,
 

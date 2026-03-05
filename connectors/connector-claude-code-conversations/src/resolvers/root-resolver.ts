@@ -10,7 +10,7 @@ import {
   type LoaderName,
 } from "@max/core";
 import { Root, Project } from "../entities.js";
-import { ConversationsContext } from "../context.js";
+import { CCConversationsContext } from "../context.js";
 
 // ============================================================================
 // Loaders
@@ -18,7 +18,7 @@ import { ConversationsContext } from "../context.js";
 
 export const RootProjectsLoader = Loader.collection({
   name: "conversations:root:projects" as LoaderName,
-  context: ConversationsContext,
+  context: CCConversationsContext,
   entity: Root,
   target: Project,
 

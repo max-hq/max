@@ -33,11 +33,13 @@ import { GlobalMax } from './global-max.js'
 
 export interface EphemeralGlobalDeps {
   workspaceRegistry: WorkspaceRegistry
+  connectorRegistry: ConnectorRegistry
   supervisor: Supervisor<any>
 }
 
 export const ephemeralGlobalGraph = ResolverGraph.define<{}, EphemeralGlobalDeps>({
   workspaceRegistry: () => new InMemoryWorkspaceRegistry(),
+  connectorRegistry: () => new InMemoryConnectorRegistry(),
   supervisor: () => new DefaultSupervisor(() => crypto.randomUUID() as string),
 })
 
@@ -90,6 +92,7 @@ export function createEphemeralMax(overrides?: EphemeralOverrides): GlobalMax {
 
   return new GlobalMax({
     workspaceRegistry: gDeps.workspaceRegistry,
+    connectorRegistry: gDeps.connectorRegistry,
     workspaceSupervisor: gDeps.supervisor,
     workspaceDeployer: new DeployerRegistry('ephemeral', [wsDeployer]),
   })

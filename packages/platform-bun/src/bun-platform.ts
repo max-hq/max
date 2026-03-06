@@ -253,6 +253,7 @@ export interface GlobalGraphConfig {
 export interface GlobalGraphDeps {
   root: string
   workspaceRegistry: WorkspaceRegistry
+  connectorRegistry: ConnectorRegistry
   supervisor: Supervisor<any>
 }
 
@@ -262,6 +263,7 @@ export const globalGraph = ResolverGraph.define<GlobalGraphConfig, GlobalGraphDe
     if (c.ephemeral) return new InMemoryWorkspaceRegistry()
     return new FsWorkspaceRegistry(r.root)
   },
+  connectorRegistry: () => NaiveBunConnectorRegistry.fromCollections(),
   supervisor: () => new DefaultSupervisor(() => crypto.randomUUID() as string),
 })
 
@@ -456,6 +458,7 @@ export const BunPlatform = Platform.define({
       return new GlobalMax({
         workspaceDeployer: this.workspace.registry,
         workspaceRegistry: deps.workspaceRegistry,
+        connectorRegistry: deps.connectorRegistry,
         workspaceSupervisor: deps.supervisor,
       })
     }
@@ -465,6 +468,7 @@ export const BunPlatform = Platform.define({
     return new GlobalMax({
       workspaceDeployer: pipeline.wsRegistry,
       workspaceRegistry: deps.workspaceRegistry,
+      connectorRegistry: deps.connectorRegistry,
       workspaceSupervisor: deps.supervisor,
     })
   },

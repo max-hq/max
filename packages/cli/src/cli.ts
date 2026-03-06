@@ -42,6 +42,7 @@ import { CmdLsGlobal, CmdLsWorkspace } from './commands/ls-command.js'
 import { CmdStatusGlobal, CmdStatusWorkspace, CmdStatusInstallation } from './commands/status-command.js'
 import { CmdSearchGlobal, CmdSearchInstallation, CmdSearchWorkspace } from './commands/search-command.js'
 import { CmdLlmBootstrap } from './commands/llm-bootstrap-command.js'
+import { CmdInstall } from './commands/install-command.js'
 import { Command } from './command.js'
 
 // ============================================================================
@@ -176,6 +177,7 @@ export class CLI {
   ): Command[] {
     return [
       new CmdInit(services),
+      new CmdInstall(services),
       new CmdConnect(services),
       new CmdDaemon(services),
       new CmdSchemaWorkspace(services),

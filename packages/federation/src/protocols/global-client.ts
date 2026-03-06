@@ -9,6 +9,7 @@
  */
 
 import { type ConfigOf, type DeployerKind, HealthStatus, ISODateString, Supervised, WorkspaceId } from '@max/core'
+import { type ConnectorRegistryEntry } from '@max/connector'
 import { WorkspaceClient } from './workspace-client.js'
 import { DeploymentConfig } from "../deployers/index.js"
 import { WorkspaceSpec } from "../config/index.js"
@@ -34,6 +35,9 @@ export interface CreateWorkspaceArgs<K extends DeployerKind = DeployerKind> {
 }
 
 export interface GlobalClient extends Supervised {
+  /** List available connectors across all sources (monorepo + installed collections). */
+  listConnectors(): Promise<ConnectorRegistryEntry[]>
+
   listWorkspaces(): Promise<WorkspaceInfo[]>
 
   /** List workspaces enriched with runtime health from the supervisor. */

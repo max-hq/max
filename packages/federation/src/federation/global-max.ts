@@ -19,6 +19,7 @@ import {
   StopResult,
   type WorkspaceId,
 } from '@max/core'
+import type { ConnectorRegistry, ConnectorRegistryEntry } from '@max/connector'
 import type { WorkspaceClient, InstallationClient } from '../protocols/index.js'
 import type { WorkspaceInfo, WorkspaceListEntry } from '../protocols/global-client.js'
 import { CreateWorkspaceArgs } from '../protocols/global-client.js'
@@ -40,6 +41,7 @@ export type GlobalMaxConstructable = {
   workspaceSupervisor: WorkspaceSupervisor
   workspaceRegistry: WorkspaceRegistry
   workspaceDeployer: DeployerRegistry<WorkspaceDeployer>
+  connectorRegistry: ConnectorRegistry
 }
 
 
@@ -53,9 +55,11 @@ export class GlobalMax implements GlobalClientWithIdentity {
   private readonly workspaceSupervisor: WorkspaceSupervisor
   private readonly workspaceRegistry: WorkspaceRegistry
   private readonly workspaceDeployer: DeployerRegistry<WorkspaceDeployer>
+  private readonly connectorRegistry: ConnectorRegistry
 
   lifecycle = LifecycleManager.auto(() => [
     this.workspaceRegistry,
+    this.connectorRegistry,
     LifecycleManager.on({
         start: () => this.reconcileWorkspaces(),
         stop: () => this.stopWorkspaces(),
@@ -66,6 +70,11 @@ export class GlobalMax implements GlobalClientWithIdentity {
     this.workspaceSupervisor = args.workspaceSupervisor
     this.workspaceDeployer = args.workspaceDeployer
     this.workspaceRegistry = args.workspaceRegistry
+    this.connectorRegistry = args.connectorRegistry
+  }
+
+  async listConnectors(): Promise<ConnectorRegistryEntry[]> {
+    return this.connectorRegistry.list()
   }
 
   workspace(id: WorkspaceId): WorkspaceClientWithIdentity {

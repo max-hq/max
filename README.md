@@ -284,6 +284,16 @@ There is a a sibling repo [max-connectors](https://github.com/max-hq/max-connect
 | **@max/connector-google-workspace**          | Ingests user / groups data from google workspace             |
 | **@max/connector-linear**                    | Ingests linear tickets, projects, teams etc                  |
 
+**To install the @max/max-connectors collection**:
+```bash
+max -g install --collection git@github.com:max-hq/max-connectors
+```
+
+**To install a custom collection**:
+```bash
+max -g install --collection <path-to-repo> # <- can be a local repo
+```
+
 ### Creating a connector
 See [max developer guide](docs/developer/README.md)
 

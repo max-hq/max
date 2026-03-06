@@ -37,6 +37,9 @@ import { ErrEntityNotFound, ErrFieldNotFound, ErrCollectionNotSupported } from "
 /** Synthetic ColumnDef for the _id primary key column (not part of schema fields). */
 const ID_COLUMN: ColumnDef = { columnName: "_id", fieldName: "_id", sqlType: "TEXT", isRef: false };
 
+/** Quote a SQL identifier to avoid reserved-word collisions. */
+const q = (name: string) => `"${name}"`;
+
 export class SqliteEngine implements Engine<InstallationScope> {
   readonly db: Database;
   private schema: SqliteSchema;
@@ -73,13 +76,13 @@ export class SqliteEngine implements Engine<InstallationScope> {
         continue;
       }
 
-      columnNames.push(col.columnName);
+      columnNames.push(q(col.columnName));
       placeholders.push("?");
       values.push(this.toSqlValue(fieldValue, col) as SQLQueryBindings);
     }
 
     // Upsert: INSERT OR REPLACE
-    const sql = `INSERT OR REPLACE INTO ${tableDef.tableName} (${columnNames.join(", ")}) VALUES (${placeholders.join(", ")})`;
+    const sql = `INSERT OR REPLACE INTO ${q(tableDef.tableName)} (${columnNames.join(", ")}) VALUES (${placeholders.join(", ")})`;
     this.db.run(sql, values);
 
     // Return a local ref (it now exists in DB)
@@ -111,8 +114,8 @@ export class SqliteEngine implements Engine<InstallationScope> {
       columnsToLoad = tableDef.columns.filter(col => fieldNames.has(col.fieldName));
     }
 
-    const columnList = columnsToLoad.map(c => c.columnName).join(", ");
-    const sql = `SELECT ${columnList} FROM ${tableDef.tableName} WHERE _id = ?`;
+    const columnList = columnsToLoad.map(c => q(c.columnName)).join(", ");
+    const sql = `SELECT ${columnList} FROM ${q(tableDef.tableName)} WHERE _id = ?`;
     const row = this.db.query(sql).get(ref.id) as Record<string, unknown> | null;
 
     if (!row) {
@@ -138,7 +141,7 @@ export class SqliteEngine implements Engine<InstallationScope> {
       throw ErrFieldNotFound.create({ entityType: ref.entityType, field: String(field) });
     }
 
-    const sql = `SELECT ${col.columnName} FROM ${tableDef.tableName} WHERE _id = ?`;
+    const sql = `SELECT ${q(col.columnName)} FROM ${q(tableDef.tableName)} WHERE _id = ?`;
     const row = this.db.query(sql).get(ref.id) as Record<string, unknown> | null;
 
     if (!row) {
@@ -195,16 +198,16 @@ export class SqliteEngine implements Engine<InstallationScope> {
         break;
       case "select":
         columns = projection.fields.map(f => this.getColumn(tableDef, def, f));
-        columnNames = ["_id", ...columns.map(c => c.columnName)];
+        columnNames = ["_id", ...columns.map(c => q(c.columnName))];
         break;
       case "all":
         columns = tableDef.columns;
-        columnNames = ["_id", ...columns.map(c => c.columnName)];
+        columnNames = ["_id", ...columns.map(c => q(c.columnName))];
         break;
     }
 
     // Cursor-based: WHERE _id > cursor ORDER BY _id
-    let sql = `SELECT ${columnNames.join(", ")} FROM ${tableDef.tableName}`;
+    let sql = `SELECT ${columnNames.join(", ")} FROM ${q(tableDef.tableName)}`;
     const params: SQLQueryBindings[] = [];
 
     if (r.cursor) {
@@ -267,11 +270,11 @@ export class SqliteEngine implements Engine<InstallationScope> {
         break;
       case "select":
         columns = projection.fields.map(f => this.getColumn(tableDef, query.def, f));
-        columnNames = ["_id", ...columns.map(c => c.columnName)];
+        columnNames = ["_id", ...columns.map(c => q(c.columnName))];
         break;
       case "all":
         columns = tableDef.columns;
-        columnNames = ["_id", ...columns.map(c => c.columnName)];
+        columnNames = ["_id", ...columns.map(c => q(c.columnName))];
         break;
     }
 
@@ -308,7 +311,7 @@ export class SqliteEngine implements Engine<InstallationScope> {
     query: EntityQuery<E>,
     columnNames: string[],
   ): { sql: string; params: SQLQueryBindings[] } {
-    let sql = `SELECT ${columnNames.join(", ")} FROM ${tableDef.tableName}`;
+    let sql = `SELECT ${columnNames.join(", ")} FROM ${q(tableDef.tableName)}`;
     const params: SQLQueryBindings[] = [];
     const conditions: string[] = [];
 
@@ -332,7 +335,7 @@ export class SqliteEngine implements Engine<InstallationScope> {
     const orderParts: string[] = [];
     if (query.ordering) {
       const col = this.getColumn(tableDef, query.def, query.ordering.field);
-      orderParts.push(`${col.columnName} ${query.ordering.dir.toUpperCase()}`);
+      orderParts.push(`${q(col.columnName)} ${query.ordering.dir.toUpperCase()}`);
     }
     orderParts.push("_id ASC");
     sql += ` ORDER BY ${orderParts.join(", ")}`;
@@ -380,7 +383,7 @@ export class SqliteEngine implements Engine<InstallationScope> {
         ? `%${clause.value}%`
         : this.toSqlValue(clause.value, col);
       params.push(sqlValue as SQLQueryBindings);
-      return `${col.columnName} ${sqlOp} ?`;
+      return `${q(col.columnName)} ${sqlOp} ?`;
     }
 
     // AND/OR: recurse into children

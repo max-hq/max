@@ -61,12 +61,15 @@ export function buildTableDef(entityDef: EntityDefAny): TableDef {
   return { tableName, entityDef, columns };
 }
 
+/** Quote a SQL identifier to avoid reserved-word collisions. */
+const q = (name: string) => `"${name}"`;
+
 /** Generate CREATE TABLE SQL for a TableDef */
 export function generateCreateTableSql(tableDef: TableDef): string {
   const columnDefs = [
     "_id TEXT PRIMARY KEY",
-    ...tableDef.columns.map(col => `${col.columnName} ${col.sqlType}`)
+    ...tableDef.columns.map(col => `${q(col.columnName)} ${col.sqlType}`)
   ];
 
-  return `CREATE TABLE IF NOT EXISTS ${tableDef.tableName} (${columnDefs.join(", ")})`;
+  return `CREATE TABLE IF NOT EXISTS ${q(tableDef.tableName)} (${columnDefs.join(", ")})`;
 }

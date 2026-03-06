@@ -229,11 +229,16 @@ export class CLI {
 
   private async generateHelp(
     program: Parser<Mode>,
+    commands: Record<string, Command>,
     color: boolean,
     forCommand?: string,
   ): Promise<CliResponse> {
-    const args = forCommand ? [forCommand] : undefined
-    const doc = await getDocPageAsync(program, args)
+    // For a specific command, use its own parser (avoids showing -t in the
+    // command's usage — -t is a program-level concern, not per-command).
+    // Pass the command name as args so optique walks into it and shows flags.
+    const cmd = forCommand ? commands[forCommand] : undefined
+    const parser = cmd ? cmd.parser.get : program
+    const doc = await getDocPageAsync(parser, cmd ? [forCommand!] : undefined)
     if (doc) {
       const text = formatDocPage('max', doc, { colors: color, showChoices: true })
       return { exitCode: 0, stdout: text + '\n' }
@@ -332,8 +337,8 @@ export class CLI {
         const targetVP = createTargetValueParser(globalMax, cwd)
         const services = new CliServices(ctx as ContextAt<any>, color)
         const allCommands = this.buildAllCommands(services, targetVP)
-        const { program } = this.buildParser(allCommands, ctx.level, targetVP)
-        return this.generateHelp(program, color)
+        const { program, commands } = this.buildParser(allCommands, ctx.level, targetVP)
+        return this.generateHelp(program, commands, color)
       }
       const tIdx = argv.indexOf('-t')
       const insertAt = (tIdx >= 0 && tIdx + 1 < argv.length) ? tIdx + 2 : 0
@@ -363,7 +368,7 @@ export class CLI {
         if (i > 0 && (stripped[i-1] === '-t' || stripped[i-1] === '--target')) return false
         return true
       })
-      return this.generateHelp(program, color, cmdName)
+      return this.generateHelp(program, commands, color, cmdName)
     }
 
     // -- Help: `help` subcommand --
@@ -371,7 +376,7 @@ export class CLI {
       // Find the command name after 'help', skipping -t <value>
       const afterHelp = argv.slice(argv.indexOf('help') + 1)
       const forCommand = afterHelp.find(a => !a.startsWith('-'))
-      return this.generateHelp(program, color, forCommand)
+      return this.generateHelp(program, commands, color, forCommand)
     }
 
     // -- Completion subcommand: `max completion <shell> [args...]` --

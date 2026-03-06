@@ -188,7 +188,7 @@ It's also highly worth reading the [max developer guide](docs/developer/README.m
 ### Install
 
 ```bash
-git clone https://github.com/maxdata-sh/max.git
+git clone https://github.com/max-hq/max.git
 cd max
 bun install
 
@@ -287,7 +287,7 @@ See [max developer guide](docs/developer/README.md)
 
 Max is early in its journey and under very active development. We're not accepting code contributions just yet whilst we allow the api to stabilize, but we'd love your feedback:
 
-- [Open an issue](https://github.com/maxdata-sh/max/issues) for bugs, feature requests, or connector ideas
+- [Open an issue](https://github.com/max-hq/max/issues) for bugs, feature requests, or connector ideas
 - Star the repo if you find it useful - it helps others discover Max!
 
 ## License

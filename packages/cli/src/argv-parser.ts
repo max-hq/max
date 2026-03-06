@@ -1,76 +1,40 @@
-import {CliResponse} from "./types.js";
-import {Mode, Parser} from '@optique/core/parser'
-import {runParserAsync, RunParserError} from '@optique/core/facade'
-import {message} from "@optique/core/message";
+/**
+ * Argv parser — thin wrapper around optique's parseAsync.
+ *
+ * Returns a discriminated result: success with parsed value, or
+ * failure with the structured error Message from optique. The caller
+ * (cli.ts) decides how to format and present errors.
+ */
 
-/** Sentinel thrown by runParserAsync callbacks to signal help/error was shown. */
-const HELP_SHOWN = Symbol("help");
-const ERROR_SHOWN = Symbol("error");
-const COMPLETIONS_SHOWN = Symbol('completions')
+import { type Message, formatMessage } from '@optique/core/message'
+import { type Mode, type Parser, parseAsync } from '@optique/core/parser'
 
-type RunResult<T> =
+export type ParseResult<T> =
   | { ok: true; value: T }
-  | { ok: false; response: CliResponse };
+  | { ok: false; error: Message }
 
-export async function parseAndValidateArgs<T>(
+export async function parseArgs<T>(
   parser: Parser<Mode, T, unknown>,
-  programName: string,
   args: readonly string[],
-  useColor?: boolean
-): Promise<RunResult<T>> {
-  let stdout = "";
-  let stderr = "";
-
-  try {
-    /** NOTE: We could parse ourselves, rather than using opqtique's full batteries-included parse method.
-     *  It will give us greater control over how help and completions are rendered. Leaving this for another time.
-     *  UPDATE / FIXME:
-     *    RIGHT: Here's the rub - optique is pretty opinionated about help text, and i don't like its opinions. Short answer:
-     *    port the formatDocPage logic from here https://github.com/dahlia/optique/blob/75957cc504d15fb2d14cc40677cd1ac152e42905/packages/core/src/facade.ts#L13
-     *    into an output format we're happy with
-     *
-     * */
-    const value = await runParserAsync(parser, programName, args, {
-      colors: useColor,
-      aboveError: 'usage',
-      completion: {
-        mode: 'both',
-        group: 'meta',
-        helpVisibility: 'singular',
-        onShow: () => {
-          throw COMPLETIONS_SHOWN
-        },
-      },
-      help: {
-        group: 'meta',
-        mode: 'both',
-        onShow: () => {
-          throw HELP_SHOWN
-        },
-      },
-      showChoices: true,
-      onError: () => {
-        throw ERROR_SHOWN
-      },
-      stdout: (text) => {
-        stdout += text + '\n'
-      },
-      stderr: (text) => {
-        stderr += text + '\n'
-      },
-    })
-    return { ok: true, value: value as T };
-  } catch (e) {
-    if (e === HELP_SHOWN) {
-      return { ok: false, response: { stdout, exitCode: 0 } };
-    }
-    if (e === ERROR_SHOWN || e instanceof RunParserError) {
-      return { ok: false, response: { stderr, exitCode: 1 } };
-    }
-    if (e === COMPLETIONS_SHOWN){
-      // Slightly naughty/lazy - "ok: false" isn't strictly the case here.
-      return { ok: false, response: { stdout, stderr, exitCode: 0 } }
-    }
-    throw e;
+): Promise<ParseResult<T>> {
+  const result = await parseAsync(parser, args)
+  if (result.success) {
+    return { ok: true, value: result.value }
   }
+  return { ok: false, error: result.error }
 }
+
+/**
+ * Extract the unrecognized token from an optique error Message.
+ * Optique errors for unknown commands look like:
+ *   [{ type: 'text', text: 'Unexpected...: ' }, { type: 'value', value: 'connect' }, ...]
+ */
+export function extractErrorValue(error: Message): string | undefined {
+  for (const term of error) {
+    if (term.type === 'value') return term.value
+    if (term.type === 'optionName') return term.optionName
+  }
+  return undefined
+}
+
+export { formatMessage }

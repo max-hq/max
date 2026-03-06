@@ -64,7 +64,7 @@ describe('CLI smoke', () => {
     const { run } = await createTestCli()
     const res = await run('max://@', ['bogus'])
     expect(res.exitCode).toBe(1)
-    expect(res.stderr).toContain('Usage: max')
+    expect(res.stderr).toContain('Unknown command bogus')
   })
 
   describe('schema', () => {

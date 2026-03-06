@@ -2,8 +2,11 @@
  * CLI - The dispatch engine.
  *
  * Uses a two-phase gate pattern: peekTarget() resolves the target level
- * from -t before optique runs, then buildParser() constructs a parser
- * with only the commands available at that level.
+ * from -t before optique runs, then buildParser() constructs a level-
+ * filtered parser from the full set of commands.
+ *
+ * Help, completion, and error formatting are handled here (not by
+ * optique's facade) so we have full control over the user experience.
  *
  * The harness (process argv parsing, daemon mode, socket server) lives
  * in main.ts. This file is pure logic, no process-level side effects.
@@ -17,11 +20,12 @@ import { ShellCompletion } from '@optique/core/completion'
 import { or, object } from '@optique/core/constructs'
 import { option } from '@optique/core/primitives'
 import { optional } from '@optique/core/modifiers'
-import { Mode, Parser, suggestAsync, type Suggestion } from '@optique/core/parser'
+import { Mode, Parser, getDocPageAsync, suggestAsync, type Suggestion } from '@optique/core/parser'
+import { formatDocPage } from '@optique/core/doc'
 
-import { makeLazy, MaxError } from '@max/core'
+import { Fmt, makeLazy, MaxError, type MaxUrlLevel } from '@max/core'
 import { CliRequest, CliResponse } from './types.js'
-import { parseAndValidateArgs } from './argv-parser.js'
+import { parseArgs, extractErrorValue, formatMessage } from './argv-parser.js'
 import { type Prompter } from './prompter.js'
 import { type ContextAt, type ResolvedContext } from './resolved-context.js'
 import { normalizeGlobalFlag } from './resolve-context.js'
@@ -38,7 +42,6 @@ import { CmdLsGlobal, CmdLsWorkspace } from './commands/ls-command.js'
 import { CmdStatusGlobal, CmdStatusWorkspace, CmdStatusInstallation } from './commands/status-command.js'
 import { CmdSearchGlobal, CmdSearchInstallation, CmdSearchWorkspace } from './commands/search-command.js'
 import { CmdLlmBootstrap } from './commands/llm-bootstrap-command.js'
-import { CmdInstall } from './commands/install-command.js'
 import { Command } from './command.js'
 
 // ============================================================================
@@ -67,6 +70,40 @@ function hasCommand(argv: readonly string[]): boolean {
     if (!argv[i].startsWith('-')) return true
   }
   return false
+}
+
+/** Normalize Command.level to an array. */
+function levelsOf(cmd: Command): readonly MaxUrlLevel[] {
+  return Array.isArray(cmd.level) ? cmd.level : [cmd.level as MaxUrlLevel]
+}
+
+/** Build a map from command name → all levels that name is available at. */
+function buildCommandLevelMap(commands: readonly Command[]): Map<string, MaxUrlLevel[]> {
+  const map = new Map<string, MaxUrlLevel[]>()
+  for (const cmd of commands) {
+    const existing = map.get(cmd.name) ?? []
+    const combined = new Set([...existing, ...levelsOf(cmd)])
+    map.set(cmd.name, [...combined])
+  }
+  return map
+}
+
+function scopeHint(command: string, levels: readonly MaxUrlLevel[]): string {
+  if (levels.length === 1) {
+    switch (levels[0]) {
+      case 'global':       return `Try: max -g ${command}`
+      case 'workspace':    return `Try: max -t <workspace> ${command}`
+      case 'installation': return `Try: max -t <workspace>/<installation> ${command}`
+    }
+  }
+  const labels = levels.map(l => {
+    switch (l) {
+      case 'global':       return 'global (max -g)'
+      case 'workspace':    return 'workspace (max -t <workspace>)'
+      case 'installation': return 'installation (max -t <ws>/<inst>)'
+    }
+  })
+  return `Available at: ${labels.join(', ')}`
 }
 
 // ============================================================================
@@ -126,85 +163,148 @@ export class CLI {
     }
   }
 
+  // -- Command construction --------------------------------------------------
+
+  /**
+   * Build every command instance. Services are typed as `any` because we
+   * need instances for metadata (name, level) even when the context level
+   * doesn't match. Commands are only *executed* after level validation.
+   */
+  private buildAllCommands(
+    services: CliServices<any>,
+    targetVP: ReturnType<typeof createTargetValueParser>,
+  ): Command[] {
+    return [
+      new CmdInit(services),
+      new CmdConnect(services),
+      new CmdDaemon(services),
+      new CmdSchemaWorkspace(services),
+      new CmdSchemaInstallation(services),
+      new CmdSyncWorkspace(services),
+      new CmdSyncInstallation(services),
+      new CmdSearchGlobal(services, targetVP),
+      new CmdSearchWorkspace(services),
+      new CmdSearchInstallation(services),
+      new CmdLsGlobal(services),
+      new CmdLsWorkspace(services),
+      new CmdStatusGlobal(services),
+      new CmdStatusWorkspace(services),
+      new CmdStatusInstallation(services),
+      new CmdLlmBootstrap(services),
+    ]
+  }
+
   // -- Parser builder --------------------------------------------------------
 
   private buildParser(
-    ctx: ResolvedContext,
-    globalMax: GlobalMax,
-    cwd: string,
-    color: boolean,
+    allCommands: readonly Command[],
+    level: MaxUrlLevel,
+    targetVP: ReturnType<typeof createTargetValueParser>,
   ): { program: Parser<Mode>; commands: Record<string, Command> } {
-    const targetVP = createTargetValueParser(globalMax, cwd)
-    const services = new CliServices(ctx as ContextAt<any>, color)
+    // Filter to commands available at this level
+    const levelCommands = allCommands.filter(cmd =>
+      (levelsOf(cmd) as readonly string[]).includes(level)
+    )
 
+    // Build dispatch map (name → Command)
+    const commands: Record<string, Command> = {}
+    for (const cmd of levelCommands) {
+      commands[cmd.name] = cmd
+    }
+
+    // Build parser from level-appropriate commands
     const buildProgram = (commandParser: Parser<Mode>) =>
       object({ target: optional(option('-t', '--target', targetVP)), command: commandParser })
 
-    switch (ctx.level) {
-      case 'global': {
-        const cmds = {
-          init: new CmdInit(services),
-          install: new CmdInstall(services),
-          daemon: new CmdDaemon(services),
-          search: new CmdSearchGlobal(services, targetVP),
-          ls: new CmdLsGlobal(services),
-          status: new CmdStatusGlobal(services),
-          'llm-bootstrap': new CmdLlmBootstrap(services),
-        }
-        return {
-          commands: cmds,
-          program: buildProgram(or(
-            cmds.init.parser.get,
-            cmds.install.parser.get,
-            cmds.daemon.parser.get,
-            cmds.search.parser.get,
-            cmds.ls.parser.get,
-            cmds.status.parser.get,
-            cmds['llm-bootstrap'].parser.get,
-          )),
-        }
+    const program = buildProgram(
+      or(...levelCommands.map(c => c.parser.get))
+    )
+
+    return { program, commands }
+  }
+
+  // -- Help generation -------------------------------------------------------
+
+  private async generateHelp(
+    program: Parser<Mode>,
+    color: boolean,
+    forCommand?: string,
+  ): Promise<CliResponse> {
+    const args = forCommand ? [forCommand] : undefined
+    const doc = await getDocPageAsync(program, args)
+    if (doc) {
+      const text = formatDocPage('max', doc, { colors: color, showChoices: true })
+      return { exitCode: 0, stdout: text + '\n' }
+    }
+    return { exitCode: 0, stdout: 'max - a data pipe CLI\n' }
+  }
+
+  // -- Completion subcommand -------------------------------------------------
+
+  private handleCompletion(
+    req: CliRequest,
+    program: Parser<Mode>,
+    shell: string,
+    args: string[],
+  ): CliResponse | Promise<CliResponse> {
+    const shellCodec = shells[shell]
+    if (!shellCodec) {
+      return { exitCode: 1, stderr: `Unknown shell: ${shell}. Supported: ${Object.keys(shells).join(', ')}\n` }
+    }
+
+    // No extra args → generate the shell setup script
+    if (args.length === 0) {
+      const script = shellCodec.generateScript('max')
+      return { exitCode: 0, stdout: script }
+    }
+
+    // With args → inline completion (shell calling back for suggestions)
+    return this.suggest(
+      { ...req, kind: 'complete', argv: args, shell },
+      program,
+    )
+  }
+
+  // -- Error formatting ------------------------------------------------------
+
+  private formatParseError(
+    errorToken: string | undefined,
+    level: MaxUrlLevel,
+    commandLevels: Map<string, MaxUrlLevel[]>,
+    color: boolean,
+    optiqError: string,
+  ): CliResponse {
+    const fmt = Fmt.usingColor(color)
+
+    // Check if the token is a known command at another level
+    if (errorToken) {
+      const levels = commandLevels.get(errorToken)
+      if (levels && !levels.includes(level)) {
+        const lines = [
+          `${fmt.red('Error')}: ${fmt.bold(errorToken)} is not available at the ${level} level.`,
+          `  ${scopeHint(errorToken, levels)}`,
+          '',
+        ]
+        return { exitCode: 1, stderr: lines.join('\n') }
       }
-      case 'workspace': {
-        const cmds = {
-          daemon: new CmdDaemon(services),
-          connect: new CmdConnect(services),
-          schema: new CmdSchemaWorkspace(services),
-          sync: new CmdSyncWorkspace(services),
-          search: new CmdSearchWorkspace(services),
-          ls: new CmdLsWorkspace(services),
-          status: new CmdStatusWorkspace(services),
-        }
-        return {
-          commands: cmds,
-          program: buildProgram(or(
-            cmds.connect.parser.get,
-            cmds.schema.parser.get,
-            cmds.sync.parser.get,
-            cmds.search.parser.get,
-            cmds.daemon.parser.get,
-            cmds.ls.parser.get,
-            cmds.status.parser.get,
-          )),
-        }
-      }
-      case 'installation': {
-        const cmds = {
-          schema: new CmdSchemaInstallation(services),
-          sync: new CmdSyncInstallation(services),
-          search: new CmdSearchInstallation(services),
-          status: new CmdStatusInstallation(services),
-        }
-        return {
-          commands: cmds,
-          program: buildProgram(or(
-            cmds.schema.parser.get,
-            cmds.sync.parser.get,
-            cmds.search.parser.get,
-            cmds.status.parser.get,
-          )),
-        }
+
+      if (!levels) {
+        // Completely unknown command
+        const available = [...commandLevels.entries()]
+          .filter(([, lvls]) => lvls.includes(level))
+          .map(([name]) => name)
+        const lines = [
+          `${fmt.red('Error')}: Unknown command ${fmt.bold(errorToken)}.`,
+          `  Available commands: ${available.join(', ')}`,
+          `  Run ${fmt.bold('max -h')} for help.`,
+          '',
+        ]
+        return { exitCode: 1, stderr: lines.join('\n') }
       }
     }
+
+    // Known command at correct level but bad args — show optique's error
+    return { exitCode: 1, stderr: `${fmt.red('Error')}: ${optiqError}\n` }
   }
 
   // -- Dispatch --------------------------------------------------------------
@@ -217,6 +317,16 @@ export class CLI {
     // Normalize: -g -> -t @, bare `max` -> `max status`
     let argv = normalizeGlobalFlag(req.argv)
     if (!hasCommand(argv)) {
+      // Check for bare -h/--help (no command)
+      if (argv.includes('-h') || argv.includes('--help')) {
+        // Need to build a parser at the resolved level for help generation
+        const ctx = await peekTarget(globalMax.maxUrlResolver, cwd, argv)
+        const targetVP = createTargetValueParser(globalMax, cwd)
+        const services = new CliServices(ctx as ContextAt<any>, color)
+        const allCommands = this.buildAllCommands(services, targetVP)
+        const { program } = this.buildParser(allCommands, ctx.level, targetVP)
+        return this.generateHelp(program, color)
+      }
       const tIdx = argv.indexOf('-t')
       const insertAt = (tIdx >= 0 && tIdx + 1 < argv.length) ? tIdx + 2 : 0
       argv = [...argv.slice(0, insertAt), 'status', ...argv.slice(insertAt)]
@@ -225,16 +335,55 @@ export class CLI {
     // Resolve target (global/workspace/installation) before parser runs
     const ctx = await peekTarget(globalMax.maxUrlResolver, cwd, argv)
 
-    // Build parser for this target level
-    const { program, commands } = this.buildParser(ctx, globalMax, cwd, color)
+    // Build all commands and the level-specific parser
+    const targetVP = createTargetValueParser(globalMax, cwd)
+    const services = new CliServices(ctx as ContextAt<any>, color)
+    const allCommands = this.buildAllCommands(services, targetVP)
+    const commandLevels = buildCommandLevelMap(allCommands)
+    const { program, commands } = this.buildParser(allCommands, ctx.level, targetVP)
 
+    // -- Shell completion (req.kind === 'complete') --
     if (req.kind === 'complete') {
       return this.suggest(req, program)
     }
 
-    // Parse
-    const parsed = await parseAndValidateArgs(program, 'max', argv, color)
-    if (!parsed.ok) return parsed.response
+    // -- Help: -h/--help with a command --
+    if (argv.includes('-h') || argv.includes('--help')) {
+      const stripped = argv.filter(a => a !== '-h' && a !== '--help')
+      const cmdName = stripped.find((a, i) => {
+        if (a.startsWith('-')) return false
+        if (i > 0 && (stripped[i-1] === '-t' || stripped[i-1] === '--target')) return false
+        return true
+      })
+      return this.generateHelp(program, color, cmdName)
+    }
+
+    // -- Help: `help` subcommand --
+    if (argv[0] === 'help' || (argv.length >= 3 && argv[2] === 'help')) {
+      // Find the command name after 'help', skipping -t <value>
+      const afterHelp = argv.slice(argv.indexOf('help') + 1)
+      const forCommand = afterHelp.find(a => !a.startsWith('-'))
+      return this.generateHelp(program, color, forCommand)
+    }
+
+    // -- Completion subcommand: `max completion <shell> [args...]` --
+    if (argv[0] === 'completion' || (argv.length >= 3 && argv[2] === 'completion')) {
+      const compIdx = argv.indexOf('completion')
+      const rest = argv.slice(compIdx + 1)
+      const shell = rest[0]
+      if (shell) {
+        return this.handleCompletion(req, program, shell, rest.slice(1) as string[])
+      }
+    }
+
+    // -- Parse --
+    const parsed = await parseArgs(program, argv)
+
+    if (!parsed.ok) {
+      const errorToken = extractErrorValue(parsed.error)
+      const errorText = formatMessage(parsed.error, { colors: color })
+      return this.formatParseError(errorToken, ctx.level, commandLevels, color, errorText)
+    }
 
     const { command: cmdResult } = parsed.value as { command: { cmd: string } }
 

@@ -37,7 +37,6 @@ import { CmdInit } from './commands/init-command.js'
 import { CmdConnect } from './commands/connect-command.js'
 import { CmdSchemaInstallation, CmdSchemaWorkspace } from './commands/schema-command.js'
 import { CmdSyncInstallation, CmdSyncWorkspace } from './commands/sync-command/sync-command.js'
-import { CmdDaemon } from './commands/daemon-command.js'
 import { CmdLsGlobal, CmdLsWorkspace } from './commands/ls-command.js'
 import { CmdStatusGlobal, CmdStatusWorkspace, CmdStatusInstallation } from './commands/status-command.js'
 import { CmdSearchGlobal, CmdSearchInstallation, CmdSearchWorkspace } from './commands/search-command.js'
@@ -179,7 +178,6 @@ export class CLI {
       new CmdInit(services),
       new CmdInstall(services),
       new CmdConnect(services),
-      new CmdDaemon(services),
       new CmdSchemaWorkspace(services),
       new CmdSchemaInstallation(services),
       new CmdSyncWorkspace(services),

@@ -27,3 +27,10 @@ export const ErrDaemonDisabled = BunPlatformBoundary.define("daemon_disabled", {
   facets: [BadInput],
   message: () => `Daemon is disabled — run 'max daemon enable' first`,
 })
+
+/** A git or bun command failed during collection install */
+export const ErrCollectionCommandFailed = BunPlatformBoundary.define('collection_command_failed', {
+  customProps: ErrFacet.props<{ command: string; detail: string }>(),
+  facets: [BadInput],
+  message: (d) => `Collection command failed (${d.command}): ${d.detail}`,
+})

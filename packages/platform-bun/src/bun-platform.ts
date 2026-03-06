@@ -236,7 +236,7 @@ export const workspaceGraph = ResolverGraph.define<WorkspaceGraphConfig, Workspa
     }
   },
 
-  connectorRegistry: () => NaiveBunConnectorRegistry.fromConnectorsDir(),
+  connectorRegistry: () => NaiveBunConnectorRegistry.fromCollections(),
 
   supervisor: () => new DefaultSupervisor(() => crypto.randomUUID() as InstallationId),
 })
@@ -410,7 +410,7 @@ const defaultPipeline = buildDeployerPipeline()
 const defaultInstRegistry = new DeployerRegistry('bun', [
   new InProcessDeployer(createInstallationBootstrap(
     installationGraph,
-    NaiveBunConnectorRegistry.fromConnectorsDir(),
+    NaiveBunConnectorRegistry.fromCollections(),
   )),
   daemonInstallationDeployer,
 ])

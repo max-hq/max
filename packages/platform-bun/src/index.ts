@@ -20,6 +20,7 @@ export {
 export { FsInstallationRegistry } from './services/fs-installation-registry.js'
 export { FsWorkspaceRegistry } from './services/fs-workspace-registry.js'
 export { NaiveBunConnectorRegistry } from './services/bun-connector-registry.js'
+export { CollectionManager } from './services/collection-manager.js'
 
 // Credential store
 export { FsCredentialStore } from './services/fs-credential-store.js'

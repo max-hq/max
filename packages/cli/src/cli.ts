@@ -38,6 +38,7 @@ import { CmdLsGlobal, CmdLsWorkspace } from './commands/ls-command.js'
 import { CmdStatusGlobal, CmdStatusWorkspace, CmdStatusInstallation } from './commands/status-command.js'
 import { CmdSearchGlobal, CmdSearchInstallation, CmdSearchWorkspace } from './commands/search-command.js'
 import { CmdLlmBootstrap } from './commands/llm-bootstrap-command.js'
+import { CmdInstall } from './commands/install-command.js'
 import { Command } from './command.js'
 
 // ============================================================================
@@ -143,6 +144,7 @@ export class CLI {
       case 'global': {
         const cmds = {
           init: new CmdInit(services),
+          install: new CmdInstall(services),
           daemon: new CmdDaemon(services),
           search: new CmdSearchGlobal(services, targetVP),
           ls: new CmdLsGlobal(services),
@@ -153,6 +155,7 @@ export class CLI {
           commands: cmds,
           program: buildProgram(or(
             cmds.init.parser.get,
+            cmds.install.parser.get,
             cmds.daemon.parser.get,
             cmds.search.parser.get,
             cmds.ls.parser.get,

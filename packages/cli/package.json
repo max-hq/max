@@ -16,7 +16,6 @@
   "dependencies": {
     "@max/connector": "workspace:*",
     "@max/connector-acme": "workspace:*",
-    "@max/connector-linear": "workspace:*",
     "@max/core": "workspace:*",
     "@max/federation": "workspace:*",
     "@max/platform-bun": "workspace:*",

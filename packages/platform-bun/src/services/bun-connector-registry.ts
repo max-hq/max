@@ -1,8 +1,10 @@
 import {ConnectorModuleAny, ConnectorRegistry, ConnectorRegistryEntry, InMemoryConnectorRegistry, parseConnectorPackage, verifyConnectorExport} from "@max/connector";
 import {LifecycleManager, MaxError} from "@max/core";
 import {ErrConnectorNotInstalled} from '@max/federation'
+import { CollectionManager } from './collection-manager.js'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import * as os from 'node:os'
 
 /** Default connectors directory - resolved relative to this file in the monorepo */
 const DEFAULT_CONNECTORS_DIR = path.resolve(import.meta.dir, '../../../../connectors')
@@ -13,19 +15,17 @@ const DEFAULT_CONNECTORS_DIR = path.resolve(import.meta.dir, '../../../../connec
  * Accepts a name-to-package mapping and registers lazy loaders that `import()`
  * each package by name via Bun's module resolution.
  *
- * Use `fromConnectorsDir()` to auto-discover connectors from a local directory
- * instead of specifying them manually. This scans for `connector-*` subdirectories,
- * reads each `package.json` for the package name, and wires them up automatically.
+ * Use `fromCollections()` to auto-discover connectors from installed collections
+ * under `~/.max/collections/`, or `fromConnectorsDir()` for a single directory.
  *
  * Limitations:
- * - Only knows about connectors explicitly provided or physically present in the monorepo
+ * - Only knows about connectors explicitly provided or physically present on disk
  * - Cannot resolve connectors installed from a remote registry
- * - Relies on Bun workspace resolution for imports
  */
 export class NaiveBunConnectorRegistry implements ConnectorRegistry {
 
   #registry = new InMemoryConnectorRegistry()
-  #deferredScanDir?: string
+  #deferredScanDirs: string[] = []
 
   lifecycle = LifecycleManager.on({
     start: () => this.scanForConnectors(),
@@ -62,20 +62,51 @@ export class NaiveBunConnectorRegistry implements ConnectorRegistry {
   }
 
   /**
-   * Auto-discover connectors from a local `connectors/` directory.
+   * Auto-discover connectors from installed collections under `~/.max/collections/`.
+   *
+   * Resolution order:
+   * 1. If `MAX_CONNECTORS_DIR` env var is set, scan that single directory (dev override)
+   * 2. Else scan all collection directories under `~/.max/collections/`
+   * 3. If no collections are installed, fall back to the monorepo `connectors/` dir
+   */
+  static fromCollections(maxHomeDir?: string): NaiveBunConnectorRegistry {
+    const registry = new NaiveBunConnectorRegistry({})
+
+    const envDir = process.env.MAX_CONNECTORS_DIR
+    if (envDir) {
+      registry.#deferredScanDirs = [envDir]
+      return registry
+    }
+
+    const home = maxHomeDir ?? path.join(os.homedir(), '.max')
+    const manager = new CollectionManager(home)
+    const collectionPaths = manager.getCollectionPaths()
+
+    registry.#deferredScanDirs = [DEFAULT_CONNECTORS_DIR, ...collectionPaths]
+
+    return registry
+  }
+
+  /**
+   * Auto-discover connectors from a single local directory.
    *
    * Defers the filesystem scan to `lifecycle.start()`. Call `start()` (or let
    * a parent lifecycle cascade) before resolving connectors.
    */
   static fromConnectorsDir(connectorsDir: string = DEFAULT_CONNECTORS_DIR): NaiveBunConnectorRegistry {
     const registry = new NaiveBunConnectorRegistry({})
-    registry.#deferredScanDir = connectorsDir
+    registry.#deferredScanDirs = [connectorsDir]
     return registry
   }
 
   private scanForConnectors(): void {
-    const connectorsDir = this.#deferredScanDir
-    if (!connectorsDir) return
+    for (const dir of this.#deferredScanDirs) {
+      this.scanDirectory(dir)
+    }
+  }
+
+  private scanDirectory(connectorsDir: string): void {
+    if (!fs.existsSync(connectorsDir)) return
 
     const entries  = fs.readdirSync(connectorsDir, { withFileTypes: true })
 

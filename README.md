@@ -63,6 +63,86 @@ With a `max` connector, the same Claude simply issued the query it needed.
 
 Having a CLI allows your agent to `cut`, `grep`, `sed`, `sort` pipe to `jq` etc. and redirect at will.
 
+## Quick start
+
+### Prerequisites
+
+- [Bun](https://bun.sh) >= 1.3.9
+- [Rust](https://rustup.rs) (for native dependencies)
+
+### Install
+
+```bash
+git clone https://github.com/max-hq/max.git
+cd max
+bun install
+
+# Put max on your path somewhere
+PATH=$PATH:`pwd` 
+```
+
+### Shell completions
+
+Max can generate shell completions for you:
+
+```bash
+# Zsh
+max completion zsh > ~/.max-completions.zsh
+echo 'source ~/.max-completions.zsh' >> ~/.zshrc
+
+# Or, if you use a completions directory (e.g. oh-my-zsh):
+max completion zsh > ~/.oh-my-zsh/completions/_max
+
+# Bash
+max completion bash > ~/.max-completions.bash
+echo 'source ~/.max-completions.bash' >> ~/.bashrc
+
+# Fish
+max completion fish > ~/.config/fish/completions/max.fish
+```
+
+## Getting started
+
+
+```bash
+
+# (optional) spin up acme in apps/acme - a fake saas tool:
+cd /path/to/max/acme
+./acme start --tenant default
+
+# create a workspace
+mkdir my-workspace && cd my-workspace
+max init .
+
+# connect to a connector
+max connect @max/connector-acme --name acme-1 
+# Max will walk you through authentication - you'll need an API token from the service you're connecting to.
+
+# check your workspace's status
+max status
+
+# check the schema of your connector
+max schema acme-1
+
+# synchronise the installation
+max sync acme-1
+  Syncing...
+    AcmeWorkspace  ██▓··      12  1021.8 op/s
+    AcmeUser       █████     283  4391.1 op/s
+    AcmeTask       ███▒·    2156  4811.3 op/s
+    ──────────────────────────────────────────────
+    3.2s elapsed
+
+# query your data
+max search acme-1 AcmeTask \
+  --filter 'title ~= "protocol"' \
+  --fields title,description \
+  --output ndjson
+```
+
+The query runs locally against your synced data - fast, cheap, and doesn't touch the upstream API.   
+**Roadmap item:** JIT access to upstream data, using local version as hot cache.
+
 ## Max has a CLI
 Max is designed as a set of protocols and libraries, with a platform-agnostic implementation layer.  
 There is one runtime offered so far (`platform-bun`) - but others will follow.
@@ -150,7 +230,7 @@ All implementations target nodejs / javascript / bun. All platform-specifics are
 | `@max/storage-sqlite`   | sqlite-backed storage implemenatation                  | 🟣`platform-bun` |
 
  
-## Library usage
+## CLI / Library Usage
 Max can be imported and used as a library:
 
 ```typescript
@@ -176,91 +256,11 @@ The best place currently to get started with library usage is by:
 - looking at the `examples` folder
 - looking at any smoke tests
 
-It's also highly worth reading the [max developer guide](docs/developer/README.md) which goes into more detail about library usage of connectors and their schema data.  
-
-## Quick start
-
-### Prerequisites
-
-- [Bun](https://bun.sh) >= 1.3.9
-- [Rust](https://rustup.rs) (for native dependencies)
-
-### Install
-
-```bash
-git clone https://github.com/max-hq/max.git
-cd max
-bun install
-
-# Put max on your path somewhere
-PATH=$PATH:`pwd` 
-```
-
-### Shell completions
-
-Max can generate shell completions for you:
-
-```bash
-# Zsh
-max completion zsh > ~/.max-completions.zsh
-echo 'source ~/.max-completions.zsh' >> ~/.zshrc
-
-# Or, if you use a completions directory (e.g. oh-my-zsh):
-max completion zsh > ~/.oh-my-zsh/completions/_max
-
-# Bash
-max completion bash > ~/.max-completions.bash
-echo 'source ~/.max-completions.bash' >> ~/.bashrc
-
-# Fish
-max completion fish > ~/.config/fish/completions/max.fish
-```
-
-## Getting started
-
-
-```bash
-
-# (optional) spin up acme in apps/acme - a fake saas tool:
-cd /path/to/max/acme
-./acme start --tenant default
-
-# create a workspace
-mkdir my-workspace && cd my-workspace
-max init .
-
-# connect to a connector
-max connect @max/connector-acme --name acme-1 
-# Max will walk you through authentication - you'll need an API token from the service you're connecting to.
-
-# check your workspace's status
-max status
-
-# check the schema of your connector
-max schema acme-1
-
-# synchronise the installation
-max sync acme-1
-  Syncing...
-    AcmeWorkspace  ██▓··      12  1021.8 op/s
-    AcmeUser       █████     283  4391.1 op/s
-    AcmeTask       ███▒·    2156  4811.3 op/s
-    ──────────────────────────────────────────────
-    3.2s elapsed
-
-# query your data
-max search acme-1 AcmeTask \
-  --filter 'title ~= "protocol"' \
-  --fields title,description \
-  --output ndjson
-```
-
-The query runs locally against your synced data - fast, cheap, and doesn't touch the upstream API.   
-**Roadmap item:** JIT access to upstream data, using local version as hot cache.
+It's also highly worth reading the [max developer guide](docs/developer/README.md) which goes into more detail about library usage of connectors and their schema data.
 
 ### Teach your agent
 
-> ⚠️ Momentarily unavailable. The AGENT.USER.md targets an early prototype and needs updating
+Tell your agent to run:
 
 ```bash
 max llm-bootstrap
@@ -273,15 +273,19 @@ Your agent now knows how to discover connectors, run queries, and work with Max'
 
 ## Connectors
 
-**@max/connector-\* Connectors coming shortly**.  Today, only the acme connector is offered.
+This monorepo contains one connector - @max/connector-acme.
+There is a a sibling repo [max-connectors](https://github.com/max-hq/max-connectors) which contains a collection of connectors.
 
-| Connector | Status | Description |
-|-----------|--------|-------------|
-| **ACME** | Demo | Fictional connector for testing and learning |
+| Connector                                    | Description                                                  |
+|----------------------------------------------|--------------------------------------------------------------|
+| **@max/connector-acme**                      | Fictional app connector (in apps/acme) for testing / playing |
+| **@max/connector-claude-code-conversations** | Ingests your claude conversations from ~/.claude             |
+| **@max/connector-github**                    | Ingests github issues from the target repo                   |
+| **@max/connector-google-workspace**          | Ingests user / groups data from google workspace             |
+| **@max/connector-linear**                    | Ingests linear tickets, projects, teams etc                  |
 
 ### Creating a connector
 See [max developer guide](docs/developer/README.md)
-
 
 ## Contributing
 

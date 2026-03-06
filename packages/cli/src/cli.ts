@@ -243,12 +243,11 @@ export class CLI {
 
   // -- Completion subcommand -------------------------------------------------
 
-  private handleCompletion(
-    req: CliRequest,
+  private async handleCompletion(
     program: Parser<Mode>,
     shell: string,
     args: string[],
-  ): CliResponse | Promise<CliResponse> {
+  ): Promise<CliResponse> {
     const shellCodec = shells[shell]
     if (!shellCodec) {
       return { exitCode: 1, stderr: `Unknown shell: ${shell}. Supported: ${Object.keys(shells).join(', ')}\n` }
@@ -261,10 +260,17 @@ export class CLI {
     }
 
     // With args → inline completion (shell calling back for suggestions)
-    return this.suggest(
-      { ...req, kind: 'complete', argv: args, shell },
-      program,
-    )
+    try {
+      const suggestions = await suggestAsync(program, asNonEmptyArgv(args))
+      const preEncoded = suggestions.map(preEncodeSuggestion)
+      const chunks: string[] = []
+      for (const chunk of shellCodec.encodeSuggestions(preEncoded)) {
+        chunks.push(chunk)
+      }
+      return { exitCode: 0, stdout: chunks.join('\n') }
+    } catch {
+      return { exitCode: 1, stderr: '' }
+    }
   }
 
   // -- Error formatting ------------------------------------------------------
@@ -374,7 +380,7 @@ export class CLI {
       const rest = argv.slice(compIdx + 1)
       const shell = rest[0]
       if (shell) {
-        return this.handleCompletion(req, program, shell, rest.slice(1) as string[])
+        return this.handleCompletion(program, shell, rest.slice(1) as string[])
       }
     }
 

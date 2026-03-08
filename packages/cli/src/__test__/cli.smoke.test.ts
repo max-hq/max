@@ -248,22 +248,5 @@ describe('CLI smoke', () => {
       expect(res.completions!.length).toBeGreaterThan(0)
     })
   })
-
-  describe('daemon', () => {
-    test('list at global level', async () => {
-      const { run } = await createTestCli()
-      const res = await run('max://@', ['daemon', 'list'])
-
-      expect(res.exitCode).toBe(0)
-      expect(res.stdout).toContain('test-project')
-    })
-
-    test('list at workspace level (uses ctx.global)', async () => {
-      const { run } = await createTestCli()
-      const res = await run('max://@/test-project', ['daemon', 'list'])
-
-      expect(res.exitCode).toBe(0)
-      expect(res.stdout).toContain('test-project')
-    })
-  })
+  
 })

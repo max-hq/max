@@ -1,14 +1,26 @@
 /**
- * AcmeClient — Connector-owned wrapper around the raw @max/acme HTTP client.
+ * AcmeConnection - Connector-owned wrapper around the raw @max/acme HTTP client.
  *
  * Ensures lifecycle is respected: start() must be called before accessing the client.
+ *
+ * Resolvers access ctx.api.client.* - anything passed as `api` in AcmeAppContext
+ * must satisfy AcmeClientProvider (i.e. have a `.client` property implementing AcmeClient).
  */
 
-import { AcmeHttpClient } from "@max/acme";
+import { AcmeHttpClient, type AcmeClient } from "@max/acme";
 import type { CredentialHandle } from "@max/connector";
 import type { AcmeConfig } from "./config.js";
+import { ErrClientNotStarted } from "./errors.js";
 
-export class AcmeClient {
+/**
+ * The shape that resolvers need from ctx.api.
+ * Both AcmeConnection (production) and test wrappers like { client: testClient } satisfy this.
+ */
+export interface AcmeClientProvider {
+  readonly client: AcmeClient;
+}
+
+export class AcmeConnection implements AcmeClientProvider {
   private http: AcmeHttpClient | null = null;
 
   constructor(
@@ -26,9 +38,9 @@ export class AcmeClient {
   }
 
   /** The underlying HTTP client. Throws if start() hasn't been called. */
-  get client(): AcmeHttpClient {
+  get client(): AcmeClient {
     if (!this.http) {
-      throw new Error("AcmeClient not started — call start() first");
+      throw ErrClientNotStarted.create({});
     }
     return this.http;
   }

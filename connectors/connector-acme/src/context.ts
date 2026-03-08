@@ -3,9 +3,9 @@
  */
 
 import { Context } from "@max/core";
-import type { AcmeClient } from "./acme-client.js";
+import type { AcmeClientProvider } from "./acme-client.js";
 
 export class AcmeAppContext extends Context {
-  api = Context.instance<AcmeClient>();
+  api = Context.instance<AcmeClientProvider>();
   workspaceId = Context.string;
 }

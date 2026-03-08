@@ -6,7 +6,7 @@ import {AcmeProjectResolver} from "./resolvers/project-resolver.js";
 
 export { AcmeRoot, AcmeUser, AcmeWorkspace, AcmeProject, AcmeTask } from "./entities.js";
 export { AcmeAppContext } from "./context.js";
-export { AcmeClient } from "./acme-client.js";
+export { AcmeConnection, type AcmeClientProvider } from "./acme-client.js";
 export { AcmeRootResolver, RootWorkspacesLoader } from "./resolvers/root-resolver.js";
 export { AcmeUserResolver, UserBasicLoader } from "./resolvers/user-resolver.js";
 export { AcmeWorkspaceResolver, WorkspaceBasicLoader, WorkspaceUsersLoader, WorkspaceProjectsLoader } from "./resolvers/workspace-resolver.js";
@@ -29,7 +29,7 @@ import { AcmeWorkspaceResolver } from "./resolvers/workspace-resolver.js";
 import { AcmeRootResolver } from "./resolvers/root-resolver.js";
 import { AcmeOnboarding } from "./onboarding.js";
 import { AcmeAppContext } from "./context.js";
-import { AcmeClient } from "./acme-client.js";
+import { AcmeConnection } from "./acme-client.js";
 import { AcmeApiToken } from "./credentials.js";
 import type { AcmeConfig } from "./config.js";
 
@@ -55,7 +55,7 @@ const AcmeConnector = ConnectorModule.create<AcmeConfig>({
   def: AcmeDef,
   initialise(config, credentials) {
     const tokenHandle = credentials.get(AcmeApiToken);
-    const api = new AcmeClient(config, tokenHandle);
+    const api = new AcmeConnection(config, tokenHandle);
 
     const ctx = Context.build(AcmeAppContext, {
       api,

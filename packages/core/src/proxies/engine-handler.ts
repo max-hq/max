@@ -28,6 +28,8 @@ export class EngineHandler<TScope extends Scope = Scope> {
         return this.engine.loadCollection<any,any>(args[0] as any, args[1] as any, args[2] as any)
       case 'store':
         return this.engine.store(args[0] as any)
+      case 'storeMany':
+        return this.engine.storeMany(args[0] as any)
       case 'loadPage':
         return this.engine.loadPage(args[0] as any, args[1] as any, args[2] as any)
       case 'query':

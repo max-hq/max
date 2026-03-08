@@ -17,7 +17,7 @@ import type { RpcRequest } from "../federation/rpc.js"
 import type { Engine } from "../engine.js"
 import type { Scope } from "../scope.js"
 import type { EntityDefAny } from "../entity-def.js"
-import type { EntityInput } from "../entity-input.js"
+import type { EntityInput, EntityInputAny } from "../entity-input.js"
 import type { EntityResult } from "../entity-result.js"
 import type { EntityFields, EntityFieldsKeys, EntityFieldsPick } from '../field-types.js'
 import type { CollectionKeys, CollectionTargetRef } from "../field-types.js"
@@ -83,6 +83,10 @@ export class EngineProxy<TScope extends Scope = Scope> implements Engine<TScope>
 
   async store<E extends EntityDefAny>(input: EntityInput<E>): Promise<Ref<E>> {
     return this.rpc("store", input)
+  }
+
+  async storeMany(inputs: EntityInputAny[]): Promise<void> {
+    return this.rpc("storeMany", inputs)
   }
 
   // --------------------------------------------------------------------------

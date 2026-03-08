@@ -15,14 +15,22 @@ export class InMemorySyncMeta implements SyncMeta {
   private data = new Map<string, Map<string, Date>>();
 
   async recordFieldSync(ref: RefAny, fields: string[], timestamp: Date): Promise<void> {
-    const key = ref.toKey() as string;
-    let fieldMap = this.data.get(key);
-    if (!fieldMap) {
-      fieldMap = new Map();
-      this.data.set(key, fieldMap);
-    }
-    for (const field of fields) {
-      fieldMap.set(field, timestamp);
+    await this.recordFieldSyncBatch(
+      fields.map(field => ({ ref, field, timestamp }))
+    );
+  }
+
+  async recordFieldSyncBatch(
+    entries: ReadonlyArray<{ ref: RefAny; field: string; timestamp: Date }>
+  ): Promise<void> {
+    for (const entry of entries) {
+      const key = entry.ref.toKey() as string;
+      let fieldMap = this.data.get(key);
+      if (!fieldMap) {
+        fieldMap = new Map();
+        this.data.set(key, fieldMap);
+      }
+      fieldMap.set(entry.field, entry.timestamp);
     }
   }
 

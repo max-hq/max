@@ -15,16 +15,23 @@ export class SqliteSyncMeta implements SyncMeta {
   constructor(private db: Database) {}
 
   async recordFieldSync(ref: RefAny, fields: string[], timestamp: Date): Promise<void> {
-    const refKey = ref.toKey() as string;
-    const epochMs = timestamp.getTime();
+    await this.recordFieldSyncBatch(
+      fields.map(field => ({ ref, field, timestamp }))
+    );
+  }
+
+  async recordFieldSyncBatch(
+    entries: ReadonlyArray<{ ref: RefAny; field: string; timestamp: Date }>
+  ): Promise<void> {
+    if (entries.length === 0) return;
 
     const stmt = this.db.prepare(
       `INSERT OR REPLACE INTO _max_sync_meta (ref_key, field, synced_at) VALUES (?, ?, ?)`,
     );
 
     this.db.transaction(() => {
-      for (const field of fields) {
-        stmt.run(refKey, field, epochMs);
+      for (const entry of entries) {
+        stmt.run(entry.ref.toKey() as string, entry.field, entry.timestamp.getTime());
       }
     })();
   }

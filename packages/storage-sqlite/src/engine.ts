@@ -7,6 +7,7 @@ import {
   type Engine,
   type EntityDefAny,
   type EntityInput,
+  type EntityInputAny,
   EntityResult,
   type EntityFields,
   type EntityQuery,
@@ -56,37 +57,43 @@ export class SqliteEngine implements Engine<InstallationScope> {
   /** Open a SQLite DB at `path`, register the schema, ensure tables, and return the engine. */
   static open(path: string, schema: Schema): SqliteEngine {
     const db = new Database(path, { create: true });
+    db.exec("PRAGMA journal_mode = WAL");
+    db.exec("PRAGMA synchronous = NORMAL");
     const sqliteSchema = new SqliteSchema().registerSchema(schema);
     sqliteSchema.ensureTables(db);
     return new SqliteEngine(db, sqliteSchema);
   }
 
   async store<E extends EntityDefAny>(input: EntityInput<E>): Promise<Ref<E>> {
-    const tableDef = this.schema.getTable(input.ref.entityDef);
-    const id = input.ref.id;
+    await this.storeMany([input]);
+    return Ref.installation(input.ref.entityDef, input.ref.id as EntityId);
+  }
 
-    // Build column names and values
-    const columnNames: string[] = ["_id"];
-    const placeholders: string[] = ["?"];
-    const values: SQLQueryBindings[] = [id];
+  async storeMany(inputs: EntityInputAny[]): Promise<void> {
+    if (inputs.length === 0) return;
 
-    for (const col of tableDef.columns) {
-      const fieldValue = (input.fields as Record<string, unknown>)[col.fieldName];
-      if (fieldValue === undefined) {
-        continue;
+    this.db.transaction(() => {
+      for (const input of inputs) {
+        const tableDef = this.schema.getTable(input.ref.entityDef);
+        const id = input.ref.id;
+
+        const columnNames: string[] = ["_id"];
+        const placeholders: string[] = ["?"];
+        const values: SQLQueryBindings[] = [id];
+
+        for (const col of tableDef.columns) {
+          const fieldValue = (input.fields as Record<string, unknown>)[col.fieldName];
+          if (fieldValue === undefined) continue;
+
+          columnNames.push(q(col.columnName));
+          placeholders.push("?");
+          values.push(this.toSqlValue(fieldValue, col) as SQLQueryBindings);
+        }
+
+        const sql = `INSERT OR REPLACE INTO ${q(tableDef.tableName)} (${columnNames.join(", ")}) VALUES (${placeholders.join(", ")})`;
+        this.db.run(sql, values);
       }
-
-      columnNames.push(q(col.columnName));
-      placeholders.push("?");
-      values.push(this.toSqlValue(fieldValue, col) as SQLQueryBindings);
-    }
-
-    // Upsert: INSERT OR REPLACE
-    const sql = `INSERT OR REPLACE INTO ${q(tableDef.tableName)} (${columnNames.join(", ")}) VALUES (${placeholders.join(", ")})`;
-    this.db.run(sql, values);
-
-    // Return a local ref (it now exists in DB)
-    return Ref.installation(input.ref.entityDef, id as EntityId);
+    })();
   }
 
   async load<E extends EntityDefAny, K extends keyof EntityFields<E>>(

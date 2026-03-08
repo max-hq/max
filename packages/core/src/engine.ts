@@ -3,7 +3,7 @@
  */
 
 import type { EntityDefAny } from "./entity-def.js";
-import type { EntityInput } from "./entity-input.js";
+import type { EntityInput, EntityInputAny } from "./entity-input.js";
 import type { EntityResult } from "./entity-result.js";
 import {
   CollectionKeys,
@@ -55,6 +55,13 @@ export interface Engine<TScope extends Scope = Scope> extends Lifecycle {
    * Accepts a complete EntityInput (self-sufficient).
    */
   store<E extends EntityDefAny>(input: EntityInput<E>): Promise<Ref<E>>
+
+  /**
+   * Store multiple entities in a single batch.
+   * Inputs may be heterogeneous (different entity types).
+   * Implementations should wrap in a single transaction for performance.
+   */
+  storeMany(inputs: EntityInputAny[]): Promise<void>
 
   /**
    * Load a page of entities by type, with projection controlling the output shape.

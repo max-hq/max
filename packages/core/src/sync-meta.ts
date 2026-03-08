@@ -16,6 +16,11 @@ export interface SyncMeta {
   /** Record that fields were synced for an entity */
   recordFieldSync(ref: RefAny, fields: string[], timestamp: Date): Promise<void>;
 
+  /** Record field sync for multiple entities in a single batch. */
+  recordFieldSyncBatch(
+    entries: ReadonlyArray<{ ref: RefAny; field: string; timestamp: Date }>
+  ): Promise<void>;
+
   /** When was this field last synced for this entity? */
   getFieldSyncTime(ref: RefAny, field: string): Promise<Date | null>;
 

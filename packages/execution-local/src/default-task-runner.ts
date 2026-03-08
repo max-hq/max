@@ -8,6 +8,7 @@ import type {
   ContextValuesAny,
   Engine,
   EntityDefAny,
+  EntityInputAny,
   EntityType,
   FlowController,
   LoaderAny,
@@ -35,10 +36,20 @@ import {
 } from '@max/execution'
 
 // ============================================================================
-// Constants
+// Tuning
 // ============================================================================
 
-const PAGE_SIZE = 100;
+export interface ExecutionTuning {
+  /** Page size for iterating over refs in the engine (ForAll operations). */
+  refPageSize: number
+  /** Page size hint for connector collection loads. */
+  connectorPageSize: number
+}
+
+const DEFAULT_TUNING: ExecutionTuning = {
+  refPageSize: 500,
+  connectorPageSize: 100,
+}
 
 // ============================================================================
 // Config
@@ -50,6 +61,11 @@ export interface DefaultTaskRunnerConfig {
   registry: ExecutionRegistry
   flowController: FlowController
   contextProvider: () => Promise<ContextValuesAny>
+  /**
+   * Execution tuning parameters. Static at construction time for now.
+   * Future: make dynamic so an adaptive controller can adjust at runtime.
+   */
+  tuning?: Partial<ExecutionTuning>
 }
 
 // ============================================================================
@@ -62,6 +78,7 @@ export class DefaultTaskRunner implements TaskRunner {
   private registry: ExecutionRegistry
   private flowController: FlowController
   private contextProvider: () => Promise<ContextValuesAny>
+  private tuning: ExecutionTuning
 
   constructor(config: DefaultTaskRunnerConfig) {
     this.engine = config.engine
@@ -69,6 +86,7 @@ export class DefaultTaskRunner implements TaskRunner {
     this.registry = config.registry
     this.flowController = config.flowController
     this.contextProvider = config.contextProvider
+    this.tuning = { ...DEFAULT_TUNING, ...config.tuning }
   }
 
   async execute(task: { readonly payload: TaskPayload }): Promise<TaskRunResult> {
@@ -132,7 +150,7 @@ export class DefaultTaskRunner implements TaskRunner {
     const page = await this.engine.loadPage(
       entityDef,
       Projection.refs,
-      PageRequest.from({ cursor, limit: PAGE_SIZE })
+      PageRequest.from({ cursor, limit: this.tuning.refPageSize })
     )
     if (page.items.length === 0) return {}
 
@@ -178,7 +196,7 @@ export class DefaultTaskRunner implements TaskRunner {
     const page = await this.engine.loadPage(
       entityDef,
       Projection.refs,
-      PageRequest.from({ cursor, limit: PAGE_SIZE })
+      PageRequest.from({ cursor, limit: this.tuning.refPageSize })
     )
     if (page.items.length === 0) return {}
 
@@ -264,34 +282,48 @@ export class DefaultTaskRunner implements TaskRunner {
       try {
         if (loader.kind === 'entityBatched') {
           const batch = await loader.load(refs, ctx)
+          const inputs: EntityInputAny[] = []
+          const syncEntries: { ref: RefAny; field: string; timestamp: Date }[] = []
+          const now = new Date()
           for (const ref of refs) {
             const input = batch.get(ref)
             if (input) {
-              await this.engine.store(input)
-              await this.syncMeta.recordFieldSync(ref, fieldNames, new Date())
+              inputs.push(input)
+              for (const f of fieldNames) {
+                syncEntries.push({ ref, field: f, timestamp: now })
+              }
             }
           }
+          await this.flushBatch(inputs, syncEntries)
         } else if (loader.kind === 'entity') {
+          const inputs: EntityInputAny[] = []
+          const syncEntries: { ref: RefAny; field: string; timestamp: Date }[] = []
+          const now = new Date()
           for (const ref of refs) {
             const input = await loader.load(ref, ctx)
-            await this.engine.store(input)
-            await this.syncMeta.recordFieldSync(ref, fieldNames, new Date())
+            inputs.push(input)
+            for (const f of fieldNames) {
+              syncEntries.push({ ref, field: f, timestamp: now })
+            }
           }
+          await this.flushBatch(inputs, syncEntries)
         } else if (loader.kind === 'derivation' && loader.source.kind === 'single') {
           const coDerivations = this.registry.getCoDerivations(loader)
           for (const ref of refs) {
             const data = await loader.source.fetch(ref, ctx)
+            const inputs: EntityInputAny[] = []
+            const syncEntries: { ref: RefAny; field: string; timestamp: Date }[] = []
+            const now = new Date()
             for (const d of coDerivations) {
               const items = d.extract(data)
               for (const input of items) {
-                // FIXME: DISCUSSION: I think we need a bulk store primitive
-                await this.engine.store(input)
-                const extractedFields = Object.keys(input.fields ?? {})
-                if (extractedFields.length > 0) {
-                  await this.syncMeta.recordFieldSync(input.ref, extractedFields, new Date())
+                inputs.push(input)
+                for (const f of Object.keys(input.fields ?? {})) {
+                  syncEntries.push({ ref: input.ref, field: f, timestamp: now })
                 }
               }
             }
+            await this.flushBatch(inputs, syncEntries)
           }
         }
       } finally {
@@ -365,17 +397,20 @@ export class DefaultTaskRunner implements TaskRunner {
     try {
       const page = await collectionLoader.load(
         ref,
-        PageRequest.from({ cursor, limit: PAGE_SIZE }),
+        PageRequest.from({ cursor, limit: this.tuning.connectorPageSize }),
         ctx,
       )
 
+      const inputs: EntityInputAny[] = []
+      const syncEntries: { ref: RefAny; field: string; timestamp: Date }[] = []
+      const now = new Date()
       for (const input of page.items) {
-        await this.engine.store(input)
-        const fieldNames = Object.keys(input.fields ?? {})
-        if (fieldNames.length > 0) {
-          await this.syncMeta.recordFieldSync(input.ref, fieldNames, new Date())
+        inputs.push(input)
+        for (const f of Object.keys(input.fields ?? {})) {
+          syncEntries.push({ ref: input.ref, field: f, timestamp: now })
         }
       }
+      await this.flushBatch(inputs, syncEntries)
 
       const targetEntityType = collectionLoader.target.name
       const progress: TaskProgress = {
@@ -432,7 +467,7 @@ export class DefaultTaskRunner implements TaskRunner {
     try {
       const sourcePage = await source.fetch(
         ref,
-        PageRequest.from({ cursor, limit: PAGE_SIZE }),
+        PageRequest.from({ cursor, limit: this.tuning.connectorPageSize }),
         ctx,
       )
 
@@ -440,19 +475,22 @@ export class DefaultTaskRunner implements TaskRunner {
 
       // Run ALL co-derivations from this source - one fetch, multiple entity types
       const coDerivations = this.registry.getCoDerivations(derivation)
+      const inputs: EntityInputAny[] = []
+      const syncEntries: { ref: RefAny; field: string; timestamp: Date }[] = []
+      const now = new Date()
       for (const d of coDerivations) {
         const items = d.extract(sourcePage.data)
         for (const input of items) {
-          await this.engine.store(input)
-          const fieldNames = Object.keys(input.fields ?? {})
-          if (fieldNames.length > 0) {
-            await this.syncMeta.recordFieldSync(input.ref, fieldNames, new Date())
+          inputs.push(input)
+          for (const f of Object.keys(input.fields ?? {})) {
+            syncEntries.push({ ref: input.ref, field: f, timestamp: now })
           }
         }
         if (d === derivation) {
           triggerCount = items.length
         }
       }
+      await this.flushBatch(inputs, syncEntries)
 
       const targetEntityType = derivation.target.name
       const progress: TaskProgress = {
@@ -499,6 +537,19 @@ export class DefaultTaskRunner implements TaskRunner {
     // Ah. The issue is that the task runner doesn't have a _scope_.
 
     return this.executeLoadCollectionForRef(entityDef, refKey, field, cursor)
+  }
+
+  // ============================================================================
+  // Batch helpers
+  // ============================================================================
+
+  private async flushBatch(
+    inputs: EntityInputAny[],
+    syncEntries: ReadonlyArray<{ ref: RefAny; field: string; timestamp: Date }>
+  ): Promise<void> {
+    if (inputs.length === 0) return
+    await this.engine.storeMany(inputs)
+    await this.syncMeta.recordFieldSyncBatch(syncEntries)
   }
 
 }

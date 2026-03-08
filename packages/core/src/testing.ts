@@ -62,6 +62,10 @@ export function StubbedEngine(options: StubbedEngineOptions = {}): Engine<Instal
       return (input.ref ?? {}) as Ref<any>
     },
 
+    async storeMany(inputs: any[]) {
+      calls?.push("storeMany")
+    },
+
     async loadPage() {
       calls?.push("loadPage")
       return Page.empty() as Page<any>

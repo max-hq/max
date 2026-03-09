@@ -58,7 +58,7 @@ console.log(`Syncing ${NUM_USERS} users across ${NUM_TEAMS} teams into ${DB_PATH
 
 const ctx = await Context.build(AcmeAppContext, { api, installationId: "acme-1" } as any);
 console.log("  Seeding...");
-const plan = await AcmeSeeder.seed(ctx as any, engine);
+const plan = await AcmeSeeder.seed(ctx, engine);
 console.log(`  Plan: ${plan.steps.length} steps`);
 const handle = await executor.execute(plan);
 console.log(`  Sync started (${handle.id}), draining tasks...`);

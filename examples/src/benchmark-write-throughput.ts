@@ -79,7 +79,7 @@ async function runSync(label: string, api: AcmeTestClient, dbPath: string, works
     api: clientProvider,
     workspaceId,
   });
-  const plan = await AcmeSeeder.seed(ctx as any, engine);
+  const plan = await AcmeSeeder.seed(ctx, engine);
   console.log(`  Plan: ${plan.steps.length} steps`);
 
   // ---- timed section ----

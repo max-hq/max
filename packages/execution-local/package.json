@@ -19,6 +19,7 @@
     "@types/bun": "latest",
     "typescript": "catalog:",
     "@max/storage-sqlite": "workspace:*",
-    "@max/connector-acme": "workspace:*"
+    "@max/connector-acme": "workspace:*",
+    "@max/acme": "workspace:*"
   }
 }

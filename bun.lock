@@ -123,6 +123,7 @@
         "@max/execution": "workspace:*",
       },
       "devDependencies": {
+        "@max/acme": "workspace:*",
         "@max/connector-acme": "workspace:*",
         "@max/storage-sqlite": "workspace:*",
         "@types/bun": "latest",

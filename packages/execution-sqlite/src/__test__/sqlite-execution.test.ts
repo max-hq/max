@@ -84,7 +84,7 @@ function createContextProvider(api: MockAcmeClient) {
 
 async function seedAndExecute(executor: SyncExecutor, api: MockAcmeClient, engine: SqliteEngine) {
   const ctx = await createContextProvider(api)();
-  const plan = await AcmeSeeder.seed(ctx as any, engine);
+  const plan = await AcmeSeeder.seed(ctx, engine);
   return executor.execute(plan);
 }
 

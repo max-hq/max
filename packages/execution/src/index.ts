@@ -11,8 +11,10 @@ export type {
   LoadCollectionPayload,
   SyncStepPayload,
   SyncGroupPayload,
-  SerialisedStep,
   SerialisedStepTarget,
+  ForAllTarget,
+  ForRootTarget,
+  ForOneTarget,
   SerialisedStepOperation,
   Task,
 } from "./task.js";
@@ -52,4 +54,4 @@ export type { SyncExecutorConfig } from "./sync-executor.js";
 export type { SyncObserver, SyncProgressEvent } from "./sync-observer.js";
 
 // Errors
-export { Execution, ErrUnknownEntityType, ErrNoResolver, ErrNoCollectionLoader, ErrTaskNotFound } from "./errors.js";
+export { Execution, ErrUnknownEntityType, ErrNoResolver, ErrNoCollectionLoader, ErrTaskNotFound, ErrUnknownTargetKind } from "./errors.js";

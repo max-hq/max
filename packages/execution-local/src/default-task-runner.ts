@@ -23,6 +23,7 @@ import { PageRequest, Projection, Ref } from '@max/core'
 
 import type {
   ExecutionRegistry,
+  ForAllTarget,
   TaskChildTemplate,
   TaskPayload,
   TaskProgress,
@@ -110,25 +111,25 @@ export class DefaultTaskRunner implements TaskRunner {
   private async executeSyncStep(
     payload: TaskPayload & { kind: 'sync-step' }
   ): Promise<TaskRunResult> {
-    const { target, operation } = payload.step
+    const { target, operation } = payload
     const entityDef = this.registry.getEntity(target.entityType)
     if (!entityDef) throw ErrUnknownEntityType.create({ entityType: target.entityType })
 
     if (target.kind === 'forRoot' || target.kind === 'forOne') {
       // Single ref: execute directly, no children needed
       if (operation.kind === 'loadFields') {
-        await this.processLoadFieldsForRef(entityDef, target.refKey!, operation.fields!)
+        await this.processLoadFieldsForRef(entityDef, target.refKey, operation.fields!)
       } else if (operation.kind === 'loadCollection') {
-        return this.executeLoadCollectionForRef(entityDef, target.refKey!, operation.field!)
+        return this.executeLoadCollectionForRef(entityDef, target.refKey, operation.field!)
       }
       return {}
     }
 
     // ForAll: paginated execution
     if (operation.kind === 'loadFields') {
-      return this.executeForAllLoadFields(entityDef, target, operation.fields!)
+      return this.executeForAllLoadFields(entityDef, payload)
     } else if (operation.kind === 'loadCollection') {
-      return this.executeForAllLoadCollection(entityDef, target, operation.field!)
+      return this.executeForAllLoadCollection(entityDef, payload)
     }
 
     return {}
@@ -143,19 +144,19 @@ export class DefaultTaskRunner implements TaskRunner {
    */
   private async executeForAllLoadFields(
     entityDef: EntityDefAny,
-    target: { kind: string; entityType: EntityType },
-    fields: readonly string[],
-    cursor?: string
+    payload: TaskPayload & { kind: 'sync-step' },
   ): Promise<TaskRunResult> {
+    const target = payload.target as ForAllTarget
+    const { operation } = payload
     const page = await this.engine.loadPage(
       entityDef,
       Projection.refs,
-      PageRequest.from({ cursor, limit: this.tuning.refPageSize })
+      PageRequest.from({ cursor: target.cursor, limit: this.tuning.refPageSize })
     )
     if (page.items.length === 0) return {}
 
     // Process this page inline (preserves batching for batched loaders)
-    await this.processLoadFieldsForRefs(entityDef, target, fields, page.items)
+    await this.processLoadFieldsForRefs(entityDef, target, operation.fields!, page.items)
 
     const progress: TaskProgress = {
       entityType: target.entityType,
@@ -170,11 +171,9 @@ export class DefaultTaskRunner implements TaskRunner {
           {
             state: 'pending',
             payload: {
-              kind: 'load-fields',
-              entityType: target.entityType,
-              refKeys: [],
-              fields,
-              cursor: page.cursor,
+              kind: 'sync-step',
+              target: { ...target, cursor: page.cursor },
+              operation,
             },
           },
         ],
@@ -189,20 +188,21 @@ export class DefaultTaskRunner implements TaskRunner {
    */
   private async executeForAllLoadCollection(
     entityDef: EntityDefAny,
-    target: { kind: string; entityType: EntityType },
-    field: string,
-    cursor?: string
+    payload: TaskPayload & { kind: 'sync-step' },
   ): Promise<TaskRunResult> {
+    const target = payload.target as ForAllTarget
+    const { operation } = payload
     const page = await this.engine.loadPage(
       entityDef,
       Projection.refs,
-      PageRequest.from({ cursor, limit: this.tuning.refPageSize })
+      PageRequest.from({ cursor: target.cursor, limit: this.tuning.refPageSize })
     )
     if (page.items.length === 0) return {}
 
     // Resolve target entity type from the collection loader or derivation
     const resolver = this.registry.getResolver(target.entityType)
     if (!resolver) throw ErrNoResolver.create({ entityType: target.entityType })
+    const field = operation.field!
     const loader = resolver.getLoaderForField(field)
     if (!loader || (loader.kind !== 'collection' && loader.kind !== 'derivation')) {
       throw ErrNoCollectionLoader.create({ entityType: target.entityType, field })
@@ -231,11 +231,9 @@ export class DefaultTaskRunner implements TaskRunner {
       children.push({
         state: 'pending',
         payload: {
-          kind: 'load-fields', // Reuse load-fields with cursor for ref pagination
-          entityType: target.entityType,
-          refKeys: [],
-          fields: [],
-          cursor: page.cursor,
+          kind: 'sync-step',
+          target: { ...target, cursor: page.cursor },
+          operation,
         },
       })
     }
@@ -333,27 +331,18 @@ export class DefaultTaskRunner implements TaskRunner {
   }
 
   /**
-   * Execute a load-fields task (child task for ForAll continuations).
+   * Execute a load-fields task for specific refs.
    */
   private async executeLoadFields(
     payload: TaskPayload & { kind: 'load-fields' }
   ): Promise<TaskRunResult> {
-    const { entityType, refKeys, fields, cursor } = payload
+    const { entityType, refKeys, fields } = payload
     const entityDef = this.registry.getEntity(entityType)
     if (!entityDef) throw ErrUnknownEntityType.create({ entityType })
-    // FIXME: We should know our connector here!
-    // Ah. The issue is that the task runner doesn't have a _scope_.
 
     if (refKeys.length > 0) {
-      // Direct ref-based load (ForRoot/ForOne style)
       const refs = refKeys.map((key) => Ref.fromKey(entityDef, key))
       await this.processLoadFieldsForRefs(entityDef, { entityType }, fields, refs)
-      return {}
-    }
-
-    // ForAll continuation: re-query with cursor offset
-    if (cursor !== undefined) {
-      return this.executeForAllLoadFields(entityDef, { kind: 'forAll', entityType }, fields, cursor)
     }
 
     return {}

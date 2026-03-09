@@ -15,9 +15,10 @@ import type {
   StepOperation,
   EntityType,
 } from "@max/core";
-import type {SerialisedStep, SerialisedStepTarget, SerialisedStepOperation} from "./task.js";
+import type {SyncStepPayload, SerialisedStepTarget, SerialisedStepOperation} from "./task.js";
 import type {SyncId} from "./sync-handle.js";
 import type {TaskTemplate} from "./task-store.js";
+import {ErrUnknownTargetKind} from "./errors.js";
 
 // ============================================================================
 // PlanExpander
@@ -58,7 +59,7 @@ export class PlanExpander {
             state: prevId ? "new" : "pending",
             blockedBy: prevId ?? undefined,
             parentId: groupId,
-            payload: { kind: "sync-step", step: this.serialiseStep(step) },
+            payload: this.serialiseStep(step),
           });
         }
 
@@ -70,7 +71,7 @@ export class PlanExpander {
           syncId,
           state: prevId ? "new" : "pending",
           blockedBy: prevId ?? undefined,
-          payload: { kind: "sync-step", step: this.serialiseStep(entry) },
+          payload: this.serialiseStep(entry),
         });
         prevId = stepId;
       }
@@ -83,21 +84,25 @@ export class PlanExpander {
   // Serialisation
   // ============================================================================
 
-  serialiseStep(step: SyncStep): SerialisedStep {
+  serialiseStep(step: SyncStep): SyncStepPayload {
     return {
+      kind: "sync-step",
       target: this.serialiseTarget(step.target),
       operation: this.serialiseOperation(step.operation),
     };
   }
 
   private serialiseTarget(target: StepTarget): SerialisedStepTarget {
-    switch (target.kind) {
+    const kind = target.kind
+    switch (kind) {
       case "forAll":
         return { kind: "forAll", entityType: target.entity.name };
       case "forRoot":
         return { kind: "forRoot", entityType: target.ref.entityType, refKey: target.ref.toKey() };
       case "forOne":
         return { kind: "forOne", entityType: target.ref.entityType, refKey: target.ref.toKey() };
+      default:
+        throw ErrUnknownTargetKind.create({ targetKind: kind satisfies never });
     }
   }
 

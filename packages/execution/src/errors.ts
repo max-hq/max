@@ -9,8 +9,9 @@ import {
   NotFound,
   HasEntityField,
   HasEntityType,
-  ErrFacet
-} from "@max/core";
+  ErrFacet,
+  InvariantViolated,
+} from '@max/core'
 
 import {TaskId} from "./task.js";
 
@@ -45,5 +46,12 @@ export const ErrTaskNotFound = Execution.define("task_not_found", {
   customProps: ErrFacet.props<{taskId: TaskId}>(),
   facets: [NotFound],
   message: (d) => `Task not found: ${d.taskId}`,
+});
+
+/** Unknown target kind encountered during plan expansion */
+export const ErrUnknownTargetKind = Execution.define("unknown_target_kind", {
+  customProps: ErrFacet.props<{targetKind: string}>(),
+  facets: [InvariantViolated],
+  message: (d) => `Unknown target kind: ${d.targetKind}`,
 });
 

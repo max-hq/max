@@ -47,8 +47,6 @@ export interface LoadFieldsPayload {
   readonly entityType: EntityType;
   readonly refKeys: readonly RefKey[];
   readonly fields: readonly string[];
-  /** Cursor (last entity id) for ForAll pagination continuations */
-  readonly cursor?: string;
 }
 
 export interface LoadCollectionPayload {
@@ -62,7 +60,8 @@ export interface LoadCollectionPayload {
 
 export interface SyncStepPayload {
   readonly kind: "sync-step";
-  readonly step: SerialisedStep;
+  readonly target: SerialisedStepTarget;
+  readonly operation: SerialisedStepOperation;
 }
 
 export interface SyncGroupPayload {
@@ -79,11 +78,26 @@ export type TaskPayload =
 // Serialised Step (for sync-step tasks)
 // ============================================================================
 
-export interface SerialisedStepTarget {
-  readonly kind: "forAll" | "forRoot" | "forOne";
+export interface ForAllTarget {
+  readonly kind: "forAll";
   readonly entityType: EntityType;
-  readonly refKey?: RefKey;
+  /** Pagination cursor for iterating over refs in the engine. */
+  readonly cursor?: string;
 }
+
+export interface ForRootTarget {
+  readonly kind: "forRoot";
+  readonly entityType: EntityType;
+  readonly refKey: RefKey;
+}
+
+export interface ForOneTarget {
+  readonly kind: "forOne";
+  readonly entityType: EntityType;
+  readonly refKey: RefKey;
+}
+
+export type SerialisedStepTarget = ForAllTarget | ForRootTarget | ForOneTarget;
 
 export interface SerialisedStepOperation {
   readonly kind: "loadFields" | "loadCollection";
@@ -91,10 +105,6 @@ export interface SerialisedStepOperation {
   readonly field?: string;
 }
 
-export interface SerialisedStep {
-  readonly target: SerialisedStepTarget;
-  readonly operation: SerialisedStepOperation;
-}
 
 // ============================================================================
 // Task

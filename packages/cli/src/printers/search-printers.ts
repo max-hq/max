@@ -45,7 +45,13 @@ const WIDTH_SAMPLE_SIZE = 20
 /** Truncate a string to maxLen, adding ellipsis if needed. */
 function truncate(value: string, maxLen: number): string {
   if (value.length <= maxLen) return value
-  return value.slice(0, maxLen - 1) + '…'
+  let end = maxLen - 1
+  // Don't split a surrogate pair — step back if we'd land between them
+  if (end > 0 && end < value.length) {
+    const code = value.charCodeAt(end - 1)
+    if (code >= 0xD800 && code <= 0xDBFF) end--
+  }
+  return value.slice(0, end) + '…'
 }
 
 /** Stringify a single entity result into an array of cell values for the given fields. */

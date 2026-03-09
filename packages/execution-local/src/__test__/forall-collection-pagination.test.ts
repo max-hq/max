@@ -30,19 +30,18 @@ describe("forAll loadCollection pagination", () => {
   let engine: SqliteEngine;
   let testClient: AcmeTestClient;
 
-  beforeEach(async () => {
+  beforeEach(() => {
     db = new Database(":memory:");
     const schema = new SqliteSchema().registerSchema(AcmeSchema);
     schema.ensureTables(db);
     engine = new SqliteEngine(db, schema);
 
-    testClient = new AcmeTestClient();
-    await testClient.seed({
-      workspaces: 3,
-      usersPerWorkspace: 1,
-      projectsPerWorkspace: 1,
-      tasksPerProject: 0,
-      filesPerProject: 0,
+    testClient = AcmeTestClient.withData({
+      workspaces: [
+        { name: "Alpha", users: [{ displayName: "Alice" }], projects: [{ name: "Alpha Project" }] },
+        { name: "Beta", users: [{ displayName: "Bob" }], projects: [{ name: "Beta Project" }] },
+        { name: "Gamma", users: [{ displayName: "Charlie" }], projects: [{ name: "Gamma Project" }] },
+      ],
     });
   });
 

@@ -220,16 +220,18 @@ export function seedTenant(tenant: Tenant, options?: SeedOptions): SeedResult {
     const workspace = tenant.createWorkspace({ name: wsGen.workspaceName() });
     counts.workspaces++;
 
-    // Create a ghost user for system operations
-    const ghost = tenant.createUser({
-      workspaceId: workspace.id,
-      email: "system@acme.local",
-      displayName: "Acme System",
-      role: "admin",
-    });
-    counts.users++;
+    const userIds: string[] = [];
 
-    const userIds: string[] = [ghost.id];
+    if (options?.ghostUsers !== false) {
+      const ghost = tenant.createUser({
+        workspaceId: workspace.id,
+        email: "system@acme.local",
+        displayName: "Acme System",
+        role: "admin",
+      });
+      userIds.push(ghost.id);
+      counts.users++;
+    }
 
     for (let u = 0; u < opts.usersPerWorkspace; u++) {
       const { email, displayName } = userGen.userName();

@@ -228,6 +228,8 @@ export interface SeedOptions {
   workspaceId?: string;
   /** If true, add tasks and files to all existing projects without creating new structures. */
   existingOnly?: boolean;
+  /** Create a system ghost user per workspace. Defaults to true. */
+  ghostUsers?: boolean;
 }
 
 export interface SeedResult {

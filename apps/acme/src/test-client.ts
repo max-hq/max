@@ -2,7 +2,7 @@ import type { AcmeClient } from "./client.ts";
 import { Tenant } from "./tenant.ts";
 import type {
   Workspace, WorkspaceInput, WorkspacePatch,
-  User, UserInput, UserPatch,
+  User, UserInput, UserPatch, UserRole,
   Project, ProjectInput, ProjectPatch,
   Task, TaskInput, TaskPatch,
   File, FileInput, FilePatch,
@@ -11,9 +11,22 @@ import type {
   SeedOptions, SeedResult,
 } from "./types.ts";
 
+// -------------------------------------------------------------------------
+// Config & Fixture types
+// -------------------------------------------------------------------------
+
 export interface AcmeTestClientConfig {
   seed?: SeedOptions;
   tenantName?: string;
+}
+
+export interface TestFixture {
+  workspaces?: Array<{
+    id?: string;
+    name: string;
+    users?: Array<{ id?: string; displayName: string; email?: string; role?: UserRole }>;
+    projects?: Array<{ id?: string; name: string; description?: string }>;
+  }>;
 }
 
 export class AcmeTestClient implements AcmeClient {
@@ -26,12 +39,63 @@ export class AcmeTestClient implements AcmeClient {
     });
   }
 
+  /** Create a test client pre-populated with declarative fixture data. */
+  static withData(fixture: TestFixture): AcmeTestClient {
+    const client = new AcmeTestClient();
+    for (const wsData of fixture.workspaces ?? []) {
+      const ws = client.addWorkspace(wsData);
+      for (const userData of wsData.users ?? []) {
+        client.addUser(ws.id, userData);
+      }
+      for (const projData of wsData.projects ?? []) {
+        client.addProject(ws.id, projData);
+      }
+    }
+    return client;
+  }
+
   async seed(options?: SeedOptions): Promise<SeedResult> {
     return this.tenant.seed(options);
   }
 
   dispose(): void {
     this.tenant.dispose();
+  }
+
+  // -------------------------------------------------------------------------
+  // Ergonomic test helpers (not part of AcmeClient interface)
+  // -------------------------------------------------------------------------
+
+  addWorkspace(data: { id?: string; name: string }): Workspace {
+    return this.tenant.createWorkspace({ name: data.name });
+  }
+
+  addUser(workspaceId: string, data: { id?: string; displayName: string; email?: string; role?: UserRole }): User {
+    const email = data.email ?? `${data.displayName.toLowerCase().replace(/\s+/g, ".")}@test.local`;
+    return this.tenant.createUser({
+      workspaceId,
+      displayName: data.displayName,
+      email,
+      role: data.role ?? "member",
+    });
+  }
+
+  addProject(workspaceId: string, data: { id?: string; name: string; description?: string; ownerId?: string }): Project {
+    let ownerId = data.ownerId;
+    if (!ownerId) {
+      const users = this.tenant.listUsers(workspaceId);
+      ownerId = users[0]?.id;
+      if (!ownerId) {
+        const user = this.addUser(workspaceId, { displayName: "Default User" });
+        ownerId = user.id;
+      }
+    }
+    return this.tenant.createProject({
+      workspaceId,
+      name: data.name,
+      description: data.description,
+      ownerId,
+    });
   }
 
   // -------------------------------------------------------------------------

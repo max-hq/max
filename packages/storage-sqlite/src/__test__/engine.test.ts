@@ -301,6 +301,43 @@ describe("SqliteEngine", () => {
     });
   });
 
+  describe("query with ref filter", () => {
+    beforeEach(async () => {
+      await engine.store({ ref: AcmeUser.ref("owner1"), fields: { displayName: "Owner", email: "owner@test.com", role: "admin", active: true } });
+      await engine.store({ ref: AcmeUser.ref("owner2"), fields: { displayName: "Other", email: "other@test.com", role: "member", active: true } });
+      await engine.store({ ref: AcmeProject.ref("p1"), fields: { name: "Alpha", description: "First", status: "active", owner: AcmeUser.ref("owner1") } });
+      await engine.store({ ref: AcmeProject.ref("p2"), fields: { name: "Beta", description: "Second", status: "active", owner: AcmeUser.ref("owner2") } });
+    });
+
+    test("filter ref field by RefKey string", async () => {
+      const refKey = RefKey.installation("AcmeUser" as any, "owner1" as any);
+      const results = await engine.query(
+        Query.from(AcmeProject).where("owner", "=", refKey as unknown as string).select("name")
+      );
+
+      expect(results.items.length).toBe(1);
+      expect(results.items[0].fields.name).toBe("Alpha");
+    });
+
+    test("filter ref field by raw entity ID string", async () => {
+      const results = await engine.query(
+        Query.from(AcmeProject).where("owner", "=", "owner1" as any).select("name")
+      );
+
+      expect(results.items.length).toBe(1);
+      expect(results.items[0].fields.name).toBe("Alpha");
+    });
+
+    test("filter ref field by Ref object", async () => {
+      const results = await engine.query(
+        Query.from(AcmeProject).where("owner", "=", AcmeUser.ref("owner1")).select("name")
+      );
+
+      expect(results.items.length).toBe(1);
+      expect(results.items[0].fields.name).toBe("Alpha");
+    });
+  });
+
   describe("addMissingColumns", () => {
     test("adds new columns when schema evolves", () => {
       // Start with a v1 entity that has two fields

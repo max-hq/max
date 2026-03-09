@@ -425,6 +425,11 @@ export class SqliteEngine implements Engine<InstallationScope> {
 
     if (col.isRef) {
       // Ref field: store the id
+      if (typeof value === 'string') {
+        // Filter values arrive as plain strings - either a full RefKey or a raw entity ID
+        const parsed = RefKey.tryParse(value);
+        return parsed ? parsed.entityId : value;
+      }
       return (value as Ref<EntityDefAny>).id;
     }
 

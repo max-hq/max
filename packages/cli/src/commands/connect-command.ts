@@ -1,4 +1,4 @@
-import { LazyX, Printable } from '@max/core'
+import { LazyX } from '@max/core'
 import { argument, command, constant, option } from '@optique/core/primitives'
 import { object } from '@optique/core/constructs'
 import { optional } from '@optique/core/modifiers'
@@ -7,7 +7,7 @@ import { string } from '@optique/core/valueparser'
 import { InMemoryCredentialStore } from '@max/connector'
 import { deriveInstallationSlug } from '@max/federation'
 import { BunPlatform } from '@max/platform-bun'
-import type { Command, Inferred, CommandOptions } from '../command.js'
+import { CommandResult, type Command, type Inferred, type CommandOptions } from '../command.js'
 import type { CliServices } from '../cli-services.js'
 import { runOnboarding } from '../onboarding-runner.js'
 import { DirectPrompter } from '../prompter.js'
@@ -71,7 +71,7 @@ export class CmdConnect implements Command {
         },
       })
 
-      return Printable.text(`Connected ${args.source} as installation ${installationName} (${id})`)
+      return CommandResult.text(`Connected ${args.source} as installation ${installationName} (${id})`)
     } finally {
       ownedPrompter?.close()
     }

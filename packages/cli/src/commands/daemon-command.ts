@@ -1,9 +1,9 @@
-import { LazyX, Printable } from '@max/core'
+import { LazyX } from '@max/core'
 import { command, constant } from '@optique/core/primitives'
 import { object, or } from '@optique/core/constructs'
 import { message } from '@optique/core/message'
 import { ErrInvariant } from '@max/federation'
-import type { Command, Inferred, CommandOptions } from '../command.js'
+import { CommandResult, type Command, type Inferred, type CommandOptions } from '../command.js'
 import type { CliServices } from '../cli-services.js'
 
 export class CmdDaemon implements Command {
@@ -49,7 +49,7 @@ export class CmdDaemon implements Command {
     switch (args.sub) {
       case 'list': {
         const w = await this.services.ctx.global.listWorkspacesFull()
-        return Printable.text(this.services.getPrintFormatter(opts.color).printList("workspace-list-entry", w))
+        return CommandResult.text(this.services.getPrintFormatter(opts.color).printList("workspace-list-entry", w))
       }
     }
 

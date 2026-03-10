@@ -1,9 +1,9 @@
-import { LazyX, Printable } from '@max/core'
+import { LazyX } from '@max/core'
 import { argument, command, constant } from '@optique/core/primitives'
 import { object } from '@optique/core/constructs'
 import { message } from '@optique/core/message'
 import { outputOption } from '../parsers/standard-opts.js'
-import type { Command, Inferred, CommandOptions } from '../command.js'
+import { CommandResult, type Command, type Inferred, type CommandOptions } from '../command.js'
 import type { CliServices } from '../cli-services.js'
 
 export class CmdSchemaWorkspace implements Command {
@@ -26,7 +26,7 @@ export class CmdSchemaWorkspace implements Command {
 
   async run(args: Inferred<this>, opts: CommandOptions) {
     const schema = await this.services.ctx.workspace.connectorSchema(args.source)
-    return Printable.text(this.services.formatSchema(schema, args.output, opts.color))
+    return CommandResult.text(this.services.formatSchema(schema, args.output, opts.color))
   }
 }
 
@@ -47,6 +47,6 @@ export class CmdSchemaInstallation implements Command {
 
   async run(args: Inferred<this>, opts: CommandOptions) {
     const schema = await this.services.ctx.installation.schema()
-    return Printable.text(this.services.formatSchema(schema, args.output, opts.color))
+    return CommandResult.text(this.services.formatSchema(schema, args.output, opts.color))
   }
 }

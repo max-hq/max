@@ -1,8 +1,8 @@
-import { LazyX, Printable } from '@max/core'
+import { LazyX } from '@max/core'
 import { command, constant } from '@optique/core/primitives'
 import { object } from '@optique/core/constructs'
 import { message } from '@optique/core/message'
-import type { Command, Inferred, CommandOptions } from '../command.js'
+import { CommandResult, type Command, type Inferred, type CommandOptions } from '../command.js'
 import type { CliServices } from '../cli-services.js'
 import {
   StatusGlobalPrinter,
@@ -33,7 +33,7 @@ export class CmdStatusGlobal implements Command {
       ctx.global.listWorkspacesFull(),
     ])
 
-    return Printable.of(StatusGlobalPrinter, {
+    return CommandResult.of(StatusGlobalPrinter, {
       url: ctx.url,
       health,
       workspaces,
@@ -76,7 +76,7 @@ export class CmdStatusWorkspace implements Command {
       })
     )
 
-    return Printable.of(StatusWorkspacePrinter, {
+    return CommandResult.of(StatusWorkspacePrinter, {
       url: ctx.url,
       health,
       installations,
@@ -107,7 +107,7 @@ export class CmdStatusInstallation implements Command {
       ctx.installation.describe(),
     ])
 
-    return Printable.of(StatusInstallationPrinter, {
+    return CommandResult.of(StatusInstallationPrinter, {
       url: ctx.url,
       health,
       description,

@@ -1,10 +1,10 @@
-import { LazyX, Fmt, Printable } from '@max/core'
+import { LazyX, Fmt } from '@max/core'
 import { command, constant, option } from '@optique/core/primitives'
 import { object } from '@optique/core/constructs'
 import { message } from '@optique/core/message'
 import { string } from '@optique/core/valueparser'
 import { CollectionManager } from '@max/platform-bun'
-import type { Command, Inferred, CommandOptions } from '../command.js'
+import { CommandResult, type Command, type Inferred, type CommandOptions } from '../command.js'
 import type { CliServices } from '../cli-services.js'
 import * as os from 'node:os'
 import * as path from 'node:path'
@@ -44,6 +44,6 @@ export class CmdInstall implements Command {
       lines.push(`    - ${c}`)
     }
 
-    return Printable.text(lines.join('\n'))
+    return CommandResult.text(lines.join('\n'))
   }
 }

@@ -1,10 +1,10 @@
-import { LazyX, Printable } from '@max/core'
+import { LazyX } from '@max/core'
 import { command, constant } from '@optique/core/primitives'
 import { object } from '@optique/core/constructs'
 import { message } from '@optique/core/message'
 import * as nodePath from 'node:path'
 import * as fs from 'node:fs'
-import type { Command, Inferred, CommandOptions } from '../command.js'
+import { CommandResult, type Command, type Inferred, type CommandOptions } from '../command.js'
 import type { CliServices } from '../cli-services.js'
 
 const AGENT_USER_PATH = nodePath.resolve(import.meta.dir, '../../../../AGENT.USER.md')
@@ -22,6 +22,6 @@ export class CmdLlmBootstrap implements Command {
   ))
 
   async run(_args: Inferred<this>, _opts: CommandOptions) {
-    return Printable.text(fs.readFileSync(AGENT_USER_PATH, 'utf-8'))
+    return CommandResult.text(fs.readFileSync(AGENT_USER_PATH, 'utf-8'))
   }
 }

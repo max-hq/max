@@ -10,13 +10,13 @@
  * Output in text (table), JSON, or NDJSON formats.
  */
 
-import { LazyX, Projection, WhereClause, PrintFormatter, MetaField, Printable } from '@max/core'
-import type { EntityQuery, AllProjection, QueryOrdering, InstallationId } from '@max/core'
+import { LazyX, Projection, WhereClause, Printable, MetaField } from '@max/core'
+import type { EntityQuery, AllProjection, QueryOrdering, Engine } from '@max/core'
 import type { InstallationClient } from '@max/federation'
 import { ErrInstallationNotFound } from '@max/federation'
-import { command, constant, argument, option } from '@optique/core/primitives'
+import { command, constant, argument, option, flag } from '@optique/core/primitives'
 import { object } from '@optique/core/constructs'
-import { optional } from '@optique/core/modifiers'
+import { optional, withDefault } from '@optique/core/modifiers'
 import { string, integer } from '@optique/core/valueparser'
 import type { ValueParser, ValueParserResult } from '@optique/core/valueparser'
 import { message } from '@optique/core/message'
@@ -26,7 +26,8 @@ import { parseFilter } from '../parsers/filter-parser.js'
 import { parseOrderBy, parseFieldList, expandFieldGroups } from '../parsers/search-args.js'
 import { ErrUnknownEntityType, ErrTargetResolutionFailed } from '../errors.js'
 import { SearchTextPrinter, SearchJsonPrinter, SearchNdjsonPrinter } from '../printers/search-printers.js'
-import type { Command, Inferred, CommandOptions } from '../command.js'
+import type { SearchView } from '../printers/search-printers.js'
+import { CommandResult, type Command, type Inferred, type CommandOptions } from '../command.js'
 import type { CliServices } from '../cli-services.js'
 import type { ResolvedContext } from '../resolved-context.js'
 import {ProjectCompleters} from "../parsers/project-completers.js";
@@ -36,6 +37,7 @@ import {ProjectCompleters} from "../parsers/project-completers.js";
 // ============================================================================
 
 const searchOptions = {
+  all:     withDefault(flag('-a', '--all', { description: message`Auto-paginate and stream all results` }), false),
   filter:  optional(option('-f', '--filter', string(), { description: message`Filter expression (e.g. "name=Acme AND active=true")` })),
   limit:   optional(option('--limit', integer(), { description: message`Maximum page size` })),
   after:   optional(option('--after', string(), { description: message`Cursor for next page` })),
@@ -45,6 +47,7 @@ const searchOptions = {
 }
 
 type SearchArgs = {
+  all: boolean
   entityType: string
   filter?: string
   limit?: number
@@ -190,7 +193,7 @@ function selectSearchPrinter(output?: string) {
 async function runSearch(
   installation: InstallationClient,
   args: SearchArgs,
-): Promise<Printable> {
+): Promise<CommandResult> {
   const schema = await installation.schema()
 
   const def = schema.getDefinition(args.entityType)
@@ -218,12 +221,52 @@ async function runSearch(
     projection: Projection.all,
   }
 
+  const selectedFields = args.fields ? expandFieldGroups(parseFieldList(args.fields), def) : undefined
+
   // FIXME: This is a footgun. We need to start the installation before we can access the engine. Instead, engine should just be awaitable.
   await installation.start()
-  const page = await installation.engine.query(query)
 
-  const selectedFields = args.fields ? expandFieldGroups(parseFieldList(args.fields), def) : undefined
-  const view = { entityType: args.entityType, page, selectedFields }
+  if (!args.all) {
+    const page = await installation.engine.query(query)
+    const view = { entityType: args.entityType, page, selectedFields }
+    return CommandResult.of(selectSearchPrinter(args.output), view)
+  }
 
-  return Printable.of(selectSearchPrinter(args.output), view)
+  return streamAllPages(installation.engine, query, args, selectedFields)
+}
+
+// ============================================================================
+// Streaming pagination
+// ============================================================================
+
+const DEFAULT_STREAM_PAGE_SIZE = 100
+
+function streamAllPages(
+  engine: Engine,
+  baseQuery: EntityQuery<any, AllProjection>,
+  args: SearchArgs,
+  selectedFields: string[] | undefined,
+): CommandResult {
+  const printer = selectSearchPrinter(args.output)
+  const pageLimit = baseQuery.limit ?? DEFAULT_STREAM_PAGE_SIZE
+
+  return CommandResult.streamed(async function*(isAborted) {
+    let cursor: string | undefined = args.after
+    let isFirst = true
+
+    do {
+      if (isAborted()) return
+      const page = await engine.query({ ...baseQuery, limit: pageLimit, cursor })
+      const view: SearchView = {
+        entityType: args.entityType,
+        page,
+        selectedFields,
+        streaming: true,
+        isFirstPage: isFirst,
+      }
+      yield Printable.of(printer, view)
+      isFirst = false
+      cursor = page.hasMore ? page.cursor : undefined
+    } while (cursor)
+  })
 }

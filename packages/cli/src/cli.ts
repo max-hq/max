@@ -24,7 +24,7 @@ import { Mode, Parser, getDocPageAsync, suggestAsync, type Suggestion } from '@o
 import { formatDocPage } from '@optique/core/doc'
 
 import { Fmt, makeLazy, MaxError, type MaxUrlLevel, type Printable, type Sink } from '@max/core'
-import { CliRequest, ExecuteResult } from './types.js'
+import { CliRequest, ExecuteResult, ExecuteHandle } from './types.js'
 import { parseArgs, extractErrorValue, formatMessage } from './argv-parser.js'
 import { type Prompter } from './prompter.js'
 import { type ContextAt, type ResolvedContext } from './resolved-context.js'
@@ -42,7 +42,7 @@ import { CmdStatusGlobal, CmdStatusWorkspace, CmdStatusInstallation } from './co
 import { CmdSearchGlobal, CmdSearchInstallation, CmdSearchWorkspace } from './commands/search-command.js'
 import { CmdLlmBootstrap } from './commands/llm-bootstrap-command.js'
 import { CmdInstall } from './commands/install-command.js'
-import { Command, CommandOutput } from './command.js'
+import { Command, CommandResult } from './command.js'
 
 // ============================================================================
 // Shell completion codecs
@@ -326,9 +326,24 @@ export class CLI {
 
   // -- Dispatch --------------------------------------------------------------
 
-  async execute(
+  execute(
     req: CliRequest,
     opts: { prompter?: Prompter, sink: Sink },
+  ): ExecuteHandle {
+    let commandResult: CommandResult | null = null
+
+    const result = this._execute(req, opts, (cr) => { commandResult = cr })
+
+    return {
+      result,
+      abort() { commandResult?.abort() },
+    }
+  }
+
+  private async _execute(
+    req: CliRequest,
+    opts: { prompter?: Prompter, sink: Sink },
+    onCommandResult: (cr: CommandResult) => void,
   ): Promise<ExecuteResult> {
     const { sink } = opts
     const color = req.color ?? this.cfg.useColor ?? true
@@ -413,8 +428,11 @@ export class CLI {
     const fmt = Fmt.usingColor(color)
     try {
       const output = await command.run(cmdResult, { cwd, color, prompter: opts.prompter })
-      await CommandOutput.writeTo(output, sink, fmt)
-      sink.write('\n')
+      onCommandResult(output)
+      for await (const chunk of output.stream) {
+        chunk.writeTo(sink, fmt)
+        sink.write('\n')
+      }
       return { exitCode: 0 }
     } catch (e) {
       return { exitCode: 1, stderr: MaxError.wrap(e).prettyPrint({ color }) }

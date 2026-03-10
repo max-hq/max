@@ -17,7 +17,7 @@ import * as os from 'node:os'
 import { MaxError } from '@max/core'
 import { createSocketServer } from './socket-server.js'
 import { StdoutSink } from './sinks.js'
-import { CliRequest } from './types.js'
+import { CliRequest, ExecuteHandle} from './types.js'
 import { runSubprocess, subprocessParsers } from './subprocess-entry.js'
 import * as util from 'node:util'
 import { CLI } from './cli.js'
@@ -116,12 +116,17 @@ export async function main() {
 
     createSocketServer({
       socketPath: daemonPaths.socket,
-      handler: (req, opts) =>
-        cli.execute(req, opts).catch((err) => {
-          const color = req.color ?? false
-          const msg = MaxError.isMaxError(err) ? err.prettyPrint({ color }) : util.inspect(err)
-          return { stderr: `${msg}\n`, exitCode: 1 }
-        }),
+      handler: (req, opts) => {
+        const handle = cli.execute(req, opts)
+        return ExecuteHandle.create({
+          result: handle.result.catch((err) => {
+            const color = req.color ?? false
+            const msg = MaxError.isMaxError(err) ? err.prettyPrint({ color }) : util.inspect(err)
+            return { stderr: `${msg}\n`, exitCode: 1 }
+          }),
+          abort: () => handle.abort(),
+        })
+      },
     })
 
     console.log(`Max daemon listening on ${daemonPaths.socket}`)
@@ -136,7 +141,19 @@ export async function main() {
       shell: process.env.SHELL
     }
 
-    const result = await cli.execute(req, { sink: new StdoutSink() }).catch((err) => {
+    const handle = cli.execute(req, { sink: new StdoutSink() })
+
+    let aborted = false
+    process.on('SIGINT', () => {
+      if (!aborted) {
+        handle.abort()
+        aborted = true
+        return  // give the stream loop a chance to finish
+      }
+      process.exit(130)  // second ctrl-c: force exit
+    })
+
+    const result = await handle.result.catch((err) => {
       console.error(err)
       process.exit(1)
     })

@@ -1,8 +1,8 @@
-import { LazyX, Printable } from '@max/core'
+import { LazyX } from '@max/core'
 import { command, constant } from '@optique/core/primitives'
 import { object } from '@optique/core/constructs'
 import { message } from '@optique/core/message'
-import type { Command, Inferred, CommandOptions } from '../command.js'
+import { CommandResult, type Command, type Inferred, type CommandOptions } from '../command.js'
 import type { CliServices } from '../cli-services.js'
 import { LsGlobalPrinter, LsWorkspacePrinter } from '../printers/context-printers.js'
 
@@ -26,7 +26,7 @@ export class CmdLsGlobal implements Command {
     const ctx = this.services.ctx
     const workspaces = await ctx.global.listWorkspacesFull()
 
-    return Printable.of(LsGlobalPrinter, {
+    return CommandResult.of(LsGlobalPrinter, {
       url: ctx.url,
       workspaces,
     })
@@ -65,7 +65,7 @@ export class CmdLsWorkspace implements Command {
       })
     )
 
-    return Printable.of(LsWorkspacePrinter, {
+    return CommandResult.of(LsWorkspacePrinter, {
       url: ctx.url,
       installations,
     })

@@ -9,27 +9,57 @@
  * provides the resolved context and shared utilities.
  */
 
-import  { LazyOne, MaxUrlLevel, Printable, Sink, StaticTypeCompanion} from '@max/core'
-import type { Fmt } from '@max/core'
+import  { LazyOne, MaxUrlLevel, Printable, StaticTypeCompanion} from '@max/core'
+import type { Printer } from '@max/core'
 import type { InferValue, Mode, Parser } from '@optique/core/parser'
 import type { Prompter } from './prompter.js'
 
 /** Extract the parsed value type from a Command's parser. */
 export type Inferred<T extends Command> = InferValue<T['parser']['get']>
 
-/** A single Printable or a stream of them. */
-export type CommandOutput = Printable | AsyncIterable<Printable>
+/**
+ * The result of running a command.
+ *
+ * Every command result is a stream of Printable chunks with cooperative
+ * cancellation. Single-value commands use the convenience factories
+ * (CommandResult.of, CommandResult.text) which wrap one Printable in a
+ * one-element stream with a no-op abort.
+ */
+export interface CommandResult {
+  readonly stream: AsyncIterable<Printable>
+  abort(): void
+}
 
-export const CommandOutput = StaticTypeCompanion({
-  /** Write output to a sink, handling both single Printable and async streams. */
-  async writeTo(output: CommandOutput, sink: Sink, fmt: Fmt): Promise<void> {
+async function* singleIterable(p: Printable) { yield p }
 
-    if (Symbol.asyncIterator in output) {
-      for await (const chunk of output) {
-        chunk.writeTo(sink, fmt)
-      }
-    } else {
-      output.writeTo(sink, fmt)
+export const CommandResult = StaticTypeCompanion({
+  /** Wrap a single Printable. No-op abort. */
+  single(p: Printable): CommandResult {
+    return {
+      stream: singleIterable(p),
+      abort() {},
+    }
+  },
+
+  /** Wrap a Printer + value into a single-chunk result. */
+  of<T>(printer: Printer<T>, value: T): CommandResult {
+    return CommandResult.single(Printable.of(printer, value))
+  },
+
+  /** Wrap a plain string into a single-chunk result. */
+  text(s: string): CommandResult {
+    return CommandResult.single(Printable.text(s))
+  },
+
+  /** Build a streaming result with cooperative cancellation.
+   *  The producer receives an `isAborted` check and yields Printables. */
+  streamed(
+    producer: (isAborted: () => boolean) => AsyncGenerator<Printable>,
+  ): CommandResult {
+    let aborted = false
+    return {
+      stream: producer(() => aborted),
+      abort() { aborted = true },
     }
   },
 })
@@ -49,5 +79,5 @@ export interface Command {
   /** Lazy parser — built on first access, can reach into instance context. */
   readonly parser: LazyOne<Parser<Mode>>
   /** Execute the command with type-safe parsed args. */
-  run(args: Inferred<this>, opts: CommandOptions): Promise<CommandOutput>
+  run(args: Inferred<this>, opts: CommandOptions): Promise<CommandResult>
 }

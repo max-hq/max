@@ -1,10 +1,10 @@
-import { LazyX, Printable } from '@max/core'
+import { LazyX } from '@max/core'
 import { argument, command, constant } from '@optique/core/primitives'
 import { object } from '@optique/core/constructs'
 import { message } from '@optique/core/message'
 import { ErrInstallationNotFound, type InstallationClient } from '@max/federation'
 import type { SyncObserver } from '@max/execution'
-import type { Command, CommandOptions, Inferred } from '../../command.js'
+import { CommandResult, type Command, type CommandOptions, type Inferred } from '../../command.js'
 import type { CliServices } from '../../cli-services.js'
 import type { Prompter } from '../../prompter.js'
 import { SyncProgressRenderer } from './sync-progress-renderer.js'
@@ -66,7 +66,7 @@ export class CmdSyncInstallation implements Command {
 // Sync runner with live progress
 // ============================================================================
 
-async function runSync(installation: InstallationClient, prompter?: Prompter): Promise<Printable> {
+async function runSync(installation: InstallationClient, prompter?: Prompter): Promise<CommandResult> {
   const renderer = prompter ? new SyncProgressRenderer(prompter) : undefined
   const observer: SyncObserver | undefined = renderer
     ? { onEvent: (e) => renderer.onEvent(e) }
@@ -82,5 +82,5 @@ async function runSync(installation: InstallationClient, prompter?: Prompter): P
     `  Tasks completed: ${result.tasksCompleted}`,
     `  Tasks failed:    ${result.tasksFailed}`,
   ]
-  return Printable.text(lines.join('\n'))
+  return CommandResult.text(lines.join('\n'))
 }

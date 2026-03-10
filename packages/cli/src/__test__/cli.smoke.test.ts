@@ -40,7 +40,8 @@ async function createTestCli() {
 
   async function execute(req: Parameters<CLI['execute']>[0]): Promise<TestResult> {
     const sink = Sink.string()
-    const result = await cli.execute(req, { sink })
+    const handle = cli.execute(req, { sink })
+    const result = await handle.result
     return { ...result, stdout: sink.value }
   }
 

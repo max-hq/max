@@ -13,6 +13,8 @@ export interface SearchView {
   entityType: string
   page: Page<EntityResult<EntityDefAny, string>>
   selectedFields?: string[]
+  streaming?: boolean
+  isFirstPage?: boolean
 }
 
 /** Pick fields to display: user selection if provided, otherwise all loaded fields. */
@@ -88,22 +90,26 @@ export const SearchTextPrinter = Printer.define<SearchView>((view, fmt) => {
   const { page, entityType } = view
   const lines: string[] = []
 
-  // Header
-  const count = page.items.length
-  const more = page.hasMore ? ', more available' : ''
-  lines.push(`${fmt.underline(entityType)}: ${count} result${count !== 1 ? 's' : ''}${more}`)
-  lines.push('')
+  // Header - only on first page
+  if (view.isFirstPage !== false) {
+    const count = page.items.length
+    const more = view.streaming ? '' : (page.hasMore ? ', more available' : '')
+    lines.push(`${fmt.underline(entityType)}: ${count} result${count !== 1 ? 's' : ''}${more}`)
+    lines.push('')
+  }
 
-  if (count === 0) {
-    lines.push('  No results.')
+  if (page.items.length === 0) {
+    if (view.isFirstPage !== false) lines.push('  No results.')
     return Printer.lines(lines)
   }
 
   const fields = resolveFields(view)
   const widths = sampleWidths(fields, page.items)
 
-  // Header row
-  lines.push('  ' + fields.map((h, i) => fmt.dim(h.padEnd(widths[i]))).join('  '))
+  // Column headers - only on first page
+  if (view.isFirstPage !== false) {
+    lines.push('  ' + fields.map((h, i) => fmt.dim(h.padEnd(widths[i]))).join('  '))
+  }
 
   // Data rows - each item is stringified and truncated independently
   for (const item of page.items) {
@@ -111,8 +117,8 @@ export const SearchTextPrinter = Printer.define<SearchView>((view, fmt) => {
     lines.push('  ' + row.map((c, i) => truncate(c, widths[i]).padEnd(widths[i])).join('  '))
   }
 
-  // Pagination hint
-  if (page.hasMore && page.cursor) {
+  // Pagination hint - suppress when streaming
+  if (!view.streaming && page.hasMore && page.cursor) {
     lines.push('')
     lines.push(fmt.dim(`Next page: --after ${page.cursor}`))
   }
@@ -146,12 +152,15 @@ export const SearchNdjsonPrinter = Printer.define<SearchView>((view, _fmt) => {
   for (const item of view.page.items) {
     lines.push(JSON.stringify(pickFields(item, fields)))
   }
-  lines.push(JSON.stringify({
-    _meta: {
-      type: view.entityType,
-      hasMore: view.page.hasMore,
-      cursor: view.page.cursor,
-    }
-  }))
+  // Only emit _meta on the final page (or single-page mode)
+  if (!view.streaming || !view.page.hasMore) {
+    lines.push(JSON.stringify({
+      _meta: {
+        type: view.entityType,
+        hasMore: view.page.hasMore,
+        cursor: view.page.cursor,
+      }
+    }))
+  }
   return lines.join('\n')
 })

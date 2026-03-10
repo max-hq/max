@@ -1,13 +1,12 @@
-import { LazyX, Printable } from '@max/core'
+import { LazyX, Fmt } from '@max/core'
 import { argument, command, constant } from '@optique/core/primitives'
 import { object } from '@optique/core/constructs'
 import { withDefault } from '@optique/core/modifiers'
 import { flag } from '@optique/core'
 import { message } from '@optique/core/message'
 import { string } from '@optique/core/valueparser'
-import { Fmt } from '@max/core'
 import { BunPlatform, ErrCannotInitialiseProject, findProjectRoot } from '@max/platform-bun'
-import type { Command, Inferred, CommandOptions } from '../command.js'
+import { CommandResult, type Command, type Inferred, type CommandOptions } from '../command.js'
 import type { CliServices } from '../cli-services.js'
 import * as nodePath from 'node:path'
 
@@ -59,6 +58,6 @@ export class CmdInit implements Command {
       lines.push(`  HINT: max install --collection git@github.com:max-hq/max-connectors.git`)
     }
 
-    return Printable.text(lines.join('\n'))
+    return CommandResult.text(lines.join('\n'))
   }
 }

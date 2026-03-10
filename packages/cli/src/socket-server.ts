@@ -1,7 +1,7 @@
 import { unlinkSync } from 'fs'
 import { BufferedSocket } from '@max/platform-bun'
 import type { Sink } from '@max/core'
-import type { CliRequest, ExecuteResult } from './types.js'
+import type { CliRequest, ExecuteHandle } from './types.js'
 import {
   SocketPrompter,
   type DaemonMessage,
@@ -13,7 +13,7 @@ import { SocketSink } from './sinks.js'
 
 export interface SocketServerOptions {
   socketPath: string
-  handler: (req: CliRequest, opts: { prompter: Prompter, sink: Sink }) => Promise<ExecuteResult>
+  handler: (req: CliRequest, opts: { prompter: Prompter, sink: Sink }) => ExecuteHandle
 }
 
 export function createSocketServer(opts: SocketServerOptions): { stop: () => void } {
@@ -37,6 +37,7 @@ export function createSocketServer(opts: SocketServerOptions): { stop: () => voi
     initiated: boolean
     pendingInput: ((msg: ShimInput) => void) | null
     writer: BufferedSocket | null
+    handle: ExecuteHandle | null
   }
 
   const connections = new Map<object, ConnectionState>()
@@ -62,8 +63,11 @@ export function createSocketServer(opts: SocketServerOptions): { stop: () => voi
     const prompter = new SocketPrompter(socket)
     const sink = new SocketSink(socket)
 
+    const handle = handler(request, { prompter, sink })
+    state.handle = handle
+
     try {
-      const result = await handler(request, { prompter, sink })
+      const result = await handle.result
       socket.send({ kind: 'response', exitCode: result.exitCode, stderr: result.stderr, completions: result.completions })
       await state.writer!.end()
     } catch (err) {
@@ -82,6 +86,7 @@ export function createSocketServer(opts: SocketServerOptions): { stop: () => voi
           initiated: false,
           pendingInput: null,
           writer: new BufferedSocket(socket),
+          handle: null,
         })
       },
       drain(socket) {
@@ -113,6 +118,8 @@ export function createSocketServer(opts: SocketServerOptions): { stop: () => voi
         }
       },
       close(socket) {
+        const state = connections.get(socket)
+        state?.handle?.abort()
         connections.delete(socket)
       },
       error(_socket, err) {

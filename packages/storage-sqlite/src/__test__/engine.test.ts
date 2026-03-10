@@ -4,7 +4,17 @@
 
 import { describe, test, expect, beforeEach } from "bun:test";
 import { Database } from "bun:sqlite";
-import { EntityDef, Field, Schema, Fields, Query, Projection, PageRequest, RefKey } from "@max/core";
+import {
+  EntityDef,
+  Field,
+  Schema,
+  Fields,
+  Query,
+  Projection,
+  PageRequest,
+  RefKey,
+  Ref,
+} from '@max/core'
 import {AcmeUser, AcmeWorkspace, AcmeProject, AcmeSchema} from "@max/connector-acme";
 import { SqliteEngine, SqliteSchema } from "../index.js";
 
@@ -310,9 +320,10 @@ describe("SqliteEngine", () => {
     });
 
     test("filter ref field by RefKey string", async () => {
+      // Simulates what happens when CLI filter parser passes a RefKey string through WhereClause
       const refKey = RefKey.installation("AcmeUser" as any, "owner1" as any);
       const results = await engine.query(
-        Query.from(AcmeProject).where("owner", "=", refKey as unknown as string).select("name")
+        Query.from(AcmeProject).where("owner", "=", refKey as any).select("name")
       );
 
       expect(results.items.length).toBe(1);
@@ -320,6 +331,7 @@ describe("SqliteEngine", () => {
     });
 
     test("filter ref field by raw entity ID string", async () => {
+      // Simulates what happens when CLI filter parser passes a raw ID string through WhereClause
       const results = await engine.query(
         Query.from(AcmeProject).where("owner", "=", "owner1" as any).select("name")
       );

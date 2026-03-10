@@ -38,6 +38,7 @@ export function createSocketServer(opts: SocketServerOptions): { stop: () => voi
     pendingInput: ((msg: ShimInput) => void) | null
     writer: BufferedSocket | null
     handle: ExecuteHandle | null
+    sink: SocketSink | null
   }
 
   const connections = new Map<object, ConnectionState>()
@@ -62,6 +63,7 @@ export function createSocketServer(opts: SocketServerOptions): { stop: () => voi
     const socket = wrapSocket(state)
     const prompter = new SocketPrompter(socket)
     const sink = new SocketSink(socket)
+    state.sink = sink
 
     const handle = handler(request, { prompter, sink })
     state.handle = handle
@@ -87,6 +89,7 @@ export function createSocketServer(opts: SocketServerOptions): { stop: () => voi
           pendingInput: null,
           writer: new BufferedSocket(socket),
           handle: null,
+          sink: null,
         })
       },
       drain(socket) {
@@ -119,7 +122,10 @@ export function createSocketServer(opts: SocketServerOptions): { stop: () => voi
       },
       close(socket) {
         const state = connections.get(socket)
-        state?.handle?.abort()
+        if (state) {
+          state.sink?.close()
+          state.handle?.abort()
+        }
         connections.delete(socket)
       },
       error(_socket, err) {

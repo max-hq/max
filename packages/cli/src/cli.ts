@@ -432,6 +432,8 @@ export class CLI {
       for await (const chunk of output.stream) {
         chunk.writeTo(sink, fmt)
         sink.write('\n')
+        await sink.drain?.()
+        if (sink.broken) { output.abort(); break }
       }
       return { exitCode: 0 }
     } catch (e) {

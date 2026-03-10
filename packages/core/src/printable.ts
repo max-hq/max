@@ -8,6 +8,10 @@ import { StaticTypeCompanion } from './companion.js'
 
 export interface Sink {
   write(data: string): void
+  /** True if the sink's downstream has closed (e.g. EPIPE). */
+  readonly broken?: boolean
+  /** Wait for buffered writes to flush. Resolves immediately if no backpressure. */
+  drain?(): Promise<void>
 }
 
 export const Sink = StaticTypeCompanion({

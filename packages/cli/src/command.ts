@@ -9,7 +9,8 @@
  * provides the resolved context and shared utilities.
  */
 
-import type { LazyOne, MaxUrlLevel, Printable } from '@max/core'
+import  { LazyOne, MaxUrlLevel, Printable, Sink, StaticTypeCompanion} from '@max/core'
+import type { Fmt } from '@max/core'
 import type { InferValue, Mode, Parser } from '@optique/core/parser'
 import type { Prompter } from './prompter.js'
 
@@ -18,6 +19,20 @@ export type Inferred<T extends Command> = InferValue<T['parser']['get']>
 
 /** A single Printable or a stream of them. */
 export type CommandOutput = Printable | AsyncIterable<Printable>
+
+export const CommandOutput = StaticTypeCompanion({
+  /** Write output to a sink, handling both single Printable and async streams. */
+  async writeTo(output: CommandOutput, sink: Sink, fmt: Fmt): Promise<void> {
+
+    if (Symbol.asyncIterator in output) {
+      for await (const chunk of output) {
+        chunk.writeTo(sink, fmt)
+      }
+    } else {
+      output.writeTo(sink, fmt)
+    }
+  },
+})
 
 /** Per-request options passed to command handlers. */
 export interface CommandOptions {

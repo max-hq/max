@@ -1,21 +1,13 @@
 import { describe, test, expect } from 'bun:test'
 import { BunPlatform, GlobalConfig } from '@max/platform-bun'
 import { AcmeConfig } from '@max/connector-acme'
-import type { Sink } from '@max/core'
+import { Sink } from '@max/core'
 import { CLI } from '../cli.js'
 import type { ExecuteResult } from '../types.js'
 
 // -- Helpers ------------------------------------------------------------------
 
 type TestResult = ExecuteResult & { stdout: string }
-
-function stringSink(): { sink: Sink, value: () => string } {
-  const chunks: string[] = []
-  return {
-    sink: { write(s: string) { chunks.push(s) } },
-    value: () => chunks.join(''),
-  }
-}
 
 /** Fresh ephemeral environment per test - no shared state. */
 async function createTestCli() {
@@ -47,9 +39,9 @@ async function createTestCli() {
   const cli = new CLI(cfg, { globalMax: global })
 
   async function execute(req: Parameters<CLI['execute']>[0]): Promise<TestResult> {
-    const { sink, value } = stringSink()
+    const sink = Sink.string()
     const result = await cli.execute(req, { sink })
-    return { ...result, stdout: value() }
+    return { ...result, stdout: sink.value }
   }
 
   return {

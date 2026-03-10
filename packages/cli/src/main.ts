@@ -14,8 +14,9 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as os from 'node:os'
 
-import { MaxError, type Sink } from '@max/core'
+import { MaxError } from '@max/core'
 import { createSocketServer } from './socket-server.js'
+import { StdoutSink } from './sinks.js'
 import { CliRequest } from './types.js'
 import { runSubprocess, subprocessParsers } from './subprocess-entry.js'
 import * as util from 'node:util'
@@ -135,14 +136,7 @@ export async function main() {
       shell: process.env.SHELL
     }
 
-    const stdoutSink: Sink = {
-      write(text: string) {
-        try { process.stdout.write(text) }
-        catch (e: any) { if (e?.code !== 'EPIPE') return; throw e }
-      },
-    }
-
-    const result = await cli.execute(req, { sink: stdoutSink }).catch((err) => {
+    const result = await cli.execute(req, { sink: new StdoutSink() }).catch((err) => {
       console.error(err)
       process.exit(1)
     })

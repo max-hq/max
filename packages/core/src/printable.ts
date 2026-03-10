@@ -10,6 +10,17 @@ export interface Sink {
   write(data: string): void
 }
 
+export const Sink = StaticTypeCompanion({
+  /** Collects all writes into a string. Use in tests and Printable.toString(). */
+  string(): Sink & { readonly value: string } {
+    const chunks: string[] = []
+    return {
+      write(s: string) { chunks.push(s) },
+      get value() { return chunks.join('') },
+    }
+  },
+})
+
 // ============================================================================
 // Printable - deferred output that writes to a Sink given a Fmt
 // ============================================================================
@@ -34,9 +45,9 @@ export const Printable = StaticTypeCompanion({
 
   /** Materialize to string (for tests, compat). */
   toString(p: Printable, fmt: Fmt = Fmt.plain): string {
-    const chunks: string[] = []
-    p.writeTo({ write(s) { chunks.push(s) } }, fmt)
-    return chunks.join('')
+    const sink = Sink.string()
+    p.writeTo(sink, fmt)
+    return sink.value
   },
 })
 

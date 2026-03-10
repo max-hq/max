@@ -79,7 +79,7 @@ export class DirectPrompter implements Prompter {
 export type DaemonMessage =
   | { kind: "prompt"; message: string; secret?: boolean }
   | { kind: "write"; text: string }
-  | { kind: "response"; stdout?: string; stderr?: string; exitCode: number; completions?: string[]; completionOutput?: string }
+  | { kind: "response"; stderr?: string; exitCode: number; completions?: string[] }
 
 /** Messages sent from shim to daemon (after the initial request). */
 export type ShimInput = { kind: "input"; value: string }

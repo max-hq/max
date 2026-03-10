@@ -9,6 +9,7 @@ import {
   type Prompter,
   PromptableSocket,
 } from './prompter.js'
+import { SocketSink } from './sinks.js'
 
 export interface SocketServerOptions {
   socketPath: string
@@ -59,7 +60,7 @@ export function createSocketServer(opts: SocketServerOptions): { stop: () => voi
   ) {
     const socket = wrapSocket(state)
     const prompter = new SocketPrompter(socket)
-    const sink: Sink = { write: (text) => socket.send({ kind: 'write', text }) }
+    const sink = new SocketSink(socket)
 
     try {
       const result = await handler(request, { prompter, sink })

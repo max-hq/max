@@ -42,7 +42,7 @@ import { CmdStatusGlobal, CmdStatusWorkspace, CmdStatusInstallation } from './co
 import { CmdSearchGlobal, CmdSearchInstallation, CmdSearchWorkspace } from './commands/search-command.js'
 import { CmdLlmBootstrap } from './commands/llm-bootstrap-command.js'
 import { CmdInstall } from './commands/install-command.js'
-import { Command } from './command.js'
+import { Command, CommandOutput } from './command.js'
 
 // ============================================================================
 // Shell completion codecs
@@ -413,24 +413,13 @@ export class CLI {
     const fmt = Fmt.usingColor(color)
     try {
       const output = await command.run(cmdResult, { cwd, color, prompter: opts.prompter })
-
-      if (isAsyncIterable(output)) {
-        for await (const chunk of output) {
-          chunk.writeTo(sink, fmt)
-        }
-      } else {
-        output.writeTo(sink, fmt)
-      }
+      await CommandOutput.writeTo(output, sink, fmt)
       sink.write('\n')
       return { exitCode: 0 }
     } catch (e) {
       return { exitCode: 1, stderr: MaxError.wrap(e).prettyPrint({ color }) }
     }
   }
-}
-
-function isAsyncIterable(value: unknown): value is AsyncIterable<unknown> {
-  return value != null && typeof value === 'object' && Symbol.asyncIterator in value
 }
 
 const slashEscape = (str:string) => str.replaceAll(/[:/]/g, c => `\\${c}`)

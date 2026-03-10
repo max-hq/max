@@ -1,6 +1,7 @@
 import { unlinkSync } from 'fs'
 import { BufferedSocket } from '@max/platform-bun'
-import type { CliRequest, CliResponse } from './types.js'
+import type { Sink } from '@max/core'
+import type { CliRequest, ExecuteResult } from './types.js'
 import {
   SocketPrompter,
   type DaemonMessage,
@@ -11,7 +12,7 @@ import {
 
 export interface SocketServerOptions {
   socketPath: string
-  handler: (req: CliRequest, prompter: Prompter) => Promise<CliResponse>
+  handler: (req: CliRequest, opts: { prompter: Prompter, sink: Sink }) => Promise<ExecuteResult>
 }
 
 export function createSocketServer(opts: SocketServerOptions): { stop: () => void } {
@@ -58,10 +59,11 @@ export function createSocketServer(opts: SocketServerOptions): { stop: () => voi
   ) {
     const socket = wrapSocket(state)
     const prompter = new SocketPrompter(socket)
+    const sink: Sink = { write: (text) => socket.send({ kind: 'write', text }) }
 
     try {
-      const response = await handler(request, prompter)
-      socket.send({ kind: 'response', ...response })
+      const result = await handler(request, { prompter, sink })
+      socket.send({ kind: 'response', exitCode: result.exitCode, stderr: result.stderr, completions: result.completions })
       await state.writer!.end()
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)

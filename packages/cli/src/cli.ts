@@ -23,8 +23,8 @@ import { optional } from '@optique/core/modifiers'
 import { Mode, Parser, getDocPageAsync, suggestAsync, type Suggestion } from '@optique/core/parser'
 import { formatDocPage } from '@optique/core/doc'
 
-import { Fmt, makeLazy, MaxError, type MaxUrlLevel } from '@max/core'
-import { CliRequest, CliResponse } from './types.js'
+import { Fmt, makeLazy, MaxError, type MaxUrlLevel, type Printable, type Sink } from '@max/core'
+import { CliRequest, ExecuteResult } from './types.js'
 import { parseArgs, extractErrorValue, formatMessage } from './argv-parser.js'
 import { type Prompter } from './prompter.js'
 import { type ContextAt, type ResolvedContext } from './resolved-context.js'
@@ -132,7 +132,7 @@ export class CLI {
     },
   })
 
-  private encodeSuggestions(req: CliRequest, suggestions: readonly Suggestion[]): CliResponse {
+  private encodeSuggestions(req: CliRequest, sink: Sink, suggestions: readonly Suggestion[]): ExecuteResult {
     const shell = req.shell && shells[req.shell]
     if (shell) {
       const chunks: string[] = []
@@ -141,25 +141,26 @@ export class CLI {
       for (const chunk of shell.encodeSuggestions(preEncoded)) {
         chunks.push(chunk)
       }
-      return { exitCode: 0, completionOutput: chunks.join('\n') }
+      sink.write(chunks.join('\n'))
+      return { exitCode: 0 }
     }else{
       const completions = suggestions.filter((s) => s.kind === 'literal').map((s) => s.text)
       return { exitCode: 0, completions }
     }
-
   }
 
   private async suggest(
     req: CliRequest,
+    sink: Sink,
     program: Parser<Mode>,
-  ): Promise<CliResponse> {
+  ): Promise<ExecuteResult> {
     try {
       const normalized = normalizeGlobalFlag(req.argv)
       const args = asNonEmptyArgv(normalized)
       const suggestions = await suggestAsync(program, args)
-      return this.encodeSuggestions(req, suggestions)
+      return this.encodeSuggestions(req, sink, suggestions)
     } catch (error) {
-      return { exitCode: 1, stderr: String(error), completionOutput: '' }
+      return { exitCode: 1, stderr: String(error) }
     }
   }
 
@@ -226,11 +227,12 @@ export class CLI {
   // -- Help generation -------------------------------------------------------
 
   private async generateHelp(
+    sink: Sink,
     program: Parser<Mode>,
     commands: Record<string, Command>,
     color: boolean,
     forCommand?: string,
-  ): Promise<CliResponse> {
+  ): Promise<ExecuteResult> {
     // For a specific command, use its own parser (avoids showing -t in the
     // command's usage — -t is a program-level concern, not per-command).
     // Pass the command name as args so optique walks into it and shows flags.
@@ -239,30 +241,33 @@ export class CLI {
     const doc = await getDocPageAsync(parser, cmd ? [forCommand!] : undefined)
     if (doc) {
       const text = formatDocPage('max', doc, { colors: color, showChoices: true })
-      return { exitCode: 0, stdout: text + '\n' }
+      sink.write(text + '\n')
+    } else {
+      sink.write('max - a data pipe CLI\n')
     }
-    return { exitCode: 0, stdout: 'max - a data pipe CLI\n' }
+    return { exitCode: 0 }
   }
 
   // -- Completion subcommand -------------------------------------------------
 
   private async handleCompletion(
+    sink: Sink,
     program: Parser<Mode>,
     shell: string,
     args: string[],
-  ): Promise<CliResponse> {
+  ): Promise<ExecuteResult> {
     const shellCodec = shells[shell]
     if (!shellCodec) {
       return { exitCode: 1, stderr: `Unknown shell: ${shell}. Supported: ${Object.keys(shells).join(', ')}\n` }
     }
 
-    // No extra args → generate the shell setup script
+    // No extra args -> generate the shell setup script
     if (args.length === 0) {
-      const script = shellCodec.generateScript('max')
-      return { exitCode: 0, stdout: script }
+      sink.write(shellCodec.generateScript('max'))
+      return { exitCode: 0 }
     }
 
-    // With args → inline completion (shell calling back for suggestions)
+    // With args -> inline completion (shell calling back for suggestions)
     try {
       const suggestions = await suggestAsync(program, asNonEmptyArgv(args))
       const preEncoded = suggestions.map(preEncodeSuggestion)
@@ -270,7 +275,8 @@ export class CLI {
       for (const chunk of shellCodec.encodeSuggestions(preEncoded)) {
         chunks.push(chunk)
       }
-      return { exitCode: 0, stdout: chunks.join('\n') }
+      sink.write(chunks.join('\n'))
+      return { exitCode: 0 }
     } catch {
       return { exitCode: 1, stderr: '' }
     }
@@ -284,7 +290,7 @@ export class CLI {
     commandLevels: Map<string, MaxUrlLevel[]>,
     color: boolean,
     optiqError: string,
-  ): CliResponse {
+  ): ExecuteResult {
     const fmt = Fmt.usingColor(color)
 
     // Check if the token is a known command at another level
@@ -314,13 +320,17 @@ export class CLI {
       }
     }
 
-    // Known command at correct level but bad args — show optique's error
+    // Known command at correct level but bad args - show optique's error
     return { exitCode: 1, stderr: `${fmt.red('Error')}: ${optiqError}\n` }
   }
 
   // -- Dispatch --------------------------------------------------------------
 
-  async execute(req: CliRequest, prompter?: Prompter): Promise<CliResponse> {
+  async execute(
+    req: CliRequest,
+    opts: { prompter?: Prompter, sink: Sink },
+  ): Promise<ExecuteResult> {
+    const { sink } = opts
     const color = req.color ?? this.cfg.useColor ?? true
     const cwd = req.cwd ?? this.cfg.cwd
     const globalMax = await this.lazy.globalStarted
@@ -336,7 +346,7 @@ export class CLI {
         const services = new CliServices(ctx as ContextAt<any>, color)
         const allCommands = this.buildAllCommands(services, targetVP)
         const { program, commands } = this.buildParser(allCommands, ctx.level, targetVP)
-        return this.generateHelp(program, commands, color)
+        return this.generateHelp(sink, program, commands, color)
       }
       const tIdx = argv.indexOf('-t')
       const insertAt = (tIdx >= 0 && tIdx + 1 < argv.length) ? tIdx + 2 : 0
@@ -355,7 +365,7 @@ export class CLI {
 
     // -- Shell completion (req.kind === 'complete') --
     if (req.kind === 'complete') {
-      return this.suggest(req, program)
+      return this.suggest(req, sink, program)
     }
 
     // -- Help: -h/--help with a command --
@@ -366,7 +376,7 @@ export class CLI {
         if (i > 0 && (stripped[i-1] === '-t' || stripped[i-1] === '--target')) return false
         return true
       })
-      return this.generateHelp(program, commands, color, cmdName)
+      return this.generateHelp(sink, program, commands, color, cmdName)
     }
 
     // -- Help: `help` subcommand --
@@ -374,7 +384,7 @@ export class CLI {
       // Find the command name after 'help', skipping -t <value>
       const afterHelp = argv.slice(argv.indexOf('help') + 1)
       const forCommand = afterHelp.find(a => !a.startsWith('-'))
-      return this.generateHelp(program, commands, color, forCommand)
+      return this.generateHelp(sink, program, commands, color, forCommand)
     }
 
     // -- Completion subcommand: `max completion <shell> [args...]` --
@@ -383,7 +393,7 @@ export class CLI {
       const rest = argv.slice(compIdx + 1)
       const shell = rest[0]
       if (shell) {
-        return this.handleCompletion(program, shell, rest.slice(1) as string[])
+        return this.handleCompletion(sink, program, shell, rest.slice(1) as string[])
       }
     }
 
@@ -398,15 +408,29 @@ export class CLI {
 
     const { command: cmdResult } = parsed.value as { command: { cmd: string } }
 
-    // Execute
+    // Execute command
     const command = commands[cmdResult.cmd]
+    const fmt = Fmt.usingColor(color)
     try {
-      const result = await command.run(cmdResult, { cwd, color, prompter })
-      return { exitCode: 0, stdout: result + '\n' }
+      const output = await command.run(cmdResult, { cwd, color, prompter: opts.prompter })
+
+      if (isAsyncIterable(output)) {
+        for await (const chunk of output) {
+          chunk.writeTo(sink, fmt)
+        }
+      } else {
+        output.writeTo(sink, fmt)
+      }
+      sink.write('\n')
+      return { exitCode: 0 }
     } catch (e) {
       return { exitCode: 1, stderr: MaxError.wrap(e).prettyPrint({ color }) }
     }
   }
+}
+
+function isAsyncIterable(value: unknown): value is AsyncIterable<unknown> {
+  return value != null && typeof value === 'object' && Symbol.asyncIterator in value
 }
 
 const slashEscape = (str:string) => str.replaceAll(/[:/]/g, c => `\\${c}`)

@@ -1,5 +1,48 @@
 import { Fmt } from './fmt.js'
 import { ErrPrinterNotRegistered } from './errors/errors.js'
+import { StaticTypeCompanion } from './companion.js'
+
+// ============================================================================
+// Sink - minimal write target for streaming output
+// ============================================================================
+
+export interface Sink {
+  write(data: string): void
+}
+
+// ============================================================================
+// Printable - deferred output that writes to a Sink given a Fmt
+// ============================================================================
+
+export interface Printable {
+  writeTo(sink: Sink, fmt: Fmt): void
+}
+
+export const Printable = StaticTypeCompanion({
+  /** Wrap a literal string (no formatting needed). */
+  text(s: string): Printable {
+    return { writeTo: (sink) => sink.write(s) }
+  },
+
+  /** Bind a value to a Printer. Fmt is deferred to write time. */
+  of<T>(printer: Printer<T>, value: T): Printable {
+    return { writeTo: (sink, fmt) => sink.write(printer.print(value, fmt)) }
+  },
+
+  /** Empty — writes nothing. */
+  empty: { writeTo() {} } as Printable,
+
+  /** Materialize to string (for tests, compat). */
+  toString(p: Printable, fmt: Fmt = Fmt.plain): string {
+    const chunks: string[] = []
+    p.writeTo({ write(s) { chunks.push(s) } }, fmt)
+    return chunks.join('')
+  },
+})
+
+// ============================================================================
+// Printer - defines how to render T as a string
+// ============================================================================
 
 type PrintFn<T> = (value: T, fmt: Fmt) => string
 

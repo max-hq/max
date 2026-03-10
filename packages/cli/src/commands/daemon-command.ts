@@ -1,4 +1,4 @@
-import { LazyX } from '@max/core'
+import { LazyX, Printable } from '@max/core'
 import { command, constant } from '@optique/core/primitives'
 import { object, or } from '@optique/core/constructs'
 import { message } from '@optique/core/message'
@@ -48,9 +48,8 @@ export class CmdDaemon implements Command {
   async run(args: Inferred<this>, opts: CommandOptions) {
     switch (args.sub) {
       case 'list': {
-        const printer = this.services.getPrintFormatter(opts.color)
         const w = await this.services.ctx.global.listWorkspacesFull()
-        return printer.printList("workspace-list-entry", w)
+        return Printable.text(this.services.getPrintFormatter(opts.color).printList("workspace-list-entry", w))
       }
     }
 

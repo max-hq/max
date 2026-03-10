@@ -14,7 +14,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as os from 'node:os'
 
-import { MaxError } from '@max/core'
+import { MaxError, type Sink } from '@max/core'
 import { createSocketServer } from './socket-server.js'
 import { CliRequest } from './types.js'
 import { runSubprocess, subprocessParsers } from './subprocess-entry.js'
@@ -115,8 +115,8 @@ export async function main() {
 
     createSocketServer({
       socketPath: daemonPaths.socket,
-      handler: (req, prompter) =>
-        cli.execute(req, prompter).catch((err) => {
+      handler: (req, opts) =>
+        cli.execute(req, opts).catch((err) => {
           const color = req.color ?? false
           const msg = MaxError.isMaxError(err) ? err.prettyPrint({ color }) : util.inspect(err)
           return { stderr: `${msg}\n`, exitCode: 1 }
@@ -135,17 +135,20 @@ export async function main() {
       shell: process.env.SHELL
     }
 
-    const response = await cli.execute(req).catch((err) => {
+    const stdoutSink: Sink = {
+      write(text: string) {
+        try { process.stdout.write(text) }
+        catch (e: any) { if (e?.code !== 'EPIPE') return; throw e }
+      },
+    }
+
+    const result = await cli.execute(req, { sink: stdoutSink }).catch((err) => {
       console.error(err)
       process.exit(1)
     })
 
-    const writes: Promise<void>[] = []
-    if (response.completionOutput) writes.push(flushWrite(process.stdout, response.completionOutput))
-    if (response.stdout) writes.push(flushWrite(process.stdout, response.stdout))
-    if (response.stderr) writes.push(flushWrite(process.stderr, response.stderr))
-    await Promise.all(writes)
+    if (result.stderr) await flushWrite(process.stderr, result.stderr)
 
-    process.exit(response.exitCode)
+    process.exit(result.exitCode)
   }
 }

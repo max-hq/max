@@ -1,4 +1,4 @@
-import { LazyX } from '@max/core'
+import { LazyX, Printable } from '@max/core'
 import { command, constant } from '@optique/core/primitives'
 import { object } from '@optique/core/constructs'
 import { message } from '@optique/core/message'
@@ -26,7 +26,7 @@ export class CmdLsGlobal implements Command {
     const ctx = this.services.ctx
     const workspaces = await ctx.global.listWorkspacesFull()
 
-    return this.services.getPrintFormatter(opts.color).printVia(LsGlobalPrinter, {
+    return Printable.of(LsGlobalPrinter, {
       url: ctx.url,
       workspaces,
     })
@@ -65,7 +65,7 @@ export class CmdLsWorkspace implements Command {
       })
     )
 
-    return this.services.getPrintFormatter(opts.color).printVia(LsWorkspacePrinter, {
+    return Printable.of(LsWorkspacePrinter, {
       url: ctx.url,
       installations,
     })

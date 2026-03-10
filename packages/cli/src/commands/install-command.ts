@@ -1,4 +1,4 @@
-import { LazyX, Fmt } from '@max/core'
+import { LazyX, Fmt, Printable } from '@max/core'
 import { command, constant, option } from '@optique/core/primitives'
 import { object } from '@optique/core/constructs'
 import { message } from '@optique/core/message'
@@ -44,6 +44,6 @@ export class CmdInstall implements Command {
       lines.push(`    - ${c}`)
     }
 
-    return lines.join('\n')
+    return Printable.text(lines.join('\n'))
   }
 }

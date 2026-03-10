@@ -195,7 +195,8 @@ export * from "./lazy.js";
 export {Duration} from "./duration.js";
 
 // Printables
-export {Printer, PrintFormatter} from './printable.js'
+export type {Sink} from './printable.js'
+export {Printable, Printer, PrintFormatter} from './printable.js'
 
 // ResolverGraph — declarative dependency resolution with cascading
 export { ResolverGraph } from './resolver-graph.js'

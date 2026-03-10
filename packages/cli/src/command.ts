@@ -9,12 +9,15 @@
  * provides the resolved context and shared utilities.
  */
 
-import type { LazyOne, MaxUrlLevel } from '@max/core'
+import type { LazyOne, MaxUrlLevel, Printable } from '@max/core'
 import type { InferValue, Mode, Parser } from '@optique/core/parser'
 import type { Prompter } from './prompter.js'
 
 /** Extract the parsed value type from a Command's parser. */
 export type Inferred<T extends Command> = InferValue<T['parser']['get']>
+
+/** A single Printable or a stream of them. */
+export type CommandOutput = Printable | AsyncIterable<Printable>
 
 /** Per-request options passed to command handlers. */
 export interface CommandOptions {
@@ -31,5 +34,5 @@ export interface Command {
   /** Lazy parser — built on first access, can reach into instance context. */
   readonly parser: LazyOne<Parser<Mode>>
   /** Execute the command with type-safe parsed args. */
-  run(args: Inferred<this>, opts: CommandOptions): Promise<string>
+  run(args: Inferred<this>, opts: CommandOptions): Promise<CommandOutput>
 }

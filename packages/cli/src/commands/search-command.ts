@@ -10,7 +10,7 @@
  * Output in text (table), JSON, or NDJSON formats.
  */
 
-import { LazyX, Projection, WhereClause, PrintFormatter, MetaField } from '@max/core'
+import { LazyX, Projection, WhereClause, PrintFormatter, MetaField, Printable } from '@max/core'
 import type { EntityQuery, AllProjection, QueryOrdering, InstallationId } from '@max/core'
 import type { InstallationClient } from '@max/federation'
 import { ErrInstallationNotFound } from '@max/federation'
@@ -108,7 +108,7 @@ export class CmdSearchGlobal implements Command {
         reason: `Expected an installation target (workspace/installation), got ${resolved.level}`,
       })
     }
-    return runSearch(resolved.installation, args, this.services.getPrintFormatter(opts.color))
+    return runSearch(resolved.installation, args)
   }
 }
 
@@ -144,7 +144,7 @@ export class CmdSearchWorkspace implements Command {
       throw ErrInstallationNotFound.create({ installation: args.installation })
     }
     const inst = this.services.ctx.workspace.installation(match.id)
-    return runSearch(inst, args, this.services.getPrintFormatter(opts.color))
+    return runSearch(inst, args)
   }
 }
 
@@ -171,7 +171,7 @@ export class CmdSearchInstallation implements Command {
   ))
 
   async run(args: Inferred<this>, opts: CommandOptions) {
-    return runSearch(this.services.ctx.installation, args, this.services.getPrintFormatter(opts.color))
+    return runSearch(this.services.ctx.installation, args)
   }
 }
 
@@ -179,11 +179,18 @@ export class CmdSearchInstallation implements Command {
 // Shared search logic
 // ============================================================================
 
+function selectSearchPrinter(output?: string) {
+  switch (output) {
+    case 'json':   return SearchJsonPrinter
+    case 'ndjson': return SearchNdjsonPrinter
+    default:       return SearchTextPrinter
+  }
+}
+
 async function runSearch(
   installation: InstallationClient,
   args: SearchArgs,
-  printer: PrintFormatter,
-): Promise<string> {
+): Promise<Printable> {
   const schema = await installation.schema()
 
   const def = schema.getDefinition(args.entityType)
@@ -218,9 +225,5 @@ async function runSearch(
   const selectedFields = args.fields ? expandFieldGroups(parseFieldList(args.fields), def) : undefined
   const view = { entityType: args.entityType, page, selectedFields }
 
-  switch (args.output) {
-    case 'json':   return printer.printVia(SearchJsonPrinter, view)
-    case 'ndjson': return printer.printVia(SearchNdjsonPrinter, view)
-    default:       return printer.printVia(SearchTextPrinter, view)
-  }
+  return Printable.of(selectSearchPrinter(args.output), view)
 }

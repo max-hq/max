@@ -1,4 +1,4 @@
-import { LazyX } from '@max/core'
+import { LazyX, Printable } from '@max/core'
 import { command, constant } from '@optique/core/primitives'
 import { object } from '@optique/core/constructs'
 import { message } from '@optique/core/message'
@@ -33,7 +33,7 @@ export class CmdStatusGlobal implements Command {
       ctx.global.listWorkspacesFull(),
     ])
 
-    return this.services.getPrintFormatter(opts.color).printVia(StatusGlobalPrinter, {
+    return Printable.of(StatusGlobalPrinter, {
       url: ctx.url,
       health,
       workspaces,
@@ -76,7 +76,7 @@ export class CmdStatusWorkspace implements Command {
       })
     )
 
-    return this.services.getPrintFormatter(opts.color).printVia(StatusWorkspacePrinter, {
+    return Printable.of(StatusWorkspacePrinter, {
       url: ctx.url,
       health,
       installations,
@@ -107,7 +107,7 @@ export class CmdStatusInstallation implements Command {
       ctx.installation.describe(),
     ])
 
-    return this.services.getPrintFormatter(opts.color).printVia(StatusInstallationPrinter, {
+    return Printable.of(StatusInstallationPrinter, {
       url: ctx.url,
       health,
       description,

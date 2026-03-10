@@ -1,4 +1,4 @@
-import { LazyX } from '@max/core'
+import { LazyX, Printable } from '@max/core'
 import { argument, command, constant, option } from '@optique/core/primitives'
 import { object } from '@optique/core/constructs'
 import { optional } from '@optique/core/modifiers'
@@ -71,7 +71,7 @@ export class CmdConnect implements Command {
         },
       })
 
-      return `Connected ${args.source} as installation ${installationName} (${id})`
+      return Printable.text(`Connected ${args.source} as installation ${installationName} (${id})`)
     } finally {
       ownedPrompter?.close()
     }

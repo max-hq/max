@@ -1,11 +1,23 @@
 import { describe, test, expect } from 'bun:test'
 import { BunPlatform, GlobalConfig } from '@max/platform-bun'
 import { AcmeConfig } from '@max/connector-acme'
+import type { Sink } from '@max/core'
 import { CLI } from '../cli.js'
+import type { ExecuteResult } from '../types.js'
 
 // -- Helpers ------------------------------------------------------------------
 
-/** Fresh ephemeral environment per test — no shared state. */
+type TestResult = ExecuteResult & { stdout: string }
+
+function stringSink(): { sink: Sink, value: () => string } {
+  const chunks: string[] = []
+  return {
+    sink: { write(s: string) { chunks.push(s) } },
+    value: () => chunks.join(''),
+  }
+}
+
+/** Fresh ephemeral environment per test - no shared state. */
 async function createTestCli() {
   const global = BunPlatform.createGlobalMax({ ephemeral: true })
   await global.start()
@@ -34,12 +46,18 @@ async function createTestCli() {
   const cfg = new GlobalConfig({ cwd: '/tmp', mode: 'direct', useColor: false })
   const cli = new CLI(cfg, { globalMax: global })
 
+  async function execute(req: Parameters<CLI['execute']>[0]): Promise<TestResult> {
+    const { sink, value } = stringSink()
+    const result = await cli.execute(req, { sink })
+    return { ...result, stdout: value() }
+  }
+
   return {
     cli,
     run: (target: string, argv: string[]) =>
-      cli.execute({ kind: 'run', argv: ['-t', target, ...argv], color: false }),
+      execute({ kind: 'run', argv: ['-t', target, ...argv], color: false }),
     complete: (argv: string[]) =>
-      cli.execute({ kind: 'complete', argv, color: false }),
+      execute({ kind: 'complete', argv, color: false }),
   }
 }
 
@@ -190,12 +208,8 @@ describe('CLI smoke', () => {
     })
 
     test('bare invocation defaults to status', async () => {
-      const { cli } = await createTestCli()
-      const res = await cli.execute({
-        kind: 'run',
-        argv: ['-t', 'max://@/test-project'],
-        color: false,
-      })
+      const { run } = await createTestCli()
+      const res = await run('max://@/test-project', [])
 
       expect(res.exitCode).toBe(0)
       expect(res.stdout).toContain('test-project')

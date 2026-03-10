@@ -1,4 +1,4 @@
-import { LazyX } from '@max/core'
+import { LazyX, Printable } from '@max/core'
 import { argument, command, constant } from '@optique/core/primitives'
 import { object } from '@optique/core/constructs'
 import { withDefault } from '@optique/core/modifiers'
@@ -59,6 +59,6 @@ export class CmdInit implements Command {
       lines.push(`  HINT: max install --collection git@github.com:max-hq/max-connectors.git`)
     }
 
-    return lines.join('\n')
+    return Printable.text(lines.join('\n'))
   }
 }

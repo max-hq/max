@@ -11,7 +11,8 @@
   "scripts": {
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
-    "test": "turbo run test --continue"
+    "test": "turbo run test --continue", 
+    "postinstall": "bun run scripts/link-core-connector-packages.ts"
   },
   "devDependencies": {
     "@max/connector-acme": "workspace:*",

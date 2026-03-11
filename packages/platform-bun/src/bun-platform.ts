@@ -63,6 +63,8 @@ import {
   type InstallationInfo,
   NoOpWorkspaceProvisioner,
   type WorkspaceProvisioner,
+  NoOpInstallationProvisioner,
+  type InstallationProvisioner,
 } from '@max/federation'
 import { Database } from 'bun:sqlite'
 import {
@@ -101,6 +103,7 @@ import * as os from 'node:os'
 import { WorkspaceInfoPrinter, WorkspaceListEntryPrinter } from './printers/workspace-printers.js'
 import {InstallationInfoPrinter} from "./printers/installation-printers.js";
 import { FsWorkspaceProvisioner } from './services/fs-workspace-provisioner.js'
+import { FsInstallationProvisioner } from './services/fs-installation-provisioner.js'
 
 // ============================================================================
 // Constants
@@ -128,6 +131,9 @@ export interface InstallationGraphDeps {
   credentialStoreConfig: ResolvedCredentialStoreConfig
   taskStoreConfig: ResolvedTaskStoreConfig
   syncMetaConfig: ResolvedSyncMetaConfig
+
+  // Provisioner
+  provisioner: InstallationProvisioner
 
   // Services
   engine: Engine
@@ -165,6 +171,10 @@ export const installationGraph = ResolverGraph.define<InstallationGraphConfig, I
     const cfg = c.syncMeta ?? (c.ephemeral ? { type: 'in-memory' as const } : { type: 'sqlite' as const })
     return cfg.type === 'in-memory' ? cfg : { type: 'sqlite', dbPath: cfg.dbPath ?? r.dbPath }
   },
+
+  // -- Provisioner -------------------------------------------------------------
+
+  provisioner: (c) => c.ephemeral ? NoOpInstallationProvisioner : new FsInstallationProvisioner(),
 
   // -- Service construction layer ---------------------------------------------
 
@@ -303,20 +313,7 @@ function createInstallationBootstrap(
     // Async: load connector (only truly async operation — everything else resolves synchronously)
     const connector = await connectorRegistry.resolve(spec.connector)
 
-    // FIXME: Crutch — ensure the installation data directory exists.
-    // Previously this happened as a side-effect of FsCredentialStore.write(),
-    // which meant connectors without credentials (e.g. local filesystem
-    // connectors) would fail at SqliteEngine.open() because the directory
-    // didn't exist yet. The real fix is an explicit "provision installation
-    // storage" step, likely owned by an FS-aware deployer or a dedicated
-    // InstallationProvisioner, not scattered across individual service impls.
-    if (!ephemeral && config.dataDir) {
-      if (!fs.existsSync(config.dataDir)) {
-        fs.mkdirSync(config.dataDir, { recursive: true })
-      }
-    }
-
-    // Sync: resolve all deps via graph
+    // Resolve all deps via graph (lazy - nodes computed on first access)
     const deps = graph.resolve({
       dataDir: config.dataDir,
       connector,
@@ -326,6 +323,9 @@ function createInstallationBootstrap(
       taskStore: config.taskStore,
       syncMeta: config.syncMeta,
     })
+
+    // Provision installation data directory before services access it
+    await deps.provisioner.provision(config.dataDir)
 
     // Async: persist pre-collected credentials (from atomic connect flow)
     if (spec.initialCredentials) {

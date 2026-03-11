@@ -24,6 +24,7 @@ export { CollectionManager } from './services/collection-manager.js'
 
 // Provisioners
 export { FsWorkspaceProvisioner } from './services/fs-workspace-provisioner.js'
+export { FsInstallationProvisioner } from './services/fs-installation-provisioner.js'
 
 // Credential store
 export { FsCredentialStore } from './services/fs-credential-store.js'

@@ -42,5 +42,6 @@ export {DefaultMaxUrlResolver} from './default-max-url-resolver.js'
 export {type MaxClientResolver} from './max-client-resolver.js'
 export { createEphemeralMax, type EphemeralOverrides } from './ephemeral.js'
 export { type WorkspaceProvisioner, NoOpWorkspaceProvisioner } from './workspace-provisioner.js'
+export { type InstallationProvisioner, NoOpInstallationProvisioner } from './installation-provisioner.js'
 
 

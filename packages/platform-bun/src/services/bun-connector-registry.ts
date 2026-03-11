@@ -111,7 +111,7 @@ export class NaiveBunConnectorRegistry implements ConnectorRegistry {
     const entries  = fs.readdirSync(connectorsDir, { withFileTypes: true })
 
     for (const entry of entries) {
-      if (!entry.isDirectory() || !entry.name.startsWith('connector-')) continue
+      if ((!entry.isDirectory() && !entry.isSymbolicLink()) || !entry.name.startsWith('connector-')) continue
 
       const folderPath = path.join(connectorsDir, entry.name)
       const pkgJsonPath = path.join(folderPath, 'package.json')

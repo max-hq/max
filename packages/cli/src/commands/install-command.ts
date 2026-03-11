@@ -20,7 +20,7 @@ export class CmdInstall implements Command {
     object({
       cmd: constant('install'),
       collection: option('-c', '--collection', string(), {
-        description: message`Git URL of a connector collection to install`,
+        description: message`Git URL or local path of a connector collection to install`,
       }),
     }),
     { description: message`Install a connector collection` }
@@ -33,7 +33,7 @@ export class CmdInstall implements Command {
 
     const result = await manager.install(args.collection)
 
-    const verb = result.action === 'cloned' ? 'Installed' : 'Updated'
+    const verb = result.action === 'linked' ? 'Linked' : result.action === 'cloned' ? 'Installed' : 'Updated'
     const lines = [
       `${fmt.green('✓')} ${verb} collection "${result.name}"`,
       `  Location: ${result.path}`,

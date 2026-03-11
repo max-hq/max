@@ -34,7 +34,7 @@ const UserLoader = Loader.entity({
   name: "acme:user:basic",
   context: AcmeAppContext,
   entity: AcmeUser,
-  async load(ref, ctx, deps) {
+  async load(ref, ctx) {
     const user = await ctx.api.users.get(ref.id);
     return EntityInput.create(ref, {
       name: user.name,
@@ -62,10 +62,11 @@ SyncPlan → Resolvers → Loaders → Engine → Storage
 ## Packages
 
 - `@max/core` - Types, data structures, Engine (data access), utilities
-- `@max/connector` - Connector SDK (ConnectorDef, OnboardingFlow)
-- `@max/app` - Business logic, services, orchestration
+- `@max/connector` - Connector SDK (ConnectorDef, ConnectorModule, OnboardingFlow)
 - `@max/cli` - CLI presentation, daemon hosting
 - `@max/storage-sqlite` - SQLite storage implementation
+- `@max/execution` / `@max/execution-local` / `@max/execution-sqlite` - Sync orchestration
+- `@max/platform-bun` - Bun runtime platform integration
 
 ## Next Steps
 

@@ -65,7 +65,7 @@ const TeamBasicLoader = Loader.entity({
   context: AcmeAppContext,
   entity: AcmeTeam,
 
-  async load(ref, ctx, deps) {
+  async load(ref, ctx) {
     const team = await ctx.api.teams.get(ref.id);
     return EntityInput.create(ref, {
       name: team.name,
@@ -86,7 +86,7 @@ const BasicUserLoader = Loader.entityBatched({
   context: AcmeAppContext,
   entity: AcmeUser,
 
-  async load(refs, ctx, deps) {
+  async load(refs, ctx) {
     const users = await ctx.api.users.getBatch(refs.map(r => r.id));
     return Batch.buildFrom(
       users.map(u => EntityInput.create(AcmeUser.ref(u.id), {
@@ -109,7 +109,7 @@ const TeamMembersLoader = Loader.collection({
   entity: AcmeTeam,
   target: AcmeUser,
 
-  async load(ref, page, ctx, deps) {
+  async load(ref, page, ctx) {
     const result = await ctx.api.teams.listMembers(ref.id, {
       cursor: page.cursor,
       limit: page.limit,

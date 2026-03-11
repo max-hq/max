@@ -49,7 +49,10 @@ export class CmdInit implements Command {
       spec: { name: nodePath.basename(dir) },
     })
     const fmt = Fmt.usingColor(opts.color)
-    const lines = [`${fmt.green('✓')} Initialized Max project in ${dir}`]
+    const lines = [
+      `${fmt.green('✓')} Initialized Max project in ${dir}`,
+      `${fmt.green('✓')} .gitignore updated to ignore .max`,
+    ]
 
     const connectors = await this.services.ctx.global.listConnectors()
     if (connectors.length <= 1) {

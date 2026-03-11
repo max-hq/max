@@ -22,6 +22,9 @@ export { FsWorkspaceRegistry } from './services/fs-workspace-registry.js'
 export { NaiveBunConnectorRegistry } from './services/bun-connector-registry.js'
 export { CollectionManager } from './services/collection-manager.js'
 
+// Provisioners
+export { FsWorkspaceProvisioner } from './services/fs-workspace-provisioner.js'
+
 // Credential store
 export { FsCredentialStore } from './services/fs-credential-store.js'
 
@@ -39,5 +42,4 @@ export * from './errors/errors.js'
 // Utilities
 export { findProjectRoot } from './util/find-project-root.js'
 export { useColor } from './util/use-color.js'
-export { initProject } from './util/init-project.js'
 export { BufferedSocket } from './util/buffered-socket.js'

@@ -17,7 +17,6 @@ import * as path from 'node:path'
 import { LifecycleManager, type WorkspaceId } from '@max/core'
 import type { WorkspaceRegistry, WorkspaceRegistryEntry } from '@max/federation'
 import { ErrRegistryEntryAlreadyExists, ErrRegistryEntryNotFound } from '@max/federation'
-import { initProject } from '../util/init-project.js'
 
 // ============================================================================
 // On-disk JSON shape
@@ -92,14 +91,6 @@ export class FsWorkspaceRegistry implements WorkspaceRegistry {
     const dir = path.dirname(this.configPath)
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true })
-    }
-
-    // Scaffold .max/ + max.json for filesystem-backed workspaces
-    for (const entry of this.entries.values()) {
-      const dataDir = (entry.config as Record<string, unknown>).dataDir
-      if (typeof dataDir === 'string') {
-        initProject(path.dirname(dataDir))
-      }
     }
 
     const file: WorkspacesFile = {

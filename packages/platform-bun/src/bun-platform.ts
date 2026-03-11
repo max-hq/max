@@ -61,6 +61,8 @@ import {
   type WorkspaceInfo,
   type WorkspaceListEntry,
   type InstallationInfo,
+  NoOpWorkspaceProvisioner,
+  type WorkspaceProvisioner,
 } from '@max/federation'
 import { Database } from 'bun:sqlite'
 import {
@@ -98,6 +100,7 @@ import { DaemonDeployer } from './deployers/general/daemon-deployer.js'
 import * as os from 'node:os'
 import { WorkspaceInfoPrinter, WorkspaceListEntryPrinter } from './printers/workspace-printers.js'
 import {InstallationInfoPrinter} from "./printers/installation-printers.js";
+import { FsWorkspaceProvisioner } from './services/fs-workspace-provisioner.js'
 
 // ============================================================================
 // Constants
@@ -209,6 +212,7 @@ export interface WorkspaceGraphDeps {
   installationRegistryConfig: ResolvedInstallationRegistryConfig
   installationRegistry: InstallationRegistry
   connectorRegistry: ConnectorRegistry
+  provisioner: WorkspaceProvisioner
   supervisor: Supervisor<any>
 }
 
@@ -237,6 +241,8 @@ export const workspaceGraph = ResolverGraph.define<WorkspaceGraphConfig, Workspa
   },
 
   connectorRegistry: () => NaiveBunConnectorRegistry.fromCollections(),
+
+  provisioner: (c) => c.ephemeral ? NoOpWorkspaceProvisioner : new FsWorkspaceProvisioner(),
 
   supervisor: () => new DefaultSupervisor(() => crypto.randomUUID() as InstallationId),
 })
@@ -368,6 +374,9 @@ function createWorkspaceBootstrap(
       installationRegistry: config.installationRegistry,
       connectorRegistry: config.connectorRegistry,
     })
+
+    // Provision workspace directory structure (.max/, max.json, .gitignore)
+    await deps.provisioner.provision(path.dirname(config.dataDir))
 
     // Build installation deployer with this workspace's resolved connector registry
     const instBootstrap = createInstallationBootstrap(iGraph, deps.connectorRegistry, ephemeral)

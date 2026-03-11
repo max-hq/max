@@ -1,0 +1,81 @@
+# Changelog
+
+All notable changes to Max will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/).
+
+## [Unreleased]
+
+## [0.1.0] - 2026-03-11
+
+A summary of development prior to formal changelog tracking.
+
+### Mar 8 – Mar 11, 2026
+
+Polish, performance, and architecture cleanup.
+
+#### Added
+- Streaming results for `search --all`
+
+#### Changed
+- Bulk writes in engine and task runner for improved sync performance
+- Removed deprecated `daemon` command
+
+#### Fixed
+- String truncation breaking on unicode characters
+- Ref parsing in SQLite storage
+- Pagination for collection field sync steps
+- Tab completion race condition
+
+### Mar 2 – Mar 6, 2026
+
+Connector ecosystem, field selectors, and dynamic registry.
+
+#### Added
+- Dynamic connector registry - connectors loaded from disk, no longer hardcoded
+- Derived entity syncing - connectors can pull related entities alongside primary data
+- GitHub Issues connector
+- Google Workspace connector
+- Claude Code Conversations connector
+- Linear connector rewrite with support for circular entity references
+- Field selectors: `.props`, `.meta`, `.all` and meta fields (`_id`, `_ref`)
+- `max install` command for collection and connector registry
+- Connector package verification with targeted error messages
+- License and NOTICE files
+
+#### Changed
+- Improved CLI help text - shows only command-specific flags
+- Tab completion improvements for `max -g search <target>`
+
+#### Fixed
+- SQL errors when table or column names collide with reserved words
+- Installation folder not being written when a connector has no credentials
+
+### Feb 4 – Feb 12, 2026
+
+Core architecture and type system.
+
+#### Added
+- `@max/core` package with foundational types and utilities (`Ref`, `Scope`, `EntityDef`, `Page` etc)
+- SQLite storage layer (`@max/storage-sqlite`)
+- Sync execution layer with support for batching, data loading, and resolution
+- Structured error system with named errors, error boundaries, and stack traces
+- `@max/acme` test application for usage-testing Max
+- Pagination support
+- Daemon mode
+- CLI tab completion (zsh)
+
+### Jan 22 – Jan 28, 2026
+
+Initial proof of concept.
+
+#### Added
+- CLI scaffold with command routing
+- Google Drive connector with sync and pagination
+- HubSpot connector
+- Linear connector
+- Filter system (`=`, `~=` contains/wildcard matching)
+- Pagination support
+- `max count` command with `--all` flag
+- ndjson output format
+- LLM bootstrap command for AI agent context generation

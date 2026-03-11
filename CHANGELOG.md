@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+- Support for installing local connector collections via symlink
+
 ## [0.1.0] - 2026-03-11
 
 A summary of development prior to formal changelog tracking.

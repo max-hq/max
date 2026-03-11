@@ -484,8 +484,6 @@ sequenceDiagram
 
 - **Single-threaded drain loop** — The executor claims one task at a time. For I/O-bound loaders, concurrent task execution would improve throughput significantly. The `FlowController` already exists for rate limiting and would pair naturally with concurrency.
 
-See [ROADMAP.md](/ROADMAP.md) for the full list of planned work.
-
 ---
 
 ## Key Concepts Summary

@@ -2,7 +2,7 @@
 
 Utilities and patterns used throughout Max.
 
-## Batch<V, K>
+## Batch\<V, K\>
 
 Container for batch operation results. Maps keys to values with tracking.
 
@@ -36,7 +36,7 @@ Batch.fromRecord({ a: 1, b: 2 })
 
 ---
 
-## Page<T>
+## Page\<T\>
 
 Pagination wrapper for collection results.
 
@@ -158,7 +158,7 @@ Batch.buildFrom(items).withKey(item => item.ref);  // Works!
 
 ## Inspect
 
-Custom `console.log` rendering for classes. Assigns once to the prototype via a `static {}` block — no per-instance cost.
+Custom `console.log` rendering for classes. Assigns once to the prototype via a `static {}` block - no per-instance cost.
 
 ```typescript
 import { inspect, Inspect } from "@max/core";
@@ -183,9 +183,9 @@ TaskRunner( my-runner | status=running | { retries: 3, timeout: 5000 } )
 ```
 
 The format string uses `util.formatWithOptions` specifiers:
-- `%s` — string (no quotes, no color)
-- `%O` — object (colored, depth-aware, auto-expands when large)
-- `%d` — number
+- `%s` - string (no quotes, no color)
+- `%O` - object (colored, depth-aware, auto-expands when large)
+- `%d` - number
 
 ---
 
@@ -198,7 +198,7 @@ Composable error system with **boundaries** and **cause chains**. Each domain de
 const Linear = MaxError.boundary("linear");
 const ErrSyncFailed = Linear.define("sync_failed", { ... });
 
-// Wrap at domain entry points — builds cause chains automatically
+// Wrap at domain entry points - builds cause chains automatically
 await Linear.wrap(ErrSyncFailed, async () => { ... });
 
 // Catch by exact type, facet, or boundary

@@ -8,10 +8,10 @@ hero:
   actions:
     - theme: brand
       text: Get Started
-      link: /getting-started/what-is-max
+      link: /developer/
     - theme: alt
       text: Build a Connector
-      link: /guides/building-a-connector
+      link: /developer/creating-an-integration
     - theme: alt
       text: GitHub
       link: https://github.com/max-hq/max

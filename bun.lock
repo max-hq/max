@@ -45,7 +45,7 @@
         "typescript": "catalog:",
       },
     },
-    "docs-site": {
+    "docs": {
       "name": "@max/docs",
       "devDependencies": {
         "@max/connector": "workspace:*",
@@ -364,7 +364,7 @@
 
     "@max/core": ["@max/core@workspace:packages/core"],
 
-    "@max/docs": ["@max/docs@workspace:docs-site"],
+    "@max/docs": ["@max/docs@workspace:docs"],
 
     "@max/examples": ["@max/examples@workspace:examples"],
 

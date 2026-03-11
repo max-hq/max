@@ -6,13 +6,16 @@
     "packages/*",
     "connectors/*",
     "apps/*",
-    "examples"
+    "examples",
+    "docs-site"
   ],
   "scripts": {
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
-    "test": "turbo run test --continue", 
-    "postinstall": "bun run scripts/link-core-connector-packages.ts"
+    "test": "turbo run test --continue",
+    "docs:dev": "bun run --cwd docs-site dev",
+    "docs:build": "bun run --cwd docs-site build",
+    "docs:preview": "bun run --cwd docs-site preview"
   },
   "devDependencies": {
     "@max/connector-acme": "workspace:*",

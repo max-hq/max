@@ -110,7 +110,7 @@ Both are equivalent. Use whichever is more convenient.
 | Flag | Description |
 |------|-------------|
 | `--limit <n>` | Max results per page (use large numbers freely) |
-| `--all` | Return all results with no limit (*release imminent — may not be available yet; if unavailable, use a very large `--limit` instead*) |
+| `--all` | Auto-paginate and stream all results (no limit) |
 | `-f, --filter <expr>` | Filter expression |
 | `--fields <list>` | Comma-separated fields to include |
 | `--after <cursor>` | Cursor for next page (from previous result) |
@@ -230,7 +230,7 @@ To get the next page, pass the cursor to `--after`:
 max -t wp search inst LinearIssue --limit 100 --after "ein:LinearIssue:2c0f3edc-..."
 ```
 
-**Tip:** Use `--all` to fetch everything without a limit. If `--all` is not yet available in your version, use a very large `--limit` (e.g. `--limit 50000`) as a fallback — there's no hard cap.
+**Tip:** Use `--all` to fetch everything without a limit.
 
 ### Ordering
 
@@ -288,7 +288,7 @@ max -g status    # Global health overview
 Unlike direct API calls where you'd minimize requests, with Max you should:
 
 1. **Explore first:** Run broad queries with small limits to understand the data shape, field names, and entity relationships
-2. **Go big on limits:** Data is local. `--limit 10000` costs nothing. Use `--all` if available, or a very large `--limit` as a fallback
+2. **Go big on limits:** Data is local. `--limit 10000` costs nothing. Use `--all` to get everything
 3. **Use `--fields` for token efficiency:** Only fetch fields you need when processing large result sets
 4. **Iterate freely:** Run exploratory queries, refine filters, try different approaches — it's all instant
 5. **Script for analysis:** For aggregations or cross-entity joins, pipe `json`/`ndjson` output to scripts
@@ -374,7 +374,7 @@ max -t <workspace> status      # Workspace
 
 1. **Use `schema` to discover entity types:** `max -t wp schema @max/connector-xyz` shows entity types and fields. Find the connector name via `max -t wp/inst status`
 2. **Use `--fields` to reduce noise:** Especially useful when you need specific columns from wide entities. Combine named fields with selectors: `--fields "name,email,.meta"`
-3. **Don't be shy with `--limit`:** Data is local. 10,000 rows is fine. Use `--all` when available
+3. **Don't be shy with `--limit`:** Data is local. 10,000 rows is fine. Use `--all` to get everything
 4. **Use `_id` to join entities:** When a field references another entity, look up the target entity by `_id`. Don't try to parse ref strings — they're opaque
 5. **Use `json` for scripting:** `-o json` gives you a clean structure with `data` array and `hasMore`/`cursor` for pagination
 6. **Filter fields must exist:** Use `schema` to see valid field names, or expect a helpful error message listing them

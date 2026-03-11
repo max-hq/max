@@ -10,7 +10,10 @@ import { FsCredentialStore } from '../services/fs-credential-store.js'
 import { FsInstallationRegistry } from '../services/fs-installation-registry.js'
 import { FsWorkspaceRegistry } from '../services/fs-workspace-registry.js'
 import { InMemorySyncMeta, InMemoryTaskStore } from '@max/execution-local'
+import { NoOpInstallationProvisioner, NoOpWorkspaceProvisioner } from '@max/federation'
 import { AcmeConfig } from '@max/connector-acme'
+import { FsInstallationProvisioner } from '../services/fs-installation-provisioner.js'
+import { FsWorkspaceProvisioner } from '../services/fs-workspace-provisioner.js'
 import * as fs from 'node:fs'
 
 const connectorRegistry = new NaiveBunConnectorRegistry({ acme: '@max/connector-acme' })
@@ -161,6 +164,21 @@ describe('resolver graph injection', () => {
     expect(deps.engineConfig.path).toBe(':memory:')
   })
 
+  test('installation — default produces FsInstallationProvisioner', async () => {
+    const connector = await connectorRegistry.resolve('acme')
+    const dir = fs.mkdtempSync('/tmp/max-graph-')
+
+    const deps = installationGraph.resolve({ dataDir: dir, connector })
+    expect(deps.provisioner).toBeInstanceOf(FsInstallationProvisioner)
+  })
+
+  test('installation — ephemeral: true produces NoOpInstallationProvisioner', async () => {
+    const connector = await connectorRegistry.resolve('acme')
+
+    const deps = installationGraph.resolve({ dataDir: '/unused', connector, ephemeral: true })
+    expect(deps.provisioner).toBe(NoOpInstallationProvisioner)
+  })
+
   test('installation — ephemeral config nodes are independently overrideable', async () => {
     const connector = await connectorRegistry.resolve('acme')
     const dir = fs.mkdtempSync('/tmp/max-graph-')
@@ -178,6 +196,17 @@ describe('resolver graph injection', () => {
     // Everything else still in-memory
     expect(deps.taskStore).toBeInstanceOf(InMemoryTaskStore)
     expect(deps.syncMeta).toBeInstanceOf(InMemorySyncMeta)
+  })
+
+  test('workspace — default produces FsWorkspaceProvisioner', () => {
+    const dir = fs.mkdtempSync('/tmp/max-graph-')
+    const deps = workspaceGraph.resolve({ dataDir: dir })
+    expect(deps.provisioner).toBeInstanceOf(FsWorkspaceProvisioner)
+  })
+
+  test('workspace — ephemeral: true produces NoOpWorkspaceProvisioner', () => {
+    const deps = workspaceGraph.resolve({ dataDir: '/unused', ephemeral: true })
+    expect(deps.provisioner).toBe(NoOpWorkspaceProvisioner)
   })
 
   test('workspace — ephemeral: true produces in-memory installation registry', () => {

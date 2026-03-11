@@ -9,3 +9,4 @@ node_modules
 dist
 .claude
 bun-test-project
+__scratchpad

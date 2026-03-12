@@ -3,16 +3,16 @@
  *
  * The builder is a pure library mechanism that produces a serializable
  * EntityQuery descriptor. The descriptor is then passed to an Engine
- * for execution.
+ * for execution. Pagination (limit/cursor) is handled separately via
+ * PageRequest - see Engine.query().
  *
  * @example
  * const q = Query.from(AcmeUser)
  *   .where("active", "=", true)
  *   .orderBy("displayName")
- *   .limit(10)
  *   .select("displayName", "email")
  *
- * const page = await engine.query(q)
+ * const page = await engine.query(q, PageRequest.begin(10))
  */
 
 import type {EntityDefAny} from "./entity-def.js";
@@ -47,8 +47,6 @@ export interface EntityQuery<
   readonly def: E;
   readonly filters: WhereClause;
   readonly ordering?: QueryOrdering;
-  readonly limit?: number;
-  readonly cursor?: string;
   readonly projection: P;
 }
 
@@ -100,14 +98,12 @@ export interface QueryBuilder<E extends EntityDefAny> {
     value: EntityFields<E>[K],
   ): QueryBuilder<E>;
 
-  limit(n: number): QueryBuilder<E>;
-  after(cursor: string): QueryBuilder<E>;
   orderBy<K extends EntityFieldsKeys<E>>(
     field: K,
     dir?: "asc" | "desc",
   ): QueryBuilder<E>;
 
-  // Terminal methods — finalize into EntityQuery
+  // Terminal methods - finalize into EntityQuery
   refs(): EntityQuery<E, RefsProjection>;
   select<K extends EntityFieldsKeys<E>>(
     ...fields: K[]
@@ -124,8 +120,6 @@ export type QueryBuilderAny = QueryBuilder<EntityDefAny>;
 class QueryBuilderImpl<E extends EntityDefAny> implements QueryBuilder<E> {
   private _filters: QueryFilter[] = [];
   private _ordering?: QueryOrdering;
-  private _limit?: number;
-  private _cursor?: string;
 
   constructor(private _def: E) {}
 
@@ -135,16 +129,6 @@ class QueryBuilderImpl<E extends EntityDefAny> implements QueryBuilder<E> {
     value: EntityFields<E>[K],
   ): QueryBuilder<E> {
     this._filters.push({ field: field as string, op, value });
-    return this;
-  }
-
-  limit(n: number): QueryBuilder<E> {
-    this._limit = n;
-    return this;
-  }
-
-  after(cursor: string): QueryBuilder<E> {
-    this._cursor = cursor;
     return this;
   }
 
@@ -175,8 +159,6 @@ class QueryBuilderImpl<E extends EntityDefAny> implements QueryBuilder<E> {
       def: this._def,
       filters: WhereClause.and(...this._filters),
       ordering: this._ordering,
-      limit: this._limit,
-      cursor: this._cursor,
       projection,
     };
   }

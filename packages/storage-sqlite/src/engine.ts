@@ -15,6 +15,7 @@ import {
   type FieldsSelect,
   Page,
   PageRequest,
+  type ResolvedPageRequest,
   type Projection,
   Ref,
   type CollectionKeys,
@@ -189,10 +190,10 @@ export class SqliteEngine implements Engine<InstallationScope> {
   async loadPage<E extends EntityDefAny>(
     def: E,
     projection: Projection,
-    page?: PageRequest
+    inputPage?: PageRequest
   ): Promise<Page<unknown>> {
     const tableDef = this.schema.getTable(def);
-    const r = PageRequest.from(page).defaultLimit(1000);
+    const page = PageRequest.from(inputPage).defaultLimit(1000);
 
     // Determine columns based on projection
     let columns: ColumnDef[];
@@ -217,19 +218,19 @@ export class SqliteEngine implements Engine<InstallationScope> {
     let sql = `SELECT ${columnNames.join(", ")} FROM ${q(tableDef.tableName)}`;
     const params: SQLQueryBindings[] = [];
 
-    if (r.cursor) {
-      const parsed = RefKey.parse(r.cursor as RefKey);
+    if (page.cursor) {
+      const parsed = RefKey.parse(page.cursor as RefKey);
       sql += ` WHERE _id > ?`;
       params.push(parsed.entityId);
     }
 
-    sql += ` ORDER BY _id ASC LIMIT ${r.fetchSize}`;
+    sql += ` ORDER BY _id ASC LIMIT ${page.fetchSize}`;
     const rows = this.db.query(sql).all(...params) as Record<string, unknown>[];
 
     switch (projection.kind) {
       case "refs": {
         const items = rows.map(row => Ref.installation(def, row._id as EntityId));
-        return this.toCursorPage(items, r.limit, ref => ref.toKey() as string);
+        return this.toCursorPage(items, page.limit, ref => ref.toKey() as string);
       }
       case "select":
       case "all": {
@@ -241,30 +242,35 @@ export class SqliteEngine implements Engine<InstallationScope> {
           }
           return EntityResult.from(ref, data as any);
         });
-        return this.toCursorPage(items, r.limit, result => result.ref.toKey() as string);
+        return this.toCursorPage(items, page.limit, result => result.ref.toKey() as string);
       }
     }
   }
 
   // Overload signatures
   query<E extends EntityDefAny, K extends EntityFieldsKeys<E>>(
-    query: EntityQuery<E, SelectProjection<E,K>>
+    query: EntityQuery<E, SelectProjection<E,K>>,
+    page?: PageRequest,
   ): Promise<Page<EntityResult<E, K>>>;
 
   query<E extends EntityDefAny>(
-    query: EntityQuery<E, RefsProjection>
+    query: EntityQuery<E, RefsProjection>,
+    page?: PageRequest,
   ): Promise<Page<Ref<E>>>;
 
   query<E extends EntityDefAny>(
-    query: EntityQuery<E, AllProjection>
+    query: EntityQuery<E, AllProjection>,
+    page?: PageRequest,
   ): Promise<Page<EntityResult<E, EntityFieldsKeys<E>>>>;
 
   // Implementation
   async query<E extends EntityDefAny>(
-    query: EntityQuery<E>
+    query: EntityQuery<E>,
+    inputPage?: PageRequest,
   ): Promise<Page<unknown>> {
     const tableDef = this.schema.getTable(query.def);
     const { projection } = query;
+    const page = PageRequest.from(inputPage).defaultLimit(1000);
 
     // Determine columns to select based on projection
     let columns: ColumnDef[];
@@ -286,7 +292,7 @@ export class SqliteEngine implements Engine<InstallationScope> {
     }
 
     // Build SQL
-    const { sql, params } = this.buildQuerySql(tableDef, query, columnNames);
+    const { sql, params } = this.buildQuerySql(tableDef, query, page, columnNames);
     const rows = this.db.query(sql).all(...params) as Record<string, unknown>[];
 
     // Map rows to results based on projection
@@ -295,7 +301,7 @@ export class SqliteEngine implements Engine<InstallationScope> {
         const items = rows.map(row =>
           Ref.installation(query.def, row._id as EntityId)
         );
-        return this.toCursorPage(items, query.limit, ref => ref.toKey() as string);
+        return this.toCursorPage(items, page.limit, ref => ref.toKey() as string);
       }
       case "select": // fallthrough
       case "all": {
@@ -307,29 +313,30 @@ export class SqliteEngine implements Engine<InstallationScope> {
           }
           return EntityResult.from(ref, data as EntityFieldsPick<E, string>)
         });
-        return this.toCursorPage(items, query.limit, result => result.ref.toKey() as string);
+        return this.toCursorPage(items, page.limit, result => result.ref.toKey() as string);
       }
     }
   }
 
-  /** Build SQL query string from an EntityQuery descriptor. */
+  /** Build SQL query string from an EntityQuery descriptor + resolved pagination. */
   private buildQuerySql<E extends EntityDefAny>(
     tableDef: TableDef,
     query: EntityQuery<E>,
+    page: ResolvedPageRequest,
     columnNames: string[],
   ): { sql: string; params: SQLQueryBindings[] } {
     let sql = `SELECT ${columnNames.join(", ")} FROM ${q(tableDef.tableName)}`;
     const params: SQLQueryBindings[] = [];
     const conditions: string[] = [];
 
-    // User-defined filters → recursive WHERE clause
+    // User-defined filters - recursive WHERE clause
     // Must come before cursor so params are in the same order as SQL placeholders.
     const userWhere = this.buildWhereSql(query.filters, tableDef, query.def, params);
     if (userWhere) conditions.push(userWhere);
 
     // Cursor-based pagination: WHERE _id > cursor (cursor is a RefKey)
-    if (query.cursor) {
-      const parsed = RefKey.parse(query.cursor as RefKey);
+    if (page.cursor) {
+      const parsed = RefKey.parse(page.cursor as RefKey);
       params.push(parsed.entityId);
       conditions.push(`_id > ?`);
     }
@@ -347,10 +354,7 @@ export class SqliteEngine implements Engine<InstallationScope> {
     orderParts.push("_id ASC");
     sql += ` ORDER BY ${orderParts.join(", ")}`;
 
-    if (query.limit !== undefined) {
-      // Fetch one extra for the "has more" pattern
-      sql += ` LIMIT ${query.limit + 1}`;
-    }
+    sql += ` LIMIT ${page.fetchSize}`;
 
     return { sql, params };
   }
@@ -359,10 +363,7 @@ export class SqliteEngine implements Engine<InstallationScope> {
    * Wrap items into a cursor-based Page using the limit+1 pattern.
    * Cursor is extracted from the last item in the trimmed page via getCursor.
    */
-  private toCursorPage<T>(items: T[], limit: number | undefined, getCursor: (item: T) => string): Page<T> {
-    if (limit === undefined) {
-      return Page.from(items, false);
-    }
+  private toCursorPage<T>(items: T[], limit: number, getCursor: (item: T) => string): Page<T> {
     const hasMore = items.length > limit;
     const pageItems = hasMore ? items.slice(0, limit) : items;
     const cursor = hasMore && pageItems.length > 0

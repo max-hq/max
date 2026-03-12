@@ -121,18 +121,21 @@ export class EngineProxy<TScope extends Scope = Scope> implements Engine<TScope>
 
   query<E extends EntityDefAny, K extends EntityFieldsKeys<E>>(
     query: EntityQuery<E, SelectProjection<E,K>>,
+    page?: PageRequest,
   ): Promise<Page<EntityResult<E, K>>>
 
   query<E extends EntityDefAny>(
     query: EntityQuery<E, RefsProjection>,
+    page?: PageRequest,
   ): Promise<Page<Ref<E>>>
 
   query<E extends EntityDefAny>(
     query: EntityQuery<E, AllProjection>,
+    page?: PageRequest,
   ): Promise<Page<EntityResult<E, EntityFieldsKeys<E>>>>
 
-  async query(query: any): Promise<any> {
-    return this.rpc("query", query)
+  async query(query: any, page?: any): Promise<any> {
+    return this.rpc("query", query, page)
   }
 
   // --------------------------------------------------------------------------

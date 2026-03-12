@@ -152,7 +152,8 @@ describe("SqliteEngine", () => {
 
     test("query with limit", async () => {
       const users = await engine.query(
-        Query.from(AcmeUser).limit(2).select("displayName")
+        Query.from(AcmeUser).select("displayName"),
+        PageRequest.begin(2),
       );
 
       expect(users.items.length).toBe(2);
@@ -195,7 +196,8 @@ describe("SqliteEngine", () => {
 
     test("query pagination hasMore is false when all results fit", async () => {
       const users = await engine.query(
-        Query.from(AcmeUser).limit(10).select("displayName")
+        Query.from(AcmeUser).select("displayName"),
+        PageRequest.begin(10),
       );
 
       expect(users.items.length).toBe(3);
@@ -205,7 +207,8 @@ describe("SqliteEngine", () => {
     test("query cursor-based pagination with RefKey cursors", async () => {
       // First page: limit 2
       const page1 = await engine.query(
-        Query.from(AcmeUser).limit(2).select("displayName")
+        Query.from(AcmeUser).select("displayName"),
+        PageRequest.begin(2),
       );
 
       expect(page1.items.length).toBe(2);
@@ -219,7 +222,8 @@ describe("SqliteEngine", () => {
 
       // Second page: use cursor from first page
       const page2 = await engine.query(
-        Query.from(AcmeUser).limit(2).after(page1.cursor!).select("displayName")
+        Query.from(AcmeUser).select("displayName"),
+        PageRequest.at(page1.cursor!, 2),
       );
 
       expect(page2.items.length).toBe(1);
@@ -236,14 +240,16 @@ describe("SqliteEngine", () => {
 
     test("query cursor with where clause", async () => {
       const page1 = await engine.query(
-        Query.from(AcmeUser).where("active", "=", true).limit(1).select("displayName")
+        Query.from(AcmeUser).where("active", "=", true).select("displayName"),
+        PageRequest.begin(1),
       );
 
       expect(page1.items.length).toBe(1);
       expect(page1.hasMore).toBe(true);
 
       const page2 = await engine.query(
-        Query.from(AcmeUser).where("active", "=", true).limit(1).after(page1.cursor!).select("displayName")
+        Query.from(AcmeUser).where("active", "=", true).select("displayName"),
+        PageRequest.at(page1.cursor!, 1),
       );
 
       expect(page2.items.length).toBe(1);

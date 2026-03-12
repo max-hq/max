@@ -10,7 +10,7 @@
  * Output in text (table), JSON, or NDJSON formats.
  */
 
-import { LazyX, Projection, WhereClause, Printable, MetaField } from '@max/core'
+import { LazyX, Projection, WhereClause, Printable, MetaField, PageRequest } from '@max/core'
 import type { EntityQuery, AllProjection, QueryOrdering, Engine } from '@max/core'
 import type { InstallationClient } from '@max/federation'
 import { ErrInstallationNotFound } from '@max/federation'
@@ -216,8 +216,6 @@ async function runSearch(
     def,
     filters,
     ordering,
-    limit: args.limit,
-    cursor: args.after,
     projection: Projection.all,
   }
 
@@ -227,7 +225,10 @@ async function runSearch(
   await installation.start()
 
   if (!args.all) {
-    const page = await installation.engine.query(query)
+    const page = await installation.engine.query(
+      query,
+      PageRequest.from({ cursor: args.after, limit: args.limit }),
+    )
     const view = { entityType: args.entityType, page, selectedFields }
     return CommandResult.of(selectSearchPrinter(args.output), view)
   }
@@ -243,12 +244,12 @@ const DEFAULT_STREAM_PAGE_SIZE = 100
 
 function streamAllPages(
   engine: Engine,
-  baseQuery: EntityQuery<any, AllProjection>,
+  query: EntityQuery<any, AllProjection>,
   args: SearchArgs,
   selectedFields: string[] | undefined,
 ): CommandResult {
   const printer = selectSearchPrinter(args.output)
-  const pageLimit = baseQuery.limit ?? DEFAULT_STREAM_PAGE_SIZE
+  const pageLimit = args.limit ?? DEFAULT_STREAM_PAGE_SIZE
 
   return CommandResult.streamed(async function*(isAborted) {
     let cursor: string | undefined = args.after
@@ -256,7 +257,7 @@ function streamAllPages(
 
     do {
       if (isAborted()) return
-      const page = await engine.query({ ...baseQuery, limit: pageLimit, cursor })
+      const page = await engine.query(query, PageRequest.from({ limit: pageLimit, cursor }))
       const view: SearchView = {
         entityType: args.entityType,
         page,

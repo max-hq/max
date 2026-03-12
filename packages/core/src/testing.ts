@@ -71,7 +71,7 @@ export function StubbedEngine(options: StubbedEngineOptions = {}): Engine<Instal
       return Page.empty() as Page<any>
     },
 
-    async query(query: any) {
+    async query(query: any, page?: any) {
       calls?.push("query")
       return Page.from([{ source: id, query }], false) as Page<any>
     },

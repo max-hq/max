@@ -95,15 +95,22 @@ export interface Engine<TScope extends Scope = Scope> extends Lifecycle {
   /**
    * Query entities. Takes a finalized EntityQuery descriptor
    * (built via Query.from(def).where(...).select(...) etc.)
-   * and returns a paged result.
+   * and returns a paged result. Pagination is controlled via a
+   * separate PageRequest; implementations apply a default limit
+   * when none is provided.
    */
   query<E extends EntityDefAny, K extends EntityFieldsKeys<E>>(
-    query: EntityQuery<E, SelectProjection<E, K>>
+    query: EntityQuery<E, SelectProjection<E, K>>,
+    page?: PageRequest,
   ): Promise<Page<EntityResult<E, K>>>
 
-  query<E extends EntityDefAny>(query: EntityQuery<E, RefsProjection>): Promise<Page<Ref<E>>>
+  query<E extends EntityDefAny>(
+    query: EntityQuery<E, RefsProjection>,
+    page?: PageRequest,
+  ): Promise<Page<Ref<E>>>
 
   query<E extends EntityDefAny>(
-    query: EntityQuery<E, AllProjection>
+    query: EntityQuery<E, AllProjection>,
+    page?: PageRequest,
   ): Promise<Page<EntityResult<E, EntityFieldsKeys<E>>>>
 }

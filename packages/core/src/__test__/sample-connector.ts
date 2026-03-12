@@ -13,6 +13,7 @@ import {AcmeProject, AcmeTask} from "@max/connector-acme";
 import {Scope} from "../scope.js";
 import {EntityInput} from "../entity-input.js";
 import {Query} from "../query.js";
+import {PageRequest} from "../pagination.js";
 
 // ============================================================================
 // Usage Examples (Type Checking)
@@ -89,8 +90,8 @@ async function examples() {
   const tasks = await engine.query(
     Query.from(AcmeTask)
       .where("status", "=", "done")
-      .limit(10)
-      .select("title", "description")
+      .select("title", "description"),
+    PageRequest.begin(10),
   );
 
   for (const t of tasks.items) {

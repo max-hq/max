@@ -33,7 +33,7 @@ export class EngineHandler<TScope extends Scope = Scope> {
       case 'loadPage':
         return this.engine.loadPage(args[0] as any, args[1] as any, args[2] as any)
       case 'query':
-        return this.engine.query(args[0] as any)
+        return this.engine.query(args[0] as any, args[1] as any)
       default:
         throw ErrUnknownMethod.create({ target: 'engine', method })
     }

@@ -151,7 +151,7 @@ export class DefaultTaskRunner implements TaskRunner {
     const page = await this.engine.loadPage(
       entityDef,
       Projection.refs,
-      PageRequest.from({ cursor: target.cursor, limit: this.tuning.refPageSize })
+      PageRequest.create({ cursor: target.cursor, limit: this.tuning.refPageSize })
     )
     if (page.items.length === 0) return {}
 
@@ -195,7 +195,7 @@ export class DefaultTaskRunner implements TaskRunner {
     const page = await this.engine.loadPage(
       entityDef,
       Projection.refs,
-      PageRequest.from({ cursor: target.cursor, limit: this.tuning.refPageSize })
+      PageRequest.create({ cursor: target.cursor, limit: this.tuning.refPageSize })
     )
     if (page.items.length === 0) return {}
 
@@ -386,7 +386,7 @@ export class DefaultTaskRunner implements TaskRunner {
     try {
       const page = await collectionLoader.load(
         ref,
-        PageRequest.from({ cursor, limit: this.tuning.connectorPageSize }),
+        PageRequest.create({ cursor, limit: this.tuning.connectorPageSize }),
         ctx,
       )
 
@@ -456,7 +456,7 @@ export class DefaultTaskRunner implements TaskRunner {
     try {
       const sourcePage = await source.fetch(
         ref,
-        PageRequest.from({ cursor, limit: this.tuning.connectorPageSize }),
+        PageRequest.create({ cursor, limit: this.tuning.connectorPageSize }),
         ctx,
       )
 

@@ -144,14 +144,14 @@ describe("PageRequest", () => {
 
   describe("PageRequest.from()", () => {
     test("wraps a plain {cursor, limit} object", () => {
-      const req = PageRequest.from({ cursor: "abc", limit: 50 });
+      const req = PageRequest.create({ cursor: "abc", limit: 50 });
 
       expect(req.cursor).toBe("abc");
       expect(req.limit).toBe(50);
     });
 
     test("wraps undefined into a blank request", () => {
-      const req = PageRequest.from(undefined);
+      const req = PageRequest.create(undefined);
 
       expect(req.cursor).toBeUndefined();
       expect(req.limit).toBeUndefined();
@@ -160,7 +160,7 @@ describe("PageRequest", () => {
 
   describe("PageRequest.at()", () => {
     test("creates a request at a specific cursor", () => {
-      const req = PageRequest.at("cursor-5", 25);
+      const req = PageRequest.resume("cursor-5", 25);
 
       expect(req.cursor).toBe("cursor-5");
       expect(req.limit).toBe(25);
@@ -193,7 +193,7 @@ describe("PageRequest", () => {
 
   describe("offset()", () => {
     test("parses cursor as number", () => {
-      const req = PageRequest.at("42");
+      const req = PageRequest.resume("42");
 
       expect(req.parseAsNumericOffset(0)).toBe(42);
     });
@@ -207,7 +207,7 @@ describe("PageRequest", () => {
 
   describe("parseCursor()", () => {
     test("parses cursor with custom function", () => {
-      const req = PageRequest.at("2024-01-15");
+      const req = PageRequest.resume("2024-01-15");
       const date = req.parseCursor((s) => new Date(s), new Date(0));
 
       expect(date.getFullYear()).toBe(2024);
@@ -252,7 +252,7 @@ describe("DX: offset-based pagination flow", () => {
 
   test("second page using cursor from first", () => {
     const page1 = getUsers(Page.begin());
-    const page2 = getUsers(PageRequest.at(page1.cursor!));
+    const page2 = getUsers(PageRequest.resume(page1.cursor!));
 
     expect(page2.items).toEqual(["Charlie", "Diana"]);
     expect(page2.hasMore).toBe(true);
@@ -260,7 +260,7 @@ describe("DX: offset-based pagination flow", () => {
   });
 
   test("last page", () => {
-    const page = getUsers(PageRequest.at("4"));
+    const page = getUsers(PageRequest.resume("4"));
 
     expect(page.items).toEqual(["Eve"]);
     expect(page.hasMore).toBe(false);
@@ -307,7 +307,7 @@ describe("DX: token-based pagination flow", () => {
     const allItems = [...page.items];
 
     while (page.hasMore) {
-      page = getIssues(PageRequest.at(page.cursor!));
+      page = getIssues(PageRequest.resume(page.cursor!));
       allItems.push(...page.items);
     }
 

@@ -91,7 +91,7 @@ async function examples() {
     Query.from(AcmeTask)
       .where("status", "=", "done")
       .select("title", "description"),
-    PageRequest.begin(10),
+    PageRequest.start(10),
   );
 
   for (const t of tasks.items) {

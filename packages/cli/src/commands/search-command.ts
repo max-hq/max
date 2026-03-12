@@ -227,7 +227,7 @@ async function runSearch(
   if (!args.all) {
     const page = await installation.engine.query(
       query,
-      PageRequest.from({ cursor: args.after, limit: args.limit }),
+      PageRequest.create({ cursor: args.after, limit: args.limit }),
     )
     const view = { entityType: args.entityType, page, selectedFields }
     return CommandResult.of(selectSearchPrinter(args.output), view)
@@ -257,7 +257,7 @@ function streamAllPages(
 
     do {
       if (isAborted()) return
-      const page = await engine.query(query, PageRequest.from({ limit: pageLimit, cursor }))
+      const page = await engine.query(query, PageRequest.create({ limit: pageLimit, cursor }))
       const view: SearchView = {
         entityType: args.entityType,
         page,

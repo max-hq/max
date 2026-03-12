@@ -153,7 +153,7 @@ describe("SqliteEngine", () => {
     test("query with limit", async () => {
       const users = await engine.query(
         Query.from(AcmeUser).select("displayName"),
-        PageRequest.begin(2),
+        PageRequest.start(2),
       );
 
       expect(users.items.length).toBe(2);
@@ -197,7 +197,7 @@ describe("SqliteEngine", () => {
     test("query pagination hasMore is false when all results fit", async () => {
       const users = await engine.query(
         Query.from(AcmeUser).select("displayName"),
-        PageRequest.begin(10),
+        PageRequest.start(10),
       );
 
       expect(users.items.length).toBe(3);
@@ -208,7 +208,7 @@ describe("SqliteEngine", () => {
       // First page: limit 2
       const page1 = await engine.query(
         Query.from(AcmeUser).select("displayName"),
-        PageRequest.begin(2),
+        PageRequest.start(2),
       );
 
       expect(page1.items.length).toBe(2);
@@ -223,7 +223,7 @@ describe("SqliteEngine", () => {
       // Second page: use cursor from first page
       const page2 = await engine.query(
         Query.from(AcmeUser).select("displayName"),
-        PageRequest.at(page1.cursor!, 2),
+        PageRequest.resume(page1.cursor!, 2),
       );
 
       expect(page2.items.length).toBe(1);
@@ -241,7 +241,7 @@ describe("SqliteEngine", () => {
     test("query cursor with where clause", async () => {
       const page1 = await engine.query(
         Query.from(AcmeUser).where("active", "=", true).select("displayName"),
-        PageRequest.begin(1),
+        PageRequest.start(1),
       );
 
       expect(page1.items.length).toBe(1);
@@ -249,7 +249,7 @@ describe("SqliteEngine", () => {
 
       const page2 = await engine.query(
         Query.from(AcmeUser).where("active", "=", true).select("displayName"),
-        PageRequest.at(page1.cursor!, 1),
+        PageRequest.resume(page1.cursor!, 1),
       );
 
       expect(page2.items.length).toBe(1);
@@ -279,7 +279,7 @@ describe("SqliteEngine", () => {
     });
 
     test("loadPage refs with cursor pagination (RefKey cursors)", async () => {
-      const page1 = await engine.loadPage(AcmeUser, Projection.refs, PageRequest.begin(2));
+      const page1 = await engine.loadPage(AcmeUser, Projection.refs, PageRequest.start(2));
 
       expect(page1.items.length).toBe(2);
       expect(page1.hasMore).toBe(true);
@@ -289,7 +289,7 @@ describe("SqliteEngine", () => {
       const parsed = RefKey.parse(page1.cursor! as any);
       expect(parsed.entityType).toBe("AcmeUser");
 
-      const page2 = await engine.loadPage(AcmeUser, Projection.refs, PageRequest.at(page1.cursor!, 2));
+      const page2 = await engine.loadPage(AcmeUser, Projection.refs, PageRequest.resume(page1.cursor!, 2));
 
       expect(page2.items.length).toBe(1);
       expect(page2.hasMore).toBe(false);

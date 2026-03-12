@@ -30,7 +30,7 @@ export class SqliteSyncQueryEngine implements SyncQueryEngine {
     const tableDef = this.schema.getTable(entity);
     const entityType = entity.name;
     const cutoff = Date.now() - (maxAge as number);
-    const r = PageRequest.from(page).defaultLimit(100);
+    const r = PageRequest.create(page).defaultLimit(100);
     const offset = r.parseAsNumericOffset(0);
 
     const rows = this.db
@@ -57,7 +57,7 @@ export class SqliteSyncQueryEngine implements SyncQueryEngine {
   ): Promise<Page<Ref<E>>> {
     const tableDef = this.schema.getTable(entity);
     const entityType = entity.name;
-    const r = PageRequest.from(page).defaultLimit(100);
+    const r = PageRequest.create(page).defaultLimit(100);
     const offset = r.parseAsNumericOffset(0);
 
     const rows = this.db

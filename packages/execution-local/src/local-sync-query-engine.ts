@@ -71,7 +71,7 @@ export class LocalSyncQueryEngine implements SyncQueryEngine {
   }
 
   private paginate<T>(items: T[], page?: PageRequest): Page<T> {
-    const r = PageRequest.from(page).defaultLimit(items.length);
+    const r = PageRequest.create(page).defaultLimit(items.length);
     const offset = r.parseAsNumericOffset(0);
     return Page.fromOffset(items.slice(offset, offset + r.fetchSize), offset, r.limit);
   }

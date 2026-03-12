@@ -219,17 +219,17 @@ class ResolvedPageRequestImpl extends PageRequestImpl implements ResolvedPageReq
 
 export const PageRequest = StaticTypeCompanion({
   /** Wrap a plain {cursor, limit} object into a PageRequest */
-  from(input?: { cursor?: string; limit?: number }): PageRequest {
+  create(input?: { cursor?: string; limit?: number }): PageRequest {
     return new PageRequestImpl(input?.cursor, input?.limit);
   },
 
   /** Create a request starting from the beginning */
-  begin(limit?: number): PageRequest {
+  start(limit?: number): PageRequest {
     return new PageRequestImpl(undefined, limit);
   },
 
   /** Create a request at a specific cursor */
-  at(cursor: string, limit?: number): PageRequest {
+  resume(cursor: string, limit?: number): PageRequest {
     return new PageRequestImpl(cursor, limit);
   },
 });

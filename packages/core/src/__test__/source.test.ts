@@ -96,7 +96,7 @@ describe("Source.paginated", () => {
     });
 
     const ref = TestRepo.ref("repo-1" as EntityId);
-    const page = PageRequest.from({ cursor: "c1" });
+    const page = PageRequest.create({ cursor: "c1" });
     const ctx = Context.build(TestContext, { value: "test" });
 
     const result = await source.fetch(ref, page, ctx);

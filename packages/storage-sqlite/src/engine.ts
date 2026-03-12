@@ -193,7 +193,7 @@ export class SqliteEngine implements Engine<InstallationScope> {
     inputPage?: PageRequest
   ): Promise<Page<unknown>> {
     const tableDef = this.schema.getTable(def);
-    const page = PageRequest.from(inputPage).defaultLimit(1000);
+    const page = PageRequest.create(inputPage).defaultLimit(1000);
 
     // Determine columns based on projection
     let columns: ColumnDef[];
@@ -270,7 +270,7 @@ export class SqliteEngine implements Engine<InstallationScope> {
   ): Promise<Page<unknown>> {
     const tableDef = this.schema.getTable(query.def);
     const { projection } = query;
-    const page = PageRequest.from(inputPage).defaultLimit(1000);
+    const page = PageRequest.create(inputPage).defaultLimit(1000);
 
     // Determine columns to select based on projection
     let columns: ColumnDef[];

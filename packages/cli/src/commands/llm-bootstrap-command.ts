@@ -22,6 +22,6 @@ export class CmdLlmBootstrap implements Command {
   ))
 
   async run(_args: Inferred<this>, _opts: CommandOptions) {
-    return CommandResult.text(fs.readFileSync(AGENT_USER_PATH, 'utf-8'))
+    return CommandResult.printText(fs.readFileSync(AGENT_USER_PATH, 'utf-8'))
   }
 }

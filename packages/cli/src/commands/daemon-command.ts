@@ -49,7 +49,7 @@ export class CmdDaemon implements Command {
     switch (args.sub) {
       case 'list': {
         const w = await this.services.ctx.global.listWorkspacesFull()
-        return CommandResult.text(this.services.getPrintFormatter(opts.color).printList("workspace-list-entry", w))
+        return CommandResult.printText(this.services.getPrintFormatter(opts.color).printList("workspace-list-entry", w))
       }
     }
 

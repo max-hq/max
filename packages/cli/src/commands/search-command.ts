@@ -230,7 +230,7 @@ async function runSearch(
       PageRequest.create({ cursor: args.after, limit: args.limit }),
     )
     const view = { entityType: args.entityType, page, selectedFields }
-    return CommandResult.of(selectSearchPrinter(args.output), view)
+    return CommandResult.printVia(selectSearchPrinter(args.output), view)
   }
 
   return streamAllPages(installation.engine, query, args, selectedFields)
@@ -251,7 +251,7 @@ function streamAllPages(
   const printer = selectSearchPrinter(args.output)
   const pageLimit = args.limit ?? DEFAULT_STREAM_PAGE_SIZE
 
-  return CommandResult.streamed(async function*(isAborted) {
+  return CommandResult.printStream(async function*(isAborted) {
     let cursor: string | undefined = args.after
     let isFirst = true
 

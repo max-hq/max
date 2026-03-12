@@ -22,7 +22,7 @@ export type Inferred<T extends Command> = InferValue<T['parser']['get']>
  *
  * Every command result is a stream of Printable chunks with cooperative
  * cancellation. Single-value commands use the convenience factories
- * (CommandResult.of, CommandResult.text) which wrap one Printable in a
+ * (CommandResult.of, CommandResult.printText) which wrap one Printable in a
  * one-element stream with a no-op abort.
  */
 export interface CommandResult {
@@ -34,7 +34,7 @@ async function* singleIterable(p: Printable) { yield p }
 
 export const CommandResult = StaticTypeCompanion({
   /** Wrap a single Printable. No-op abort. */
-  single(p: Printable): CommandResult {
+  printValue(p: Printable): CommandResult {
     return {
       stream: singleIterable(p),
       abort() {},
@@ -42,18 +42,18 @@ export const CommandResult = StaticTypeCompanion({
   },
 
   /** Wrap a Printer + value into a single-chunk result. */
-  of<T>(printer: Printer<T>, value: T): CommandResult {
-    return CommandResult.single(Printable.of(printer, value))
+  printVia<T>(printer: Printer<T>, value: T): CommandResult {
+    return CommandResult.printValue(Printable.of(printer, value))
   },
 
   /** Wrap a plain string into a single-chunk result. */
-  text(s: string): CommandResult {
-    return CommandResult.single(Printable.text(s))
+  printText(s: string): CommandResult {
+    return CommandResult.printValue(Printable.text(s))
   },
 
   /** Build a streaming result with cooperative cancellation.
    *  The producer receives an `isAborted` check and yields Printables. */
-  streamed(
+  printStream(
     producer: (isAborted: () => boolean) => AsyncGenerator<Printable>,
   ): CommandResult {
     let aborted = false

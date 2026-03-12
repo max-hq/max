@@ -44,6 +44,6 @@ export class CmdInstall implements Command {
       lines.push(`    - ${c}`)
     }
 
-    return CommandResult.text(lines.join('\n'))
+    return CommandResult.printText(lines.join('\n'))
   }
 }

@@ -26,7 +26,7 @@ export class CmdSchemaWorkspace implements Command {
 
   async run(args: Inferred<this>, opts: CommandOptions) {
     const schema = await this.services.ctx.workspace.connectorSchema(args.source)
-    return CommandResult.text(this.services.formatSchema(schema, args.output, opts.color))
+    return CommandResult.printText(this.services.formatSchema(schema, args.output, opts.color))
   }
 }
 
@@ -47,6 +47,6 @@ export class CmdSchemaInstallation implements Command {
 
   async run(args: Inferred<this>, opts: CommandOptions) {
     const schema = await this.services.ctx.installation.schema()
-    return CommandResult.text(this.services.formatSchema(schema, args.output, opts.color))
+    return CommandResult.printText(this.services.formatSchema(schema, args.output, opts.color))
   }
 }

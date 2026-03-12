@@ -71,7 +71,7 @@ export class CmdConnect implements Command {
         },
       })
 
-      return CommandResult.text(`Connected ${args.source} as installation ${installationName} (${id})`)
+      return CommandResult.printText(`Connected ${args.source} as installation ${installationName} (${id})`)
     } finally {
       ownedPrompter?.close()
     }

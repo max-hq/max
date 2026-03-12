@@ -61,6 +61,6 @@ export class CmdInit implements Command {
       lines.push(`  HINT: max install --collection git@github.com:max-hq/max-connectors.git`)
     }
 
-    return CommandResult.text(lines.join('\n'))
+    return CommandResult.printText(lines.join('\n'))
   }
 }

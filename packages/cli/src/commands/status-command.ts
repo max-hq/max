@@ -33,7 +33,7 @@ export class CmdStatusGlobal implements Command {
       ctx.global.listWorkspacesFull(),
     ])
 
-    return CommandResult.of(StatusGlobalPrinter, {
+    return CommandResult.printVia(StatusGlobalPrinter, {
       url: ctx.url,
       health,
       workspaces,
@@ -76,7 +76,7 @@ export class CmdStatusWorkspace implements Command {
       })
     )
 
-    return CommandResult.of(StatusWorkspacePrinter, {
+    return CommandResult.printVia(StatusWorkspacePrinter, {
       url: ctx.url,
       health,
       installations,
@@ -107,7 +107,7 @@ export class CmdStatusInstallation implements Command {
       ctx.installation.describe(),
     ])
 
-    return CommandResult.of(StatusInstallationPrinter, {
+    return CommandResult.printVia(StatusInstallationPrinter, {
       url: ctx.url,
       health,
       description,

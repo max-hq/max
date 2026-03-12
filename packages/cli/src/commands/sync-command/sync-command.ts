@@ -82,5 +82,5 @@ async function runSync(installation: InstallationClient, prompter?: Prompter): P
     `  Tasks completed: ${result.tasksCompleted}`,
     `  Tasks failed:    ${result.tasksFailed}`,
   ]
-  return CommandResult.text(lines.join('\n'))
+  return CommandResult.printText(lines.join('\n'))
 }

@@ -26,7 +26,7 @@ export class CmdLsGlobal implements Command {
     const ctx = this.services.ctx
     const workspaces = await ctx.global.listWorkspacesFull()
 
-    return CommandResult.of(LsGlobalPrinter, {
+    return CommandResult.printVia(LsGlobalPrinter, {
       url: ctx.url,
       workspaces,
     })
@@ -65,7 +65,7 @@ export class CmdLsWorkspace implements Command {
       })
     )
 
-    return CommandResult.of(LsWorkspacePrinter, {
+    return CommandResult.printVia(LsWorkspacePrinter, {
       url: ctx.url,
       installations,
     })

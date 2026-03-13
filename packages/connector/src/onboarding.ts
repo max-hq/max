@@ -273,5 +273,10 @@ export const OnboardingFlow = StaticTypeCompanion({
   },
   empty<TConfig = unknown>(): OnboardingFlow<TConfig> {
     return { steps: [] }
-  }
+  },
+
+  InputStep,
+  ValidationStep,
+  SelectStep,
+  CustomStep,
 });

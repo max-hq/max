@@ -53,7 +53,11 @@ export { OnboardingFlow, InputStep, ValidationStep, SelectStep, CustomStep } fro
 export type {
   OnboardingFlowAny,
   OnboardingContext,
+  OnboardingPrompter,
   OnboardingStep,
+  TypedStep,
+  AccumulatedFrom,
+  DynamicString,
   FieldDescriptor,
   SelectOption,
 } from "./onboarding.js";

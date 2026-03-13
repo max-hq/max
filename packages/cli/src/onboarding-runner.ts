@@ -44,7 +44,7 @@ async function executeStep(
     case "select":
       return handleSelect(step, accumulated, ctx, prompter);
     case "custom":
-      return handleCustom(step, accumulated, ctx);
+      return handleCustom(step, accumulated, ctx, prompter);
   }
 }
 
@@ -55,7 +55,10 @@ async function handleInput(
   prompter: Prompter,
 ): Promise<void> {
   if (step.description) {
-    prompter.write(`\n${step.description}\n`);
+    const text = typeof step.description === "function"
+      ? step.description(accumulated)
+      : step.description;
+    prompter.write(`\n${text}\n`);
   }
 
   if (step.fields) {
@@ -121,8 +124,9 @@ async function handleCustom(
   step: Extract<OnboardingStep, { kind: "custom" }>,
   accumulated: Record<string, unknown>,
   ctx: OnboardingContext,
+  prompter: Prompter,
 ): Promise<void> {
-  const additions = await step.execute(accumulated, ctx);
+  const additions = await step.execute(accumulated, ctx, prompter);
   Object.assign(accumulated, additions);
 }
 

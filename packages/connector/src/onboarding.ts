@@ -8,7 +8,7 @@
  * They never appear in the accumulated config. The flow produces only plain config (TConfig).
  */
 
-import { StaticTypeCompanion } from "@max/core";
+import { CustomHardBrand, StaticTypeCompanion } from '@max/core'
 import type { CredentialStore } from "./credential-store.js";
 import type { StringCredential } from "./credential.js";
 
@@ -34,6 +34,36 @@ export interface FieldDescriptor {
 }
 
 // ============================================================================
+// DynamicString
+// ============================================================================
+
+/**
+ * A string that may depend on previously-accumulated onboarding values.
+ *
+ * Use a plain string for static text. Use a function when the text needs to
+ * reference values collected in earlier steps (e.g. embedding a project ID
+ * into setup URLs).
+ */
+export type DynamicString<T extends Record<string, unknown> = Record<string, unknown>> =
+  string | ((accumulated: T) => string);
+
+// ============================================================================
+// OnboardingPrompter
+// ============================================================================
+
+/**
+ * Minimal I/O capability for interactive onboarding steps.
+ *
+ * This is a subset of the full Prompter interface, defined here so that
+ * connector authors can use it without depending on the CLI package.
+ * The runner passes the real Prompter, which structurally satisfies this.
+ */
+export interface OnboardingPrompter {
+  ask(message: string, options?: { secret?: boolean }): Promise<string>;
+  write(text: string): void;
+}
+
+// ============================================================================
 // SelectOption
 // ============================================================================
 
@@ -56,7 +86,7 @@ export interface SelectOption {
 export interface InputStep {
   readonly kind: "input";
   readonly label: string;
-  readonly description?: string;
+  readonly description?: DynamicString;
   readonly fields?: Record<string, FieldDescriptor>;
   readonly credentials?: Record<string, StringCredential>;
 }
@@ -92,9 +122,10 @@ export interface SelectStep {
 }
 
 /**
- * CustomStep — Escape hatch for arbitrary async work.
+ * CustomStep - Escape hatch for arbitrary async work with optional user I/O.
  *
- * Returns additions to the accumulated state.
+ * Receives the OnboardingPrompter so it can display progress messages and
+ * ask follow-up questions. Returns additions to the accumulated state.
  */
 export interface CustomStep {
   readonly kind: "custom";
@@ -102,6 +133,7 @@ export interface CustomStep {
   readonly execute: (
     accumulated: Record<string, unknown>,
     ctx: OnboardingContext,
+    prompter: OnboardingPrompter,
   ) => Promise<Record<string, unknown>>;
 }
 
@@ -109,30 +141,113 @@ export interface CustomStep {
 export type OnboardingStep = InputStep | ValidationStep | SelectStep | CustomStep;
 
 // ============================================================================
+// TypedStep — type-safe step references
+// ============================================================================
+
+/**
+ * An OnboardingStep branded with the accumulated state available after it runs.
+ *
+ * At runtime this is just an OnboardingStep — the brand is a phantom type that
+ * lets `.after()` extract what earlier steps have collected so later steps get
+ * typed `accumulated` parameters.
+ *
+ * Uses CustomBrand from core — the "mark" is the accumulated state type.
+ */
+export type TypedStep<
+  TStep extends OnboardingStep = OnboardingStep,
+  TAcc extends Record<string, unknown> = Record<string, unknown>,
+> = CustomHardBrand<TStep, TAcc>;
+
+/** Extract the accumulated state type from a TypedStep. */
+export type AccumulatedFrom<T> =
+  T extends CustomHardBrand<OnboardingStep, infer A extends Record<string, unknown>> ? A : Record<string, unknown>;
+
+// Type-level mapping from FieldDescriptor.type to TypeScript types.
+type FieldTypeMap = { string: string; number: number; boolean: boolean };
+
+/** Infer the accumulated value types produced by a set of field descriptors. */
+type InferFieldValues<T extends Record<string, FieldDescriptor>> = {
+  [K in keyof T]: FieldTypeMap[T[K]["type"]]
+};
+
+// ============================================================================
 // Step Factories
 // ============================================================================
 
 export const InputStep = StaticTypeCompanion({
-  create(opts: Omit<InputStep, "kind">): InputStep {
-    return { kind: "input", ...opts };
+  create<TFields extends Record<string, FieldDescriptor> = {}>(
+    opts: Omit<InputStep, "kind" | "fields"> & { fields?: TFields },
+  ): TypedStep<InputStep, InferFieldValues<TFields>> {
+    return { kind: "input", ...opts } as unknown as TypedStep<InputStep, InferFieldValues<TFields>>;
+  },
+
+  /**
+   * Create an InputStep that runs after a previous step.
+   *
+   * `_prev` is used only for type inference — it tells TypeScript what values
+   * have been accumulated so that `description` callbacks and other dynamic
+   * properties receive a typed `accumulated` parameter.
+   */
+  after<TPrev extends TypedStep<any, any>, TFields extends Record<string, FieldDescriptor> = {}>(
+    _prev: TPrev,
+    opts: Omit<InputStep, "kind" | "description" | "fields"> & {
+      description?: DynamicString<AccumulatedFrom<TPrev>>;
+      fields?: TFields;
+    },
+  ): TypedStep<InputStep, AccumulatedFrom<TPrev> & InferFieldValues<TFields>> {
+    return { kind: "input", ...opts } as unknown as TypedStep<InputStep, AccumulatedFrom<TPrev> & InferFieldValues<TFields>>;
   },
 });
 
 export const ValidationStep = StaticTypeCompanion({
-  create(opts: Omit<ValidationStep, "kind">): ValidationStep {
-    return { kind: "validation", ...opts };
+  create(opts: Omit<ValidationStep, "kind">): TypedStep<ValidationStep> {
+    return { kind: 'validation', ...opts } as TypedStep<ValidationStep>
+  },
+
+  after<TPrev extends TypedStep<any, any>>(
+    _prev: TPrev,
+    opts: Omit<ValidationStep, "kind" | "validate"> & {
+      validate: (accumulated: AccumulatedFrom<TPrev>, ctx: OnboardingContext) => Promise<void>;
+    },
+  ): TypedStep<ValidationStep, AccumulatedFrom<TPrev>> {
+    return { kind: "validation", ...opts } as unknown as TypedStep<ValidationStep, AccumulatedFrom<TPrev>>;
   },
 });
 
 export const SelectStep = StaticTypeCompanion({
-  create(opts: Omit<SelectStep, "kind">): SelectStep {
-    return { kind: "select", ...opts };
+  create<F extends string>(
+    opts: Omit<SelectStep, "kind" | "field"> & { field: F },
+  ): TypedStep<SelectStep, Record<F, string>> {
+    return { kind: "select", ...opts } as unknown as TypedStep<SelectStep, Record<F, string>>;
+  },
+
+  after<TPrev extends TypedStep<any, any>, F extends string>(
+    _prev: TPrev,
+    opts: Omit<SelectStep, "kind" | "field" | "options"> & {
+      field: F;
+      options: (accumulated: AccumulatedFrom<TPrev>, ctx: OnboardingContext) => Promise<SelectOption[]>;
+    },
+  ): TypedStep<SelectStep, AccumulatedFrom<TPrev> & Record<F, string>> {
+    return { kind: "select", ...opts } as unknown as TypedStep<SelectStep, AccumulatedFrom<TPrev> & Record<F, string>>;
   },
 });
 
 export const CustomStep = StaticTypeCompanion({
-  create(opts: Omit<CustomStep, "kind">): CustomStep {
-    return { kind: "custom", ...opts };
+  create(opts: Omit<CustomStep, "kind">): TypedStep<CustomStep> {
+    return { kind: "custom", ...opts } as unknown as TypedStep<CustomStep>;
+  },
+
+  after<TPrev extends TypedStep<any, any>, TAdded extends Record<string, unknown> = {}>(
+    _prev: TPrev,
+    opts: Omit<CustomStep, "kind" | "execute"> & {
+      execute: (
+        accumulated: AccumulatedFrom<TPrev>,
+        ctx: OnboardingContext,
+        prompter: OnboardingPrompter,
+      ) => Promise<TAdded>;
+    },
+  ): TypedStep<CustomStep, AccumulatedFrom<TPrev> & TAdded> {
+    return { kind: "custom", ...opts } as unknown as TypedStep<CustomStep, AccumulatedFrom<TPrev> & TAdded>;
   },
 });
 

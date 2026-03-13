@@ -4,7 +4,7 @@
 
 // Branding utilities
 export { hardBrand } from "./brand.js";
-export type { SoftBrand, HardBrand, Id } from "./brand.js";
+export type { SoftBrand, HardBrand, CustomHardBrand, CustomSoftBrand, Id } from "./brand.js";
 
 export * from "./date-util.js"
 

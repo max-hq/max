@@ -403,44 +403,54 @@ Use `Step.concurrent()` to run independent steps in parallel, as shown in the se
 
 Onboarding is the step-by-step flow users go through when installing your connector. It collects configuration and credentials, then validates connectivity.
 
+Each step is a named value. Use `.create()` for the first step and `.after(prevStep, ...)` for subsequent steps - this gives you typed access to values collected in earlier steps.
+
 ```typescript
 // connectors/connector-acme/src/onboarding.ts
-import { OnboardingFlow, InputStep, ValidationStep, SelectStep } from "@max/connector";
+import { OnboardingFlow } from "@max/connector";
 import { AcmeHttpClient } from "@max/acme";
 import { AcmeApiToken } from "./credentials.js";
 import type { AcmeConfig } from "./config.js";
 
+const getTenant = OnboardingFlow.InputStep.create({
+  label: 'Acme tenant',
+  description: 'Enter the URL of your Acme instance (e.g. https://mycompany.acme.com)',
+  fields: {
+    baseUrl: { label: 'Tenant URL', type: 'string', required: true },
+  },
+});
+
+const getCreds = OnboardingFlow.InputStep.after(getTenant, {
+  label: 'API credentials',
+  description: (acc) => {
+    const baseUrl = acc.baseUrl.replace(/\/+$/, '');
+    return `Create an API token at ${baseUrl}/settings/api-keys and paste it below.`;
+  },
+  credentials: { api_token: AcmeApiToken },
+});
+
+const verify = OnboardingFlow.ValidationStep.after(getCreds, {
+  label: 'Verify credentials',
+  async validate(acc, { credentialStore }) {
+    const token = await credentialStore.get('api_token');
+    const client = new AcmeHttpClient({ baseUrl: acc.baseUrl, apiKey: token });
+    await client.listWorkspaces();
+  },
+});
+
+const selectWorkspace = OnboardingFlow.SelectStep.after(verify, {
+  label: 'Choose workspace',
+  field: 'workspaceId',
+  async options(acc, { credentialStore }) {
+    const token = await credentialStore.get('api_token');
+    const client = new AcmeHttpClient({ baseUrl: acc.baseUrl, apiKey: token });
+    const workspaces = await client.listWorkspaces();
+    return workspaces.map(ws => ({ label: ws.name, value: ws.id }));
+  },
+});
+
 export const AcmeOnboarding = OnboardingFlow.create<AcmeConfig>([
-  InputStep.create({
-    label: 'Connection details',
-    description: 'Enter your Acme tenant URL and API key',
-    fields: {
-      baseUrl: { label: 'Tenant URL', type: 'string', required: true },
-    },
-    credentials: { api_token: AcmeApiToken },
-  }),
-
-  ValidationStep.create({
-    label: 'Verify credentials',
-    async validate(accumulated, { credentialStore }) {
-      const token = await credentialStore.get('api_token');
-      const baseUrl = accumulated.baseUrl as string;
-      const client = new AcmeHttpClient({ baseUrl, apiKey: token });
-      await client.listWorkspaces();
-    },
-  }),
-
-  SelectStep.create({
-    label: 'Choose workspace',
-    field: 'workspaceId',
-    async options(accumulated, { credentialStore }) {
-      const token = await credentialStore.get('api_token');
-      const baseUrl = accumulated.baseUrl as string;
-      const client = new AcmeHttpClient({ baseUrl, apiKey: token });
-      const workspaces = await client.listWorkspaces();
-      return workspaces.map(ws => ({ label: ws.name, value: ws.id }));
-    },
-  }),
+  getTenant, getCreds, verify, selectWorkspace,
 ]);
 ```
 
@@ -448,12 +458,50 @@ The generic `<AcmeConfig>` determines what the flow produces - the accumulated c
 
 ### Step types
 
+All step types are available on `OnboardingFlow`:
+
 | Step | Purpose |
 |------|---------|
-| `InputStep` | Collect fields and credentials from the user |
-| `ValidationStep` | Test connectivity / credentials (async) |
-| `SelectStep` | Dynamic dropdown populated from an API call |
-| `CustomStep` | Arbitrary async work |
+| `OnboardingFlow.InputStep` | Collect fields and credentials from the user |
+| `OnboardingFlow.ValidationStep` | Test connectivity / credentials (async) |
+| `OnboardingFlow.SelectStep` | Dynamic dropdown populated from an API call |
+| `OnboardingFlow.CustomStep` | Arbitrary async work (receives `prompter` for user I/O) |
+
+Each has `.create(opts)` and `.after(prevStep, opts)`. Use `.after()` whenever a step's callbacks need to reference values from earlier steps.
+
+### Typed accumulated state
+
+When you use `.after(prevStep, ...)`, callbacks receive a typed `accumulated` parameter based on what previous steps collected:
+
+- **InputStep** fields are inferred from their descriptors (`type: 'string'` becomes `string`)
+- **SelectStep** adds `{ [field]: string }` from the user's selection
+- **ValidationStep** passes the accumulated type through unchanged
+- **CustomStep** extends it with whatever the `execute` function returns
+
+This means `acc.baseUrl` in the example above is `string` - no casts needed.
+
+### Dynamic descriptions
+
+`InputStep.description` can be a string or a function of accumulated state. Use a function when instructions need to reference values from earlier steps (e.g. embedding a tenant URL into setup links):
+
+```typescript
+description: (acc) => `Create a token at ${acc.baseUrl}/settings/api-keys`
+```
+
+### CustomStep and prompter
+
+`CustomStep` receives an `OnboardingPrompter` for displaying messages and asking questions during arbitrary async work (e.g. an OAuth browser flow):
+
+```typescript
+OnboardingFlow.CustomStep.after(prevStep, {
+  label: 'Authenticate',
+  async execute(acc, ctx, prompter) {
+    prompter.write('Opening browser...\n');
+    // ... start OAuth flow ...
+    return {};
+  },
+});
+```
 
 **Key principle:** Credentials flow into `credentialStore` during onboarding and are never mixed into the config object. Config holds non-secret values (URLs, workspace IDs). Secrets are accessed through `CredentialProvider` handles at runtime.
 
@@ -811,12 +859,11 @@ SyncPlan.create([
   Step.concurrent([...]),
 ])
 
-// Onboarding
-OnboardingFlow.create<TConfig>([
-  InputStep.create({ label, fields, credentials }),
-  ValidationStep.create({ label, validate: async (config, { credentialStore }) => void }),
-  SelectStep.create({ label, field, options: async (config, { credentialStore }) => [...] }),
-])
+// Onboarding (step references with .after() for typed accumulated state)
+const step1 = OnboardingFlow.InputStep.create({ label, fields, credentials })
+const step2 = OnboardingFlow.ValidationStep.after(step1, { label, validate: async (acc, ctx) => {} })
+const step3 = OnboardingFlow.SelectStep.after(step2, { label, field, options: async (acc, ctx) => [...] })
+OnboardingFlow.create<TConfig>([step1, step2, step3])
 
 // ConnectorDef
 ConnectorDef.create<TConfig>({

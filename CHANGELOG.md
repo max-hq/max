@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 - Support for installing local connector collections via symlink
+- Dynamic onboarding flows for connectors with conditional step execution (connector)
 
 ### Fixed
 - `max search` without `--limit` or `--all` fetching entire table into memory instead of defaulting to a page size of 1000 (storage-sqlite)

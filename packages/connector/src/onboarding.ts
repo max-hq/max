@@ -89,6 +89,7 @@ export interface InputStep {
   readonly description?: DynamicString;
   readonly fields?: Record<string, FieldDescriptor>;
   readonly credentials?: Record<string, StringCredential>;
+  readonly when?: (accumulated: Record<string, unknown>) => boolean;
 }
 
 /**
@@ -103,6 +104,7 @@ export interface ValidationStep {
     accumulated: Record<string, unknown>,
     ctx: OnboardingContext,
   ) => Promise<void>;
+  readonly when?: (accumulated: Record<string, unknown>) => boolean;
 }
 
 /**
@@ -119,6 +121,7 @@ export interface SelectStep {
     accumulated: Record<string, unknown>,
     ctx: OnboardingContext,
   ) => Promise<SelectOption[]>;
+  readonly when?: (accumulated: Record<string, unknown>) => boolean;
 }
 
 /**
@@ -135,6 +138,7 @@ export interface CustomStep {
     ctx: OnboardingContext,
     prompter: OnboardingPrompter,
   ) => Promise<Record<string, unknown>>;
+  readonly when?: (accumulated: Record<string, unknown>) => boolean;
 }
 
 /** Union of all onboarding step types. */
@@ -190,9 +194,10 @@ export const InputStep = StaticTypeCompanion({
    */
   after<TPrev extends TypedStep<any, any>, TFields extends Record<string, FieldDescriptor> = {}>(
     _prev: TPrev,
-    opts: Omit<InputStep, "kind" | "description" | "fields"> & {
+    opts: Omit<InputStep, "kind" | "description" | "fields" | "when"> & {
       description?: DynamicString<AccumulatedFrom<TPrev>>;
       fields?: TFields;
+      when?: (accumulated: AccumulatedFrom<TPrev>) => boolean;
     },
   ): TypedStep<InputStep, AccumulatedFrom<TPrev> & InferFieldValues<TFields>> {
     return { kind: "input", ...opts } as unknown as TypedStep<InputStep, AccumulatedFrom<TPrev> & InferFieldValues<TFields>>;
@@ -206,8 +211,9 @@ export const ValidationStep = StaticTypeCompanion({
 
   after<TPrev extends TypedStep<any, any>>(
     _prev: TPrev,
-    opts: Omit<ValidationStep, "kind" | "validate"> & {
+    opts: Omit<ValidationStep, "kind" | "validate" | "when"> & {
       validate: (accumulated: AccumulatedFrom<TPrev>, ctx: OnboardingContext) => Promise<void>;
+      when?: (accumulated: AccumulatedFrom<TPrev>) => boolean;
     },
   ): TypedStep<ValidationStep, AccumulatedFrom<TPrev>> {
     return { kind: "validation", ...opts } as unknown as TypedStep<ValidationStep, AccumulatedFrom<TPrev>>;
@@ -223,9 +229,10 @@ export const SelectStep = StaticTypeCompanion({
 
   after<TPrev extends TypedStep<any, any>, F extends string>(
     _prev: TPrev,
-    opts: Omit<SelectStep, "kind" | "field" | "options"> & {
+    opts: Omit<SelectStep, "kind" | "field" | "options" | "when"> & {
       field: F;
       options: (accumulated: AccumulatedFrom<TPrev>, ctx: OnboardingContext) => Promise<SelectOption[]>;
+      when?: (accumulated: AccumulatedFrom<TPrev>) => boolean;
     },
   ): TypedStep<SelectStep, AccumulatedFrom<TPrev> & Record<F, string>> {
     return { kind: "select", ...opts } as unknown as TypedStep<SelectStep, AccumulatedFrom<TPrev> & Record<F, string>>;
@@ -239,12 +246,13 @@ export const CustomStep = StaticTypeCompanion({
 
   after<TPrev extends TypedStep<any, any>, TAdded extends Record<string, unknown> = {}>(
     _prev: TPrev,
-    opts: Omit<CustomStep, "kind" | "execute"> & {
+    opts: Omit<CustomStep, "kind" | "execute" | "when"> & {
       execute: (
         accumulated: AccumulatedFrom<TPrev>,
         ctx: OnboardingContext,
         prompter: OnboardingPrompter,
       ) => Promise<TAdded>;
+      when?: (accumulated: AccumulatedFrom<TPrev>) => boolean;
     },
   ): TypedStep<CustomStep, AccumulatedFrom<TPrev> & TAdded> {
     return { kind: "custom", ...opts } as unknown as TypedStep<CustomStep, AccumulatedFrom<TPrev> & TAdded>;

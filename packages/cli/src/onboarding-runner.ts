@@ -20,6 +20,7 @@ export async function runOnboarding<TConfig>(
   const accumulated: Record<string, unknown> = {};
 
   for (const step of flow.steps) {
+    if (step.when && !step.when(accumulated)) continue;
     await executeStep(step, accumulated, ctx, prompter);
   }
 

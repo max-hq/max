@@ -11,13 +11,15 @@
  * @example
  * const GetUser = Operation.define({
  *   name: 'acme:user:get',
- *   async handle(input: { id: string }, ctx: AcmeCtx) {
+ *   context: AcmeContext,
+ *   async handle(input: { id: string }, ctx: AcmeContext) {
  *     return ctx.client.getUser(input.id)
  *   }
  * })
  */
 
 import { StaticTypeCompanion } from './companion.js'
+import {ClassOf} from "./type-system-utils.js";
 
 // ============================================================================
 // Operation
@@ -26,6 +28,7 @@ import { StaticTypeCompanion } from './companion.js'
 export interface Operation<TName extends string = string, TInput = unknown, TOutput = unknown, TContext = unknown> {
   readonly name: TName;
   readonly handle: (input: TInput, ctx: TContext) => Promise<TOutput>;
+  readonly context: ClassOf<TContext>
   /** @internal - phantom, not present at runtime */
   readonly _input?: TInput;
   /** @internal - phantom, not present at runtime */
@@ -47,9 +50,15 @@ export type OperationOutputOf<T> = T extends Operation<any, any, infer O, any> ?
 
 export const Operation = StaticTypeCompanion({
   define<TName extends string, TInput, TOutput, TContext>(config: {
-    name: TName;
-    handle: (input: TInput, ctx: TContext) => Promise<TOutput>;
+    name: TName
+    context: ClassOf<TContext>
+    handle: (input: TInput, ctx: TContext) => Promise<TOutput>
   }): Operation<TName, TInput, TOutput, TContext> {
-    return { name: config.name, handle: config.handle } as Operation<TName, TInput, TOutput, TContext>;
+    return { name: config.name, context: config.context, handle: config.handle } as Operation<
+      TName,
+      TInput,
+      TOutput,
+      TContext
+    >
   },
-});
+})

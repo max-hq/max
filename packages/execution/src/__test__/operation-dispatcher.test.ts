@@ -4,7 +4,7 @@
  */
 
 import { describe, test, expect } from "bun:test";
-import { Operation } from "@max/core";
+import {Context, Operation } from "@max/core";
 import { DefaultOperationDispatcher } from "../operation-dispatcher.js";
 import { DispatchingOperationExecutor } from "../dispatching-operation-executor.js";
 import { countingMiddleware } from "../middleware/counting-middleware.js";
@@ -14,16 +14,23 @@ import type { OperationMiddleware } from "../operation-dispatcher.js";
 // Test Helpers
 // ============================================================================
 
+class TestCtxEmpty extends Context {}
+class TestCtxPrefix extends Context {
+  prefix = Context.string
+}
+
 const Add = Operation.define({
   name: "test:add",
-  async handle(input: { a: number; b: number }, _ctx: {}) {
+  context: TestCtxEmpty,
+  async handle(input: { a: number; b: number }, _ctx) {
     return input.a + input.b;
   },
 });
 
 const Echo = Operation.define({
   name: "test:echo",
-  async handle(input: { message: string }, ctx: { prefix: string }) {
+  context: TestCtxPrefix,
+  async handle(input: { message: string }, ctx) {
     return `${ctx.prefix}: ${input.message}`;
   },
 });
@@ -154,7 +161,8 @@ describe("DispatchingOperationExecutor", () => {
   test("propagates handler errors", async () => {
     const Fail = Operation.define({
       name: "test:fail",
-      async handle(_input: {}, _ctx: {}) {
+      context: TestCtxEmpty,
+      async handle(_input: {}, _ctx) {
         throw new Error("boom");
       },
     });

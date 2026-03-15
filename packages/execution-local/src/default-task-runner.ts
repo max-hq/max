@@ -19,6 +19,7 @@ import {
   DerivedEntityLoaderAny,
   SyncMeta,
   LazyX,
+  Env,
 } from '@max/core'
 import { LoaderEnv, PageRequest, Projection, Ref } from '@max/core'
 import {

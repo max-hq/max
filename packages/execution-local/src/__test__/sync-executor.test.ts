@@ -7,7 +7,7 @@
 
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { Database } from "bun:sqlite";
-import { Context, Fields, NoOpFlowController, Query } from "@max/core";
+import { Context, Env, Fields, NoOpFlowController, Query } from "@max/core";
 import { SqliteEngine, SqliteSchema } from "@max/storage-sqlite";
 import AcmeConnector, {
   AcmeUser,
@@ -75,7 +75,7 @@ describe("SyncExecutor E2E", () => {
 
   async function seedAndExecute(executor: SyncExecutor) {
     const ctx = await contextProvider()();
-    const plan = await AcmeSeeder.seed(ctx, engine);
+    const plan = await AcmeSeeder.seed(Env.seeder({ ctx, engine }));
     return executor.execute(plan);
   }
 

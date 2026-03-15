@@ -115,7 +115,8 @@ export { Operation } from "./operation.js";
 export type { OperationAny, OperationInputOf, OperationOutputOf } from "./operation.js";
 export type { OperationExecutor } from "./operation-executor.js";
 export { BasicOperationExecutor } from './operation-executor.js'
-export type { Env, LoaderEnv, SeederEnv } from './env.js'
+export { Env } from './env.js'
+export type { OperationEnv, LoaderEnv, SeederEnv } from './env.js'
 export { BasicLoaderEnv } from "./loader-env.js";
 
 // Loader types

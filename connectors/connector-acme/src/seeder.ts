@@ -11,9 +11,9 @@ import { AcmeAppContext } from "./context.js";
 export const AcmeSeeder = Seeder.create({
   context: AcmeAppContext,
 
-  async seed(ctx, engine) {
+  async seed(env) {
     const rootRef = AcmeRoot.ref("root");
-    await engine.store(EntityInput.create(rootRef, {}));
+    await env.engine.store(EntityInput.create(rootRef, {}));
 
     return SyncPlan.create([
       // 1. Discover all workspaces from root

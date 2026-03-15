@@ -20,8 +20,8 @@ class CtxUsers extends Context {
 const GetUser = Operation.define({
   name: "test:user:get",
   context: CtxUsers,
-  async handle(input: { id: string }, ctx) {
-    const user = ctx.users.get(input.id);
+  async handle(input: { id: string }, env) {
+    const user = env.ctx.users.get(input.id);
     if (!user) throw new Error(`User ${input.id} not found`);
     return user;
   },
@@ -34,8 +34,8 @@ class CtxItems extends Context {
 const ListItems = Operation.define({
   name: 'test:items:list',
   context: CtxItems,
-  async handle(_input: {}, ctx) {
-    return ctx.items
+  async handle(_input: {}, env) {
+    return env.ctx.items
   },
 })
 
@@ -51,7 +51,7 @@ describe("Operation.define", () => {
 
   test("handle function is callable", async () => {
     const ctx = Context.build(CtxUsers, { users: new Map([["u1", { name: "Alice" }]]) })
-    const result = await GetUser.handle({ id: "u1" }, ctx);
+    const result = await GetUser.handle({ id: "u1" }, { ctx });
     expect(result).toEqual({ name: "Alice" });
   });
 });
@@ -63,7 +63,8 @@ describe("Operation.define", () => {
 describe("BasicOperationExecutor", () => {
   test("executes operation with bound context", async () => {
     const ctx = Context.build(CtxUsers, { users: new Map([["u1", { name: "Bob" }]]) })
-    const executor = new BasicOperationExecutor(ctx);
+
+    const executor = new BasicOperationExecutor({ ctx })
 
     const result = await executor.execute(GetUser, { id: "u1" });
     expect(result).toEqual({ name: "Bob" });
@@ -71,14 +72,14 @@ describe("BasicOperationExecutor", () => {
 
   test("propagates errors from handler", async () => {
     const ctx = Context.build(CtxUsers, { users: new Map<string, { name: string }>() })
-    const executor = new BasicOperationExecutor(ctx);
+    const executor = new BasicOperationExecutor({ ctx })
 
     expect(executor.execute(GetUser, { id: "missing" })).rejects.toThrow("User missing not found");
   });
 
   test("works with different operations on same context shape", async () => {
     const ctx = Context.build(CtxItems, { items: ["a", "b", "c"] })
-    const executor = new BasicOperationExecutor(ctx);
+    const executor = new BasicOperationExecutor({ ctx })
 
     const result = await executor.execute(ListItems, {});
     expect(result).toEqual(["a", "b", "c"]);

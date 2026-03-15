@@ -1,4 +1,4 @@
-import { ContextDefAny, LoaderEnv, OperationExecutor } from '@max/core'
+import { ContextDefAny, Env, LoaderEnv, OperationExecutor } from '@max/core'
 import { OperationDispatcher } from './operation-dispatcher.js'
 import { DispatchingOperationExecutor } from './dispatching-operation-executor.js'
 
@@ -17,6 +17,6 @@ export class StandardLoaderEnv<
     dispatcher: OperationDispatcher
   ) {
     this.ctx = ctx
-    this.ops = new DispatchingOperationExecutor(dispatcher, ctx)
+    this.ops = new DispatchingOperationExecutor(dispatcher, Env.operation({ ctx }))
   }
 }

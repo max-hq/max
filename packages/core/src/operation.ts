@@ -2,8 +2,8 @@
  * Operation - Named, typed API operation with its handler.
  *
  * Like a Loader, an Operation is both a declaration (name + phantom types)
- * and an implementation (handler). The handler is `(input, ctx) -> output`
- * where ctx is the connector's context, typed by the handler author.
+ * and an implementation (handler). The handler is `(input, env) -> output`
+ * where env is the platform-provided environment carrying the connector's context.
  *
  * At the type level, the operation token carries TInput, TOutput, and
  * TContext for type-safe dispatch via `env.ops.execute(GetUser, { id })`.
@@ -11,15 +11,17 @@
  * @example
  * const GetUser = Operation.define({
  *   name: 'acme:user:get',
- *   context: AcmeContext,
- *   async handle(input: { id: string }, ctx: AcmeContext) {
- *     return ctx.client.getUser(input.id)
+ *   context: AcmeAppContext,
+ *   async handle(input: { id: string }, env) {
+ *     return env.ctx.api.client.getUser(input.id)
  *   }
  * })
  */
 
 import { StaticTypeCompanion } from './companion.js'
 import { ClassOf } from './type-system-utils.js'
+import type { OperationEnv } from './env.js'
+import type { ContextDefAny } from './context-def.js'
 
 // ============================================================================
 // Operation
@@ -29,10 +31,10 @@ export interface Operation<
   TName extends string = string,
   TInput = unknown,
   TOutput = unknown,
-  TContext = unknown,
+  TContext extends ContextDefAny = ContextDefAny,
 > {
   readonly name: TName
-  readonly handle: (input: TInput, ctx: TContext) => Promise<TOutput>
+  readonly handle: (input: TInput, env: OperationEnv<TContext>) => Promise<TOutput>
   readonly context: ClassOf<TContext>
   /** @internal - phantom, not present at runtime */
   readonly _input?: TInput
@@ -54,10 +56,10 @@ export type OperationOutputOf<T> = T extends Operation<any, any, infer O, any> ?
 // ============================================================================
 
 export const Operation = StaticTypeCompanion({
-  define<TName extends string, TInput, TOutput, TContext>(config: {
+  define<TName extends string, TInput, TOutput, TContext extends ContextDefAny>(config: {
     name: TName
     context: ClassOf<TContext>
-    handle: (input: TInput, ctx: TContext) => Promise<TOutput>
+    handle: (input: TInput, env: OperationEnv<TContext>) => Promise<TOutput>
   }): Operation<TName, TInput, TOutput, TContext> {
     return { name: config.name, context: config.context, handle: config.handle } as Operation<
       TName,

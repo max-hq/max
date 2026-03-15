@@ -9,7 +9,7 @@
 
 import {afterEach, beforeEach, describe, expect, test} from "bun:test";
 import {Database} from "bun:sqlite";
-import {Context, NoOpFlowController, Query} from "@max/core";
+import {Context, Env, NoOpFlowController, Query} from "@max/core";
 import {SqliteEngine, SqliteSchema} from "@max/storage-sqlite";
 import AcmeConnector, {AcmeAppContext, AcmeProject, AcmeSchema, AcmeSeeder, AcmeWorkspace,} from "@max/connector-acme";
 import {AcmeTestClient} from "@max/acme";
@@ -66,7 +66,7 @@ describe("forAll loadCollection pagination", () => {
     });
 
     const ctx = await contextProvider();
-    const plan = await AcmeSeeder.seed(ctx, engine);
+    const plan = await AcmeSeeder.seed(Env.seeder({ ctx, engine }));
     const handle = await executor.execute(plan);
     const result = await handle.completion();
 

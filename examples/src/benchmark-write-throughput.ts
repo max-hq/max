@@ -8,7 +8,7 @@
  * Usage: bun run examples/src/benchmark-write-throughput.ts
  */
 
-import { Context, NoOpFlowController } from "@max/core";
+import { Context, Env, NoOpFlowController } from "@max/core";
 import { SqliteEngine } from "@max/storage-sqlite";
 import {
   SqliteExecutionSchema,
@@ -79,7 +79,7 @@ async function runSync(label: string, api: AcmeTestClient, dbPath: string, works
     api: clientProvider,
     workspaceId,
   });
-  const plan = await AcmeSeeder.seed(ctx, engine);
+  const plan = await AcmeSeeder.seed(Env.seeder({ ctx, engine }));
   console.log(`  Plan: ${plan.steps.length} steps`);
 
   // ---- timed section ----

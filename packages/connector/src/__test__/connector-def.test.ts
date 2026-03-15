@@ -38,7 +38,7 @@ const testSchema = Schema.create({
 
 const testSeeder = Seeder.create({
   context: TestContext,
-  async seed(_ctx, _engine) {
+  async seed(_env) {
     return SyncPlan.create([]);
   },
 });

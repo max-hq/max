@@ -1,4 +1,4 @@
-import { OperationInputOf, OperationAny, OperationExecutor, OperationOutputOf } from '@max/core'
+import { OperationInputOf, OperationAny, OperationExecutor, OperationOutputOf, OperationEnv } from '@max/core'
 import {OperationDispatcher} from "./operation-dispatcher.js";
 
 /**
@@ -8,9 +8,9 @@ import {OperationDispatcher} from "./operation-dispatcher.js";
 export class DispatchingOperationExecutor implements OperationExecutor {
   constructor(
     private dispatcher: OperationDispatcher,
-    private ctx: unknown
+    private env: OperationEnv
   ) {}
   execute<TOp extends OperationAny>(op: TOp, input: OperationInputOf<TOp>): Promise<OperationOutputOf<TOp>> {
-    return this.dispatcher.dispatch(op, input, this.ctx) as Promise<OperationOutputOf<TOp>>
+    return this.dispatcher.dispatch(op, input, this.env) as Promise<OperationOutputOf<TOp>>
   }
 }

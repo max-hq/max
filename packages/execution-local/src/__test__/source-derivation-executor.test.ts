@@ -11,6 +11,7 @@ import {
   Context,
   EntityDef,
   EntityInput,
+  Env,
   Field,
   Fields,
   NoOpFlowController,
@@ -214,9 +215,9 @@ const TestUserResolver = Resolver.for(TestUser, {
 
 const TestSeeder = Seeder.create({
   context: TestContext,
-  async seed(_ctx, engine) {
+  async seed(env) {
     const rootRef = TestRoot.ref("root" as EntityId);
-    await engine.store(EntityInput.create(rootRef, {}));
+    await env.engine.store(EntityInput.create(rootRef, {}));
 
     return SyncPlan.create([
       Step.forRoot(rootRef).loadCollection("repos"),
@@ -300,7 +301,7 @@ describe("Source + Derivation E2E", () => {
 
   async function seedAndRun(executor: SyncExecutor, api: MockIssuesApi) {
     const ctx = Context.build(TestContext, { api });
-    const plan = await TestSeeder.seed(ctx, engine);
+    const plan = await TestSeeder.seed(Env.seeder({ ctx, engine }));
     return executor.execute(plan);
   }
 

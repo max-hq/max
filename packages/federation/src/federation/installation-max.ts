@@ -7,14 +7,16 @@
 import {
   type ConnectorVersionIdentifier,
   type Engine,
+  Env,
   HealthStatus,
   type InstallationScope,
   LifecycleManager,
   type Schema,
   type SeederAny,
+  type SeederEnv,
   StartResult,
-  StopResult
-} from "@max/core";
+  StopResult,
+} from '@max/core'
 import {type Installation} from "@max/connector";
 import {SyncExecutor, type SyncHandle, type SyncObserver} from "@max/execution";
 import type {InstallationClient, InstallationDescription} from "../protocols/installation-client.js";
@@ -37,6 +39,8 @@ export interface InstallationMaxConstructable {
 export class InstallationMax implements InstallationClient {
   private readonly config: InstallationMaxConstructable;
 
+  private seederEnv: SeederEnv
+
   lifecycle = LifecycleManager.auto(() => [
     this.config.installation,
     this.config.engine,
@@ -45,6 +49,10 @@ export class InstallationMax implements InstallationClient {
 
   constructor(config: InstallationMaxConstructable) {
     this.config = config;
+    this.seederEnv = Env.seeder({
+      ctx: config.installation.context,
+      engine: config.engine,
+    })
   }
 
   async describe(): Promise<InstallationDescription> {
@@ -64,10 +72,7 @@ export class InstallationMax implements InstallationClient {
   }
 
   async sync(options?: { observer?: SyncObserver }): Promise<SyncHandle> {
-    const plan = await this.config.seeder.seed(
-      this.config.installation.context as never,
-      this.engine
-    );
+    const plan = await this.config.seeder.seed(this.seederEnv);
     return this.config.syncExecutor.execute(plan, { observer: options?.observer });
   }
 

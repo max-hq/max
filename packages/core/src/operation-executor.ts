@@ -10,6 +10,7 @@
  */
 
 import type { OperationAny, OperationInputOf, OperationOutputOf } from './operation.js'
+import type { OperationEnv } from './env.js'
 
 export interface OperationExecutor {
   execute<TOp extends OperationAny>(
@@ -19,22 +20,19 @@ export interface OperationExecutor {
 }
 
 /**
- * Binds ctx to operation handlers.
+ * Passes an env through to operation handlers.
  *
  * A small note about what's happening here:
- * _Something_ needs to take a ctx from an installation and thread it through to operation calls.
+ * _Something_ needs to take an env and thread it through to operation calls.
  * The implementation is essentially nil / passthrough. But this process deserves a name and a home
  * and a small package of encapsulation.
- * If and when contexts become more constrained than "any", this class will do a better job of earning its keep.
+ * If and when envs become more constrained than "any", this class will do a better job of earning its keep.
  * Until then, I hope you haven't had to venture too far off the beaten track in finding this.
  */
 export class BasicOperationExecutor implements OperationExecutor {
-  /**
-   * @param ctx the context passed to operation handlers
-   */
-  constructor(private ctx: any) {
+  constructor(private env: OperationEnv) {
   }
   execute<TOp extends OperationAny>(op: TOp, input: OperationInputOf<TOp>): Promise<OperationOutputOf<TOp>> {
-    return op.handle(input,this.ctx)
+    return op.handle(input, this.env)
   }
 }

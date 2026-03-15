@@ -7,7 +7,7 @@
  * for a ReplayDispatcher, MockDispatcher, etc.
  */
 
-import type { OperationAny, OperationExecutor, OperationInputOf, OperationOutputOf } from '@max/core'
+import type { OperationAny, OperationExecutor, OperationInputOf, OperationOutputOf, OperationEnv } from '@max/core'
 import { countingMiddleware } from './middleware/counting-middleware.js'
 import type { OperationCounts } from './middleware/counting-middleware.js'
 
@@ -26,7 +26,7 @@ export type OperationMiddleware = (
 // ============================================================================
 
 export interface OperationDispatcher {
-  dispatch(op: OperationAny, input: unknown, ctx: unknown): Promise<unknown>;
+  dispatch(op: OperationAny, input: unknown, env: OperationEnv): Promise<unknown>;
 }
 
 // ============================================================================
@@ -42,10 +42,10 @@ export class DefaultOperationDispatcher implements OperationDispatcher {
     return { dispatcher: new DefaultOperationDispatcher([counting.middleware]), counts: counting.counts }
   }
 
-  dispatch(op: OperationAny, input: unknown, ctx: unknown): Promise<unknown> {
+  dispatch(op: OperationAny, input: unknown, env: OperationEnv): Promise<unknown> {
     const chain = this.middleware.reduceRight<() => Promise<unknown>>(
       (next, mw) => () => mw(op, input, next),
-      () => op.handle(input, ctx),
+      () => op.handle(input, env),
     );
     return chain();
   }

@@ -4,7 +4,7 @@
  */
 
 import { describe, test, expect } from "bun:test";
-import {Context, Operation } from "@max/core";
+import {Context, Env, Operation } from "@max/core";
 import { DefaultOperationDispatcher } from "../operation-dispatcher.js";
 import { DispatchingOperationExecutor } from "../dispatching-operation-executor.js";
 import { countingMiddleware } from "../middleware/counting-middleware.js";
@@ -19,10 +19,12 @@ class TestCtxPrefix extends Context {
   prefix = Context.string
 }
 
+const emptyEnv = Env.operation({ ctx: Context.build(TestCtxEmpty, {}) })
+
 const Add = Operation.define({
   name: "test:add",
   context: TestCtxEmpty,
-  async handle(input: { a: number; b: number }, _ctx) {
+  async handle(input: { a: number; b: number }, _env) {
     return input.a + input.b;
   },
 });
@@ -30,8 +32,8 @@ const Add = Operation.define({
 const Echo = Operation.define({
   name: "test:echo",
   context: TestCtxPrefix,
-  async handle(input: { message: string }, ctx) {
-    return `${ctx.prefix}: ${input.message}`;
+  async handle(input: { message: string }, env) {
+    return `${env.ctx.prefix}: ${input.message}`;
   },
 });
 
@@ -42,13 +44,14 @@ const Echo = Operation.define({
 describe("DefaultOperationDispatcher", () => {
   test("dispatches to operation handler", async () => {
     const dispatcher = new DefaultOperationDispatcher();
-    const result = await dispatcher.dispatch(Add, { a: 2, b: 3 }, {});
+    const result = await dispatcher.dispatch(Add, { a: 2, b: 3 }, emptyEnv);
     expect(result).toBe(5);
   });
 
   test("passes context to handler", async () => {
     const dispatcher = new DefaultOperationDispatcher();
-    const result = await dispatcher.dispatch(Echo, { message: "hello" }, { prefix: "bot" });
+    const env = Env.operation({ ctx: Context.build(TestCtxPrefix, { prefix: "bot" }) })
+    const result = await dispatcher.dispatch(Echo, { message: "hello" }, env);
     expect(result).toBe("bot: hello");
   });
 
@@ -70,7 +73,7 @@ describe("DefaultOperationDispatcher", () => {
     };
 
     const dispatcher = new DefaultOperationDispatcher([first, second]);
-    await dispatcher.dispatch(Add, { a: 1, b: 1 }, {});
+    await dispatcher.dispatch(Add, { a: 1, b: 1 }, emptyEnv);
 
     expect(order).toEqual(["first:before", "second:before", "second:after", "first:after"]);
   });
@@ -82,16 +85,17 @@ describe("DefaultOperationDispatcher", () => {
     };
 
     const dispatcher = new DefaultOperationDispatcher([doubler]);
-    const result = await dispatcher.dispatch(Add, { a: 3, b: 4 }, {});
+    const result = await dispatcher.dispatch(Add, { a: 3, b: 4 }, emptyEnv);
     expect(result).toBe(14);
   });
 
   test("withDefaults creates dispatcher with counting middleware", async () => {
     const { dispatcher, counts } = DefaultOperationDispatcher.withDefaults();
+    const prefixEnv = Env.operation({ ctx: Context.build(TestCtxPrefix, { prefix: "x" }) })
 
-    await dispatcher.dispatch(Add, { a: 1, b: 2 }, {});
-    await dispatcher.dispatch(Add, { a: 3, b: 4 }, {});
-    await dispatcher.dispatch(Echo, { message: "hi" }, { prefix: "x" });
+    await dispatcher.dispatch(Add, { a: 1, b: 2 }, emptyEnv);
+    await dispatcher.dispatch(Add, { a: 3, b: 4 }, emptyEnv);
+    await dispatcher.dispatch(Echo, { message: "hi" }, prefixEnv);
 
     const c = counts();
     expect(c.total).toBe(3);
@@ -114,10 +118,11 @@ describe("countingMiddleware", () => {
   test("counts operations by name", async () => {
     const { middleware, counts } = countingMiddleware();
     const dispatcher = new DefaultOperationDispatcher([middleware]);
+    const prefixEnv = Env.operation({ ctx: Context.build(TestCtxPrefix, { prefix: "" }) })
 
-    await dispatcher.dispatch(Add, { a: 1, b: 1 }, {});
-    await dispatcher.dispatch(Echo, { message: "a" }, { prefix: "" });
-    await dispatcher.dispatch(Add, { a: 2, b: 2 }, {});
+    await dispatcher.dispatch(Add, { a: 1, b: 1 }, emptyEnv);
+    await dispatcher.dispatch(Echo, { message: "a" }, prefixEnv);
+    await dispatcher.dispatch(Add, { a: 2, b: 2 }, emptyEnv);
 
     expect(counts().total).toBe(3);
     expect(counts().byOperation["test:add"]).toBe(2);
@@ -140,7 +145,8 @@ describe("countingMiddleware", () => {
 describe("DispatchingOperationExecutor", () => {
   test("routes through dispatcher with bound context", async () => {
     const dispatcher = new DefaultOperationDispatcher();
-    const executor = new DispatchingOperationExecutor(dispatcher, { prefix: "test" });
+    const env = Env.operation({ ctx: Context.build(TestCtxPrefix, { prefix: "test" }) })
+    const executor = new DispatchingOperationExecutor(dispatcher, env);
 
     const result = await executor.execute(Echo, { message: "world" });
     expect(result).toBe("test: world");
@@ -149,7 +155,7 @@ describe("DispatchingOperationExecutor", () => {
   test("middleware applies to executor calls", async () => {
     const { middleware, counts } = countingMiddleware();
     const dispatcher = new DefaultOperationDispatcher([middleware]);
-    const executor = new DispatchingOperationExecutor(dispatcher, {});
+    const executor = new DispatchingOperationExecutor(dispatcher, emptyEnv);
 
     await executor.execute(Add, { a: 5, b: 5 });
     await executor.execute(Add, { a: 1, b: 1 });
@@ -162,13 +168,13 @@ describe("DispatchingOperationExecutor", () => {
     const Fail = Operation.define({
       name: "test:fail",
       context: TestCtxEmpty,
-      async handle(_input: {}, _ctx) {
+      async handle(_input: {}, _env) {
         throw new Error("boom");
       },
     });
 
     const dispatcher = new DefaultOperationDispatcher();
-    const executor = new DispatchingOperationExecutor(dispatcher, {});
+    const executor = new DispatchingOperationExecutor(dispatcher, emptyEnv);
 
     expect(executor.execute(Fail, {})).rejects.toThrow("boom");
   });

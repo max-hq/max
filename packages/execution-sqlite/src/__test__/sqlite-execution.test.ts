@@ -7,7 +7,7 @@
 
 import { describe, test, expect, beforeEach } from "bun:test";
 import { Database } from "bun:sqlite";
-import { Context, Fields, NoOpFlowController, Query } from "@max/core";
+import { Context, Env, Fields, NoOpFlowController, Query } from "@max/core";
 import { SqliteEngine, SqliteSchema } from "@max/storage-sqlite";
 import AcmeConnector, {
   AcmeRoot,
@@ -84,7 +84,7 @@ function createContextProvider(api: MockAcmeClient) {
 
 async function seedAndExecute(executor: SyncExecutor, api: MockAcmeClient, engine: SqliteEngine) {
   const ctx = await createContextProvider(api)();
-  const plan = await AcmeSeeder.seed(ctx, engine);
+  const plan = await AcmeSeeder.seed(Env.seeder({ ctx, engine }));
   return executor.execute(plan);
 }
 

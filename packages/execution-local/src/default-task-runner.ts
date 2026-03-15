@@ -4,7 +4,7 @@
  * Handles loader dispatch, engine.store, and syncMeta bookkeeping.
  */
 
-import type {
+import {
   ContextValuesAny,
   Engine,
   EntityDefAny,
@@ -18,8 +18,14 @@ import type {
   RefKey,
   DerivedEntityLoaderAny,
   SyncMeta,
+  LazyX,
 } from '@max/core'
-import { PageRequest, Projection, Ref } from '@max/core'
+import { LoaderEnv, PageRequest, Projection, Ref } from '@max/core'
+import {
+  DefaultOperationDispatcher,
+  type OperationDispatcher,
+  StandardLoaderEnv,
+} from '@max/execution'
 
 import type {
   ExecutionRegistry,
@@ -62,6 +68,7 @@ export interface DefaultTaskRunnerConfig {
   registry: ExecutionRegistry
   flowController: FlowController
   contextProvider: () => Promise<ContextValuesAny>
+  dispatcher?: OperationDispatcher
   /**
    * Execution tuning parameters. Static at construction time for now.
    * Future: make dynamic so an adaptive controller can adjust at runtime.
@@ -79,6 +86,7 @@ export class DefaultTaskRunner implements TaskRunner {
   private registry: ExecutionRegistry
   private flowController: FlowController
   private contextProvider: () => Promise<ContextValuesAny>
+  private dispatcher: OperationDispatcher
   private tuning: ExecutionTuning
 
   constructor(config: DefaultTaskRunnerConfig) {
@@ -87,8 +95,15 @@ export class DefaultTaskRunner implements TaskRunner {
     this.registry = config.registry
     this.flowController = config.flowController
     this.contextProvider = config.contextProvider
+    this.dispatcher = config.dispatcher ?? new DefaultOperationDispatcher()
     this.tuning = { ...DEFAULT_TUNING, ...config.tuning }
   }
+
+  private builtEnv = LazyX.once(async (): Promise<LoaderEnv> => {
+    const ctx = await this.contextProvider()
+    return new StandardLoaderEnv(ctx, this.dispatcher)
+  })
+
 
   async execute(task: { readonly payload: TaskPayload }): Promise<TaskRunResult> {
     switch (task.payload.kind) {
@@ -273,13 +288,13 @@ export class DefaultTaskRunner implements TaskRunner {
       loaderFields.set(loader, existing)
     }
 
-    const ctx = await this.contextProvider()
+    const env = await this.builtEnv.get
 
     for (const [loader, fieldNames] of loaderFields) {
       const token = await this.flowController.acquire(getOperationForLoaderName(loader.name))
       try {
         if (loader.kind === 'entityBatched') {
-          const batch = await loader.load(refs, ctx)
+          const batch = await loader.load(refs, env)
           const inputs: EntityInputAny[] = []
           const syncEntries: { ref: RefAny; field: string; timestamp: Date }[] = []
           const now = new Date()
@@ -298,7 +313,7 @@ export class DefaultTaskRunner implements TaskRunner {
           const syncEntries: { ref: RefAny; field: string; timestamp: Date }[] = []
           const now = new Date()
           for (const ref of refs) {
-            const input = await loader.load(ref, ctx)
+            const input = await loader.load(ref, env)
             inputs.push(input)
             for (const f of fieldNames) {
               syncEntries.push({ ref, field: f, timestamp: now })
@@ -308,7 +323,7 @@ export class DefaultTaskRunner implements TaskRunner {
         } else if (loader.kind === 'derivation' && loader.source.kind === 'single') {
           const coDerivations = this.registry.getCoDerivations(loader)
           for (const ref of refs) {
-            const data = await loader.source.fetch(ref, ctx)
+            const data = await loader.source.fetch(ref, env)
             const inputs: EntityInputAny[] = []
             const syncEntries: { ref: RefAny; field: string; timestamp: Date }[] = []
             const now = new Date()
@@ -380,14 +395,14 @@ export class DefaultTaskRunner implements TaskRunner {
 
     const collectionLoader = loader
     const ref = Ref.fromKey(entityDef, refKey)
-    const ctx = await this.contextProvider()
+    const env = await this.builtEnv.get
     const token = await this.flowController.acquire(getOperationForLoaderName(loader.name))
 
     try {
       const page = await collectionLoader.load(
         ref,
         PageRequest.create({ cursor, limit: this.tuning.connectorPageSize }),
-        ctx,
+        env,
       )
 
       const inputs: EntityInputAny[] = []
@@ -450,14 +465,14 @@ export class DefaultTaskRunner implements TaskRunner {
     }
 
     const ref = Ref.fromKey(entityDef, refKey)
-    const ctx = await this.contextProvider()
+    const env = await this.builtEnv.get
     const token = await this.flowController.acquire(getOperationForLoaderName(derivation.name))
 
     try {
       const sourcePage = await source.fetch(
         ref,
         PageRequest.create({ cursor, limit: this.tuning.connectorPageSize }),
-        ctx,
+        env,
       )
 
       let triggerCount = 0
@@ -543,7 +558,13 @@ export class DefaultTaskRunner implements TaskRunner {
 
 }
 
-/** This is syntactic signposting only - we haven't really designed "operations" yet - for now we just use the loader's as it is */
+/**
+ * Maps a loader name to an OperationKind for flow control.
+ *
+ * Temporary shim: loaders predate the operations framework and don't have
+ * an Operation.name yet. Once loaders dispatch through operations, this
+ * goes away and the operation's own name is used directly.
+ */
 function getOperationForLoaderName(loaderName: LoaderName): OperationKind {
   return loaderName as OperationKind
 }

@@ -72,6 +72,10 @@ const testDef = ConnectorDef.create({
   resolvers: [testResolver],
 });
 
+const stubPlatform = {
+  credentials: CredentialProvider.create(new StubbedCredentialStore({})),
+};
+
 // ============================================================================
 // Tests
 // ============================================================================
@@ -111,7 +115,7 @@ describe("ConnectorModule", () => {
   test("create and initialise", () => {
     const mod = ConnectorModule.create({
       def: testDef,
-      initialise(config: { workspace: string }, credentials) {
+      initialise(config: { workspace: string }, platform) {
         return Installation.create({
           context: { workspace: config.workspace },
         });
@@ -122,8 +126,8 @@ describe("ConnectorModule", () => {
     expect(mod.def.name).toBe("test");
 
     const store = new StubbedCredentialStore({ api_token: "sk-123" });
-    const provider = CredentialProvider.create(store);
-    const inst = mod.initialise({ workspace: "ws-1" }, provider);
+    const platform = { credentials: CredentialProvider.create(store) };
+    const inst = mod.initialise({ workspace: "ws-1" }, platform);
 
     expect(inst.context).toEqual({ workspace: "ws-1" });
   });
@@ -131,8 +135,8 @@ describe("ConnectorModule", () => {
   test("initialise with credential provider", async () => {
     const mod = ConnectorModule.create({
       def: testDef,
-      initialise(config: { workspace: string }, credentials) {
-        const apiKey = credentials.get(ApiToken);
+      initialise(config: { workspace: string }, platform) {
+        const apiKey = platform.credentials.get(ApiToken);
         return Installation.create({
           context: { apiKeyHandle: apiKey },
         });
@@ -140,8 +144,8 @@ describe("ConnectorModule", () => {
     });
 
     const store = new StubbedCredentialStore({ api_token: "sk-test" });
-    const provider = CredentialProvider.create(store);
-    const inst = mod.initialise({ workspace: "ws-1" }, provider);
+    const platform = { credentials: CredentialProvider.create(store) };
+    const inst = mod.initialise({ workspace: "ws-1" }, platform);
 
     const handle = (inst.context as any).apiKeyHandle;
     expect(await handle.get()).toBe("sk-test");

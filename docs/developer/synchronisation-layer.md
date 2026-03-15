@@ -33,7 +33,9 @@ flowchart LR
 
 ## Loaders
 
-A **Loader** fetches data from an external API and returns `EntityInput` values. There are three variants:
+A **Loader** fetches data from an external API and returns `EntityInput` values. Loaders receive an `env` parameter - a `LoaderEnv` that provides access to platform capabilities. Today this includes the connector context (`env.ctx`) and the operation executor (`env.ops`) - see [Operations](./operations.md) for details.
+
+There are three variants:
 
 | Variant | Signature | Use case |
 |---|---|---|
@@ -65,8 +67,8 @@ const TeamBasicLoader = Loader.entity({
   context: AcmeAppContext,
   entity: AcmeTeam,
 
-  async load(ref, ctx) {
-    const team = await ctx.api.teams.get(ref.id);
+  async load(ref, env) {
+    const team = await env.ctx.api.teams.get(ref.id);
     return EntityInput.create(ref, {
       name: team.name,
       description: team.description,
@@ -86,8 +88,8 @@ const BasicUserLoader = Loader.entityBatched({
   context: AcmeAppContext,
   entity: AcmeUser,
 
-  async load(refs, ctx) {
-    const users = await ctx.api.users.getBatch(refs.map(r => r.id));
+  async load(refs, env) {
+    const users = await env.ctx.api.users.getBatch(refs.map(r => r.id));
     return Batch.buildFrom(
       users.map(u => EntityInput.create(AcmeUser.ref(u.id), {
         name: u.name,
@@ -109,8 +111,8 @@ const TeamMembersLoader = Loader.collection({
   entity: AcmeTeam,
   target: AcmeUser,
 
-  async load(ref, page, ctx) {
-    const result = await ctx.api.teams.listMembers(ref.id, {
+  async load(ref, page, env) {
+    const result = await env.ctx.api.teams.listMembers(ref.id, {
       cursor: page.cursor,
       limit: page.limit,
     });

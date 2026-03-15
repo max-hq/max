@@ -11,6 +11,7 @@ import {
 } from "@max/core";
 import { AcmeRoot, AcmeWorkspace } from "../entities.js";
 import { AcmeAppContext } from "../context.js";
+import { ListWorkspaces } from "../operations.js";
 
 // ============================================================================
 // Loaders
@@ -22,8 +23,8 @@ export const RootWorkspacesLoader = Loader.collection({
   entity: AcmeRoot,
   target: AcmeWorkspace,
 
-  async load(ref, page, ctx) {
-    const workspaces = await ctx.api.client.listWorkspaces();
+  async load(ref, page, env) {
+    const workspaces = await env.ops.execute(ListWorkspaces, {});
     const items = workspaces.map((ws) =>
       EntityInput.create(AcmeWorkspace.ref(ws.id), {}),
     );

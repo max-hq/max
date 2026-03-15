@@ -10,6 +10,7 @@ import {
 } from "@max/core";
 import { AcmeUser } from "../entities.js";
 import { AcmeAppContext } from "../context.js";
+import { GetUser } from "../operations.js";
 
 // ============================================================================
 // Loaders
@@ -21,8 +22,8 @@ export const UserBasicLoader = Loader.entity({
   entity: AcmeUser,
   strategy: "autoload",
 
-  async load(ref, ctx) {
-    const user = await ctx.api.client.getUser(ref.id);
+  async load(ref, env) {
+    const user = await env.ops.execute(GetUser, { id: ref.id });
     return EntityInput.create(ref, {
       displayName: user.displayName,
       email: user.email,

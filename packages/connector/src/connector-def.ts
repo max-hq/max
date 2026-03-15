@@ -9,7 +9,9 @@ import {
   StaticTypeCompanion,
   Inspect,
   type SeederAny,
-  type ResolverAny, Id,
+  type ResolverAny,
+  type OperationAny,
+  Id,
 } from "@max/core";
 import type { Schema } from "@max/core";
 import type { OnboardingFlow } from "./onboarding.js";
@@ -31,6 +33,15 @@ export interface ConnectorDef<TConfig = unknown> {
   readonly onboarding: OnboardingFlow<TConfig>;
   readonly seeder: SeederAny;
   readonly resolvers: readonly ResolverAny[];
+  /**
+   * Operations declared by this connector.
+   *
+   * Currently used for discovery and display (e.g. listing a connector's
+   * API surface). Dispatch still goes through the operation token directly
+   * via op.handle. If we later sever the coupling between an operation's
+   * definition and its handler, this array becomes the resolution source.
+   */
+  readonly operations: readonly OperationAny[];
 }
 
 export type ConnectorDefAny = ConnectorDef<unknown>;
@@ -50,6 +61,7 @@ class ConnectorDefImpl<TConfig> implements ConnectorDef<TConfig> {
   readonly onboarding: OnboardingFlow<TConfig>;
   readonly seeder: SeederAny;
   readonly resolvers: readonly ResolverAny[];
+  readonly operations: readonly OperationAny[];
 
   static {
     Inspect(this, (self) => ({
@@ -69,6 +81,7 @@ class ConnectorDefImpl<TConfig> implements ConnectorDef<TConfig> {
     onboarding: OnboardingFlow<TConfig>;
     seeder: SeederAny;
     resolvers: readonly ResolverAny[];
+    operations?: readonly OperationAny[];
   }) {
     this.name = opts.name;
     this.displayName = opts.displayName;
@@ -80,6 +93,7 @@ class ConnectorDefImpl<TConfig> implements ConnectorDef<TConfig> {
     this.onboarding = opts.onboarding;
     this.seeder = opts.seeder;
     this.resolvers = Object.freeze([...opts.resolvers]);
+    this.operations = Object.freeze([...(opts.operations ?? [])]);
   }
 }
 
@@ -100,6 +114,7 @@ export const ConnectorDef = StaticTypeCompanion({
     onboarding: OnboardingFlow<TConfig>;
     seeder: SeederAny;
     resolvers: ResolverAny[];
+    operations?: OperationAny[];
   }): ConnectorDef<TConfig> {
     return new ConnectorDefImpl(opts);
   },

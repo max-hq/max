@@ -14,8 +14,8 @@
  *   name: "github:repo:issues-page",
  *   context: GithubContext,
  *   parent: GithubRepo,
- *   async fetch(ref, page, ctx) {
- *     const result = await ctx.api.issues.list(ref.id, { cursor: page.cursor });
+ *   async fetch(ref, page, env) {
+ *     const result = await env.ops.execute(ListIssues, { repoId: ref.id, cursor: page.cursor });
  *     return SourcePage.from(result, result.hasMore, result.cursor);
  *   },
  * });
@@ -35,7 +35,8 @@ import type { EntityDefAny } from './entity-def.js'
 import type { EntityInput } from './entity-input.js'
 import type { Ref } from './ref.js'
 import type { PageRequest } from './pagination.js'
-import type { ContextDefAny, InferContext } from './context-def.js'
+import type { ContextDefAny } from './context-def.js'
+import type { LoaderEnv } from './loader-env.js'
 import type { ClassOf } from './type-system-utils.js'
 import type { BaseLoader, FieldAssignment, LoaderName, LoaderStrategy } from './loader.js'
 
@@ -101,7 +102,7 @@ export interface PaginatedSource<
   fetch(
     ref: Ref<TParent>,
     page: PageRequest,
-    ctx: InferContext<TContext>,
+    env: LoaderEnv<TContext>,
   ): Promise<SourcePage<TData>>;
 }
 
@@ -128,7 +129,7 @@ export interface SingleSource<
 
   fetch(
     ref: Ref<TParent>,
-    ctx: InferContext<TContext>,
+    env: LoaderEnv<TContext>,
   ): Promise<TData>;
 }
 
@@ -195,16 +196,16 @@ export class PaginatedSourceImpl<
     private fetchFn: (
       ref: Ref<TParent>,
       page: PageRequest,
-      ctx: InferContext<TContext>
+      env: LoaderEnv<TContext>
     ) => Promise<SourcePage<TData>>
   ) {}
 
   fetch(
     ref: Ref<TParent>,
     page: PageRequest,
-    ctx: InferContext<TContext>
+    env: LoaderEnv<TContext>
   ): Promise<SourcePage<TData>> {
-    return this.fetchFn(ref, page, ctx)
+    return this.fetchFn(ref, page, env)
   }
 }
 
@@ -219,11 +220,11 @@ export class SingleSourceImpl<
     readonly name: SourceName,
     readonly context: ClassOf<TContext>,
     readonly parent: TParent,
-    private fetchFn: (ref: Ref<TParent>, ctx: InferContext<TContext>) => Promise<TData>
+    private fetchFn: (ref: Ref<TParent>, env: LoaderEnv<TContext>) => Promise<TData>
   ) {}
 
-  fetch(ref: Ref<TParent>, ctx: InferContext<TContext>): Promise<TData> {
-    return this.fetchFn(ref, ctx)
+  fetch(ref: Ref<TParent>, env: LoaderEnv<TContext>): Promise<TData> {
+    return this.fetchFn(ref, env)
   }
 }
 

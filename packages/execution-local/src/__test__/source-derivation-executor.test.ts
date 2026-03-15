@@ -96,8 +96,8 @@ const IssuesPageSource = Loader.paginatedSource({
   context: TestContext,
   parent: TestRepo,
 
-  async fetch(ref, page, ctx) {
-    const result = ctx.api.listIssues(ref.id, page.cursor);
+  async fetch(ref, page, env) {
+    const result = env.ctx.api.listIssues(ref.id, page.cursor);
     return SourcePage.from(result, result.hasMore, result.nextCursor);
   },
 });

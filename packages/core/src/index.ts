@@ -110,6 +110,14 @@ export type {
   InstanceTypeDesc,
 } from "./context-def.js";
 
+// Operations
+export { Operation } from "./operation.js";
+export type { OperationAny, OperationInputOf, OperationOutputOf } from "./operation.js";
+export type { OperationExecutor } from "./operation-executor.js";
+export { BasicOperationExecutor } from './operation-executor.js'
+export { BasicLoaderEnv } from "./loader-env.js";
+export type { LoaderEnv } from './loader-env.js'
+
 // Loader types
 export type {
   LoaderName,

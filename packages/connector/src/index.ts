@@ -36,6 +36,9 @@ export type { CredentialHandle } from "./credential-provider.js";
 export { Installation } from "./installation.js";
 export type { HealthStatus } from "./installation.js";
 
+// ConnectorPlatform (passed to initialise for executor creation)
+export type { ConnectorPlatform } from "./connector-platform.js";
+
 // ConnectorModule (bundled connector export: def + initialise)
 export { ConnectorModule } from "./connector-module.js";
 export type { ConnectorModuleAny } from "./connector-module.js";

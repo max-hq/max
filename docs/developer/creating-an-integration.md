@@ -143,7 +143,7 @@ export class AcmeAppContext extends Context {
 | `Context.number` | Number value |
 | `Context.boolean` | Boolean value |
 
-The context is hydrated later in `ConnectorModule.initialise()` (section 10).
+The context is hydrated later in `ConnectorModule.initialise()` (section 11).
 
 ---
 
@@ -179,7 +179,7 @@ export const GoogleAuth = Credential.oauth({
 });
 ```
 
-Credentials are collected during onboarding (section 9) and consumed during initialisation (section 10).
+Credentials are collected during onboarding (section 10) and consumed during initialisation (section 11).
 
 ---
 
@@ -227,6 +227,7 @@ Fetches fields for a single entity by ref:
 import { Loader, EntityInput } from "@max/core";
 import { AcmeUser } from "../entities.js";
 import { AcmeAppContext } from "../context.js";
+import { GetUser } from "../operations.js";
 
 const UserBasicLoader = Loader.entity({
   name: "acme:user:basic",
@@ -234,8 +235,8 @@ const UserBasicLoader = Loader.entity({
   entity: AcmeUser,
   strategy: "autoload",
 
-  async load(ref, ctx) {
-    const user = await ctx.api.client.getUser(ref.id);
+  async load(ref, env) {
+    const user = await env.ops.execute(GetUser, { id: ref.id });
     return EntityInput.create(ref, {
       displayName: user.displayName,
       email: user.email,
@@ -256,8 +257,8 @@ const UserBatchLoader = Loader.entityBatched({
   context: AcmeAppContext,
   entity: AcmeUser,
 
-  async load(refs, ctx) {
-    const users = await ctx.api.client.getUserBatch(refs.map(r => r.id));
+  async load(refs, env) {
+    const users = await env.ctx.api.client.getUserBatch(refs.map(r => r.id));
     return Batch.buildFrom(
       users.map(u => EntityInput.create(AcmeUser.ref(u.id), {
         displayName: u.displayName,
@@ -274,14 +275,16 @@ Fetches a paginated list of child entities belonging to a parent:
 
 ```typescript
 // connectors/connector-acme/src/resolvers/workspace-resolver.ts
+import { ListUsers } from "../operations.js";
+
 const WorkspaceUsersLoader = Loader.collection({
   name: "acme:workspace:users",
   context: AcmeAppContext,
   entity: AcmeWorkspace,
   target: AcmeUser,
 
-  async load(ref, page, ctx) {
-    const users = await ctx.api.client.listUsers(ref.id);
+  async load(ref, page, env) {
+    const users = await env.ops.execute(ListUsers, { workspaceId: ref.id });
     const items = users.map(u =>
       EntityInput.create(AcmeUser.ref(u.id), {})
     );
@@ -298,15 +301,76 @@ The `page` parameter carries `cursor` and `limit` for APIs that paginate. Return
 
 | Factory | Signature | Use case |
 |---------|-----------|----------|
-| `Loader.entity()` | `(ref, ctx) => EntityInput` | Fetch one entity |
-| `Loader.entityBatched()` | `(refs[], ctx) => Batch<EntityInput>` | Fetch many in one call |
-| `Loader.collection()` | `(parentRef, page, ctx) => Page<EntityInput>` | Paginated children |
+| `Loader.entity()` | `(ref, env) => EntityInput` | Fetch one entity |
+| `Loader.entityBatched()` | `(refs[], env) => Batch<EntityInput>` | Fetch many in one call |
+| `Loader.collection()` | `(parentRef, page, env) => Page<EntityInput>` | Paginated children |
 
-For sources that return data for multiple entity types in one call, see [Source + Derivation](#12-advanced-source--derivation).
+For sources that return data for multiple entity types in one call, see [Source + Derivation](#13-advanced-source--derivation).
 
 ---
 
-## 7. Create Resolvers
+## 7. Define Operations
+
+Operations are named, typed wrappers around external API calls. They sit between loaders and the raw API, giving the framework visibility into every call a connector makes. See [Operations](./operations.md) for the full treatment.
+
+### Defining an operation
+
+```typescript
+// connectors/connector-acme/src/operations.ts
+import { Operation } from "@max/core";
+import type { InferContext } from "@max/core";
+import type { User } from "@max/acme";
+import type { AcmeAppContext } from "./context.js";
+
+type Ctx = InferContext<AcmeAppContext>;
+
+export const GetUser = Operation.define({
+  name: "acme:user:get",
+  async handle(input: { id: string }, ctx: Ctx): Promise<User> {
+    return ctx.api.client.getUser(input.id);
+  },
+});
+```
+
+Name convention is `connector:entity:verb` - e.g. `acme:user:get`, `acme:workspace:list`.
+
+### Using operations in loaders
+
+Loaders call operations through `env.ops.execute`:
+
+```typescript
+async load(ref, env) {
+  const user = await env.ops.execute(GetUser, { id: ref.id });
+  return EntityInput.create(ref, { ... });
+}
+```
+
+TypeScript infers the input and return types from the operation token.
+
+### Registering operations
+
+Export operations as a const array and register them on `ConnectorDef`:
+
+```typescript
+export const AcmeOperations = [
+  ListWorkspaces, GetWorkspace,
+  ListUsers, GetUser,
+  ListProjects, GetProject,
+  ListTasks,
+] as const;
+```
+
+```typescript
+const AcmeDef = ConnectorDef.create({
+  // ...
+  resolvers: [...],
+  operations: [...AcmeOperations],
+});
+```
+
+---
+
+## 8. Create Resolvers
 
 A resolver maps an entity's fields to the loaders that populate them. Each field points to exactly one loader.
 
@@ -335,7 +399,7 @@ const AcmeWorkspaceResolver = Resolver.for(AcmeWorkspace, {
 
 ---
 
-## 8. Create Seeder & SyncPlan
+## 9. Create Seeder & SyncPlan
 
 The seeder bootstraps a sync from cold start. It stores an initial root entity and returns a plan describing what to sync and in what order.
 
@@ -399,7 +463,7 @@ Use `Step.concurrent()` to run independent steps in parallel, as shown in the se
 
 ---
 
-## 9. Define Onboarding
+## 10. Define Onboarding
 
 Onboarding is the step-by-step flow users go through when installing your connector. It collects configuration and credentials, then validates connectivity.
 
@@ -519,18 +583,19 @@ export interface AcmeConfig {
 
 ---
 
-## 10. Wire It Together
+## 11. Wire It Together
 
 Three pieces assemble into the final connector: `ConnectorDef` (static descriptor), `ConnectorModule` (factory), and `Installation` (live instance).
 
 ### ConnectorDef
 
-Ties schema, resolvers, seeder, and onboarding into a single descriptor:
+Ties schema, resolvers, operations, seeder, and onboarding into a single descriptor:
 
 ```typescript
 // connectors/connector-acme/src/index.ts
 import { ConnectorDef, ConnectorModule, Installation } from "@max/connector";
 import { Context } from "@max/core";
+import { AcmeOperations } from "./operations.js";
 
 const AcmeDef = ConnectorDef.create<AcmeConfig>({
   name: "acme",
@@ -548,6 +613,7 @@ const AcmeDef = ConnectorDef.create<AcmeConfig>({
     AcmeWorkspaceResolver,
     AcmeProjectResolver,
   ],
+  operations: [...AcmeOperations],
 });
 ```
 
@@ -609,7 +675,7 @@ export default AcmeConnector;
 
 ---
 
-## 11. Package Setup
+## 12. Package Setup
 
 ### Where connectors live
 
@@ -695,7 +761,7 @@ Use `"catalog:"` for `@max/core` and `@max/connector` - this resolves through th
 
 ---
 
-## 12. Advanced: Source + Derivation
+## 13. Advanced: Source + Derivation
 
 ### The problem
 
@@ -838,12 +904,16 @@ class MyContext extends Context {
 Credential.string("api_token")
 Credential.oauth({ refreshToken, accessToken, expiresIn, refresh })
 
+// Operations
+Operation.define({ name, handle: async (input, ctx) => result })
+env.ops.execute(MyOperation, { ...input })
+
 // Loaders
-Loader.entity({ name, context, entity, load: async (ref, ctx) => EntityInput })
-Loader.entityBatched({ name, context, entity, load: async (refs, ctx) => Batch })
-Loader.collection({ name, context, entity, target, load: async (ref, page, ctx) => Page })
-Loader.paginatedSource({ name, context, parent, fetch: async (ref, page, ctx) => SourcePage })
-Loader.singleSource({ name, context, parent, fetch: async (ref, ctx) => TData })
+Loader.entity({ name, context, entity, load: async (ref, env) => EntityInput })
+Loader.entityBatched({ name, context, entity, load: async (refs, env) => Batch })
+Loader.collection({ name, context, entity, target, load: async (ref, page, env) => Page })
+Loader.paginatedSource({ name, context, parent, fetch: async (ref, page, env) => SourcePage })
+Loader.singleSource({ name, context, parent, fetch: async (ref, env) => TData })
 Loader.deriveEntities(source, { name, target, extract: (data) => EntityInput[] })
 
 // Resolver
@@ -868,7 +938,7 @@ OnboardingFlow.create<TConfig>([step1, step2, step3])
 // ConnectorDef
 ConnectorDef.create<TConfig>({
   name, displayName, description, icon, version, scopes,
-  schema, onboarding, seeder, resolvers,
+  schema, onboarding, seeder, resolvers, operations,
 })
 
 // ConnectorModule

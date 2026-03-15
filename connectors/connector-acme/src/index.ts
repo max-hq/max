@@ -22,6 +22,7 @@ export type { AcmeConfig } from "./config.js";
 
 import { Context } from "@max/core";
 import { ConnectorDef, ConnectorModule, Installation } from "@max/connector";
+import { AcmeOperations } from "./operations.js";
 import { AcmeSchema } from "./schema.js";
 import { AcmeSeeder } from "./seeder.js";
 import { AcmeUserResolver } from "./resolvers/user-resolver.js";
@@ -49,12 +50,13 @@ const AcmeDef = ConnectorDef.create<AcmeConfig>({
     AcmeWorkspaceResolver,
     AcmeProjectResolver
   ],
+  operations: [...AcmeOperations],
 });
 
 const AcmeConnector = ConnectorModule.create<AcmeConfig>({
   def: AcmeDef,
-  initialise(config, credentials) {
-    const tokenHandle = credentials.get(AcmeApiToken);
+  initialise(config, platform) {
+    const tokenHandle = platform.credentials.get(AcmeApiToken);
     const api = new AcmeConnection(config, tokenHandle);
 
     const ctx = Context.build(AcmeAppContext, {
@@ -66,10 +68,10 @@ const AcmeConnector = ConnectorModule.create<AcmeConfig>({
       context: ctx,
       async start() {
         await api.start();
-        credentials.startRefreshSchedulers();
+        platform.credentials.startRefreshSchedulers();
       },
       async stop() {
-        credentials.stopRefreshSchedulers();
+        platform.credentials.stopRefreshSchedulers();
       },
       async health() {
         const result = await api.health();

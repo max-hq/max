@@ -7,23 +7,17 @@
  * silently dropping the 3rd workspace's projects.
  */
 
-import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { Database } from "bun:sqlite";
-import { Context, NoOpFlowController, Query } from "@max/core";
-import { SqliteEngine, SqliteSchema } from "@max/storage-sqlite";
-import AcmeConnector, {
-  AcmeProject,
-  AcmeWorkspace,
-  AcmeAppContext,
-  AcmeSeeder,
-  AcmeSchema,
-} from "@max/connector-acme";
-import { AcmeTestClient } from "@max/acme";
-import { SyncExecutor } from "@max/execution";
-import { InMemoryTaskStore } from "../in-memory-task-store.js";
-import { InMemorySyncMeta } from "../in-memory-sync-meta.js";
-import { DefaultTaskRunner } from "../default-task-runner.js";
-import { ExecutionRegistryImpl } from "../execution-registry-impl.js";
+import {afterEach, beforeEach, describe, expect, test} from "bun:test";
+import {Database} from "bun:sqlite";
+import {Context, NoOpFlowController, Query} from "@max/core";
+import {SqliteEngine, SqliteSchema} from "@max/storage-sqlite";
+import AcmeConnector, {AcmeAppContext, AcmeProject, AcmeSchema, AcmeSeeder, AcmeWorkspace,} from "@max/connector-acme";
+import {AcmeTestClient} from "@max/acme";
+import {SyncExecutor} from "@max/execution";
+import {InMemoryTaskStore} from "../in-memory-task-store.js";
+import {InMemorySyncMeta} from "../in-memory-sync-meta.js";
+import {DefaultTaskRunner} from "../default-task-runner.js";
+import {ExecutionRegistryImpl} from "../execution-registry-impl.js";
 
 describe("forAll loadCollection pagination", () => {
   let db: Database;

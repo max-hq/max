@@ -13,7 +13,14 @@ import type {Id} from "./brand.js";
 // Types
 // ============================================================================
 
-/** Identifies a kind of operation for rate limiting (e.g., "acme:api-call") */
+/**
+ * Identifies an operation for rate limiting (e.g., "acme:user:get").
+ *
+ * This is the same namespace as Operation.name. When an Operation is
+ * dispatched, its name is the OperationKind that FlowController throttles on.
+ * For loaders that predate the operations framework, the loader name is
+ * used as a stand-in until they are migrated.
+ */
 export type OperationKind = Id<"operation-kind">;
 
 /** Token returned by acquire(), released when the operation completes */

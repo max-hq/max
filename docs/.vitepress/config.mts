@@ -60,6 +60,7 @@ export default defineConfig({
               text: "Synchronisation",
               link: "/developer/synchronisation-layer",
             },
+            { text: "Operations", link: "/developer/operations" },
             { text: "Serialisation", link: "/developer/serialisation" },
             { text: "Error System", link: "/developer/error-system" },
           ],

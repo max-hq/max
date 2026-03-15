@@ -16,6 +16,8 @@ import { PageRequest } from "../pagination.js";
 import { Loader, LoaderName } from '../loader.js'
 import type { SourceName } from '../source.js'
 import type { EntityId } from "../core-id-types.js";
+import { LoaderEnv, BasicLoaderEnv } from '../loader-env.js'
+import {BasicOperationExecutor} from "../operation-executor.js";
 
 // ============================================================================
 // Test Helpers
@@ -98,8 +100,9 @@ describe("Source.paginated", () => {
     const ref = TestRepo.ref("repo-1" as EntityId);
     const page = PageRequest.create({ cursor: "c1" });
     const ctx = Context.build(TestContext, { value: "test" });
+    const env = new BasicLoaderEnv<TestContext>(ctx)
 
-    const result = await source.fetch(ref, page, ctx);
+    const result = await source.fetch(ref, page, env);
     expect(result.data).toEqual({ refId: "repo-1", cursor: "c1" });
     expect(result.hasMore).toBe(false);
   });
@@ -138,8 +141,10 @@ describe("Source.single", () => {
 
     const ref = TestUser.ref("u-1" as EntityId);
     const ctx = Context.build(TestContext, { value: "test" });
+    const env = new BasicLoaderEnv(ctx)
 
-    const result = await source.fetch(ref, ctx);
+
+    const result = await source.fetch(ref, env);
     expect(result).toEqual({ userId: "u-1" });
   });
 });

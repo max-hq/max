@@ -1,12 +1,12 @@
 /**
- * bootstrapInstallation — Pure wiring function.
+ * bootstrapInstallation - Pure wiring function.
  *
  * Takes fully resolved, concrete dependencies and assembles a working
  * InstallationMax. No filesystem access, no platform imports, no config
  * resolution. Just assembly.
  *
- * Resolution (spec → concrete deps) is the provider's job.
- * Wiring (concrete deps → working InstallationMax) is bootstrap's job.
+ * Resolution (spec -> concrete deps) is the provider's job.
+ * Wiring (concrete deps -> working InstallationMax) is bootstrap's job.
  */
 
 import {
@@ -15,9 +15,9 @@ import {
   type SyncMeta,
   NoOpFlowController,
 } from '@max/core'
-import type { ConnectorModuleAny, CredentialProvider, CredentialStore } from '@max/connector'
+import type { ConnectorModuleAny, ConnectorPlatform, CredentialProvider, CredentialStore } from '@max/connector'
 import { InMemoryCredentialProvider } from '@max/connector'
-import { SyncExecutor, type TaskStore } from '@max/execution'
+import { SyncExecutor, type TaskStore, DefaultOperationDispatcher } from '@max/execution'
 import { DefaultTaskRunner, ExecutionRegistryImpl } from '@max/execution-local'
 import { InstallationMax } from '../installation-max.js'
 
@@ -27,7 +27,7 @@ import { InstallationMax } from '../installation-max.js'
 
 /**
  * Everything needed to wire a working InstallationMax.
- * All dependencies are concrete, resolved implementations — no abstract config.
+ * All dependencies are concrete, resolved implementations - no abstract config.
  */
 export interface ResolvedInstallationDeps {
   /** Full identifier for the connector */
@@ -36,7 +36,7 @@ export interface ResolvedInstallationDeps {
   /** Installation name/slug. For describe(). */
   name: string
 
-  /** Resolved connector module — provides schema, seeder, resolvers, initialise(). */
+  /** Resolved connector module - provides schema, seeder, resolvers, initialise(). */
   connector: ConnectorModuleAny
 
   /** Ready-to-use query engine. */
@@ -61,10 +61,15 @@ export interface ResolvedInstallationDeps {
 
 // TODO: I'm not convinced we need this. I think it's reasonable to expect the Platform to produce its own InstallationMax
 export function bootstrapInstallation(deps: ResolvedInstallationDeps): InstallationMax {
-  const credentials = deps.credentialProvider
+  const platform: ConnectorPlatform = {
+    credentials: deps.credentialProvider,
+  }
 
   // FIXME: We need to introduce a way to validate connectorConfig
-  const installation = deps.connector.initialise(deps.connectorConfig, credentials)
+  const installation = deps.connector.initialise(deps.connectorConfig, platform)
+
+  // Build operation dispatcher with standard middleware
+  const { dispatcher } = DefaultOperationDispatcher.withDefaults()
 
   const registry = new ExecutionRegistryImpl(deps.connector.def.resolvers)
 
@@ -74,6 +79,7 @@ export function bootstrapInstallation(deps: ResolvedInstallationDeps): Installat
     registry,
     flowController: new NoOpFlowController(),
     contextProvider: async () => installation.context,
+    dispatcher,
   })
 
   const syncExecutor = new SyncExecutor({ taskRunner, taskStore: deps.taskStore })

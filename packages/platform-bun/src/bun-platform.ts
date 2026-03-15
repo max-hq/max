@@ -80,12 +80,13 @@ import {
 } from '@max/core'
 import {
   type ConnectorModuleAny,
+  type ConnectorPlatform,
   type ConnectorRegistry,
   type CredentialStore,
   InMemoryCredentialProvider,
   InMemoryCredentialStore,
 } from '@max/connector'
-import { SyncExecutor, type TaskStore } from '@max/execution'
+import { SyncExecutor, type TaskStore, DefaultOperationDispatcher } from '@max/execution'
 import { DefaultTaskRunner, ExecutionRegistryImpl } from '@max/execution-local'
 import * as fs from 'node:fs'
 import path from 'node:path'
@@ -335,8 +336,16 @@ function createInstallationBootstrap(
     }
 
     // Assemble the installation node
+    const platform: ConnectorPlatform = {
+      credentials: deps.credentialProvider,
+    }
+
     // FIXME: We need to introduce a way to validate connectorConfig
-    const installation = connector.initialise(spec.connectorConfig, deps.credentialProvider)
+    const installation = connector.initialise(spec.connectorConfig, platform)
+
+    // Build operation dispatcher with standard middleware
+    const { dispatcher } = DefaultOperationDispatcher.withDefaults()
+
     const registry = new ExecutionRegistryImpl(connector.def.resolvers)
     const taskRunner = new DefaultTaskRunner({
       engine: deps.engine,
@@ -344,6 +353,7 @@ function createInstallationBootstrap(
       registry,
       flowController: new NoOpFlowController(),
       contextProvider: async () => installation.context,
+      dispatcher,
     })
     const syncExecutor = new SyncExecutor({ taskRunner, taskStore: deps.taskStore })
 

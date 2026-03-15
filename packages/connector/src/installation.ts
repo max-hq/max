@@ -1,11 +1,11 @@
 /**
- * Installation — A live, configured instance of a connector.
+ * Installation - A live, configured instance of a connector.
  *
  * Built by ConnectorModule.initialise(). Owns its context and lifecycle.
  */
 
 import { StaticTypeCompanion, LifecycleManager, ContextValuesAny } from '@max/core'
-import type { Lifecycle, ContextDefAny, InferContext } from "@max/core";
+import type { Lifecycle } from "@max/core";
 
 // ============================================================================
 // HealthStatus

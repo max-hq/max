@@ -124,6 +124,13 @@ export const ErrReservedFieldPrefix = Core.define("reserved_field_prefix", {
   message: (d) => `Field '${d.field}' on ${d.entityType} uses reserved prefix '_'. Fields starting with '_' are reserved for Max meta fields.`,
 });
 
+/** Operation handler not found in provider */
+export const ErrNoOperationHandler = Core.define("no_operation_handler", {
+  customProps: ErrFacet.props<{ operation: string }>(),
+  facets: [NotFound],
+  message: (d) => `No handler for operation: ${d.operation}`,
+});
+
 /** Printer key has no registered implementation */
 export const ErrPrinterNotRegistered = Core.define("printer_not_registered", {
   customProps: ErrFacet.props<{ key: string }>(),

@@ -11,8 +11,8 @@
  *   name: "acme:user:basic",
  *   context: AcmeContext,
  *   entity: AcmeUser,
- *   async load(ref, ctx) {
- *     const user = await ctx.api.users.get(ref.id);
+ *   async load(ref, env) {
+ *     const user = await env.ops.execute(GetUser, { id: ref.id });
  *     return EntityInput.create(ref, { name: user.name, email: user.email });
  *   }
  * });
@@ -24,7 +24,8 @@ import type {EntityInput} from "./entity-input.js";
 import type {Ref} from "./ref.js";
 import type {Page, PageRequest} from "./pagination.js";
 import type {Batch} from "./batch.js";
-import type {ContextDefAny, InferContext} from "./context-def.js";
+import type {ContextDefAny} from "./context-def.js";
+import type {LoaderEnv} from "./loader-env.js";
 import {ClassOf} from "./type-system-utils.js";
 import {
   PaginatedSource,
@@ -118,7 +119,7 @@ export interface EntityLoader<
    */
   load(
     ref: Ref<E>,
-    ctx: InferContext<TContext>,
+    env: LoaderEnv<TContext>,
   ): Promise<EntityInput<E>>;
 
   /**
@@ -148,7 +149,7 @@ export interface BatchedEntityLoader<
    */
   load(
     refs: readonly Ref<E>[],
-    ctx: InferContext<TContext>,
+    env: LoaderEnv<TContext>,
   ): Promise<Batch<EntityInput<E>, Ref<E>>>;
 
   /**
@@ -185,7 +186,7 @@ export interface CollectionLoader<
   load(
     ref: Ref<E>,
     page: PageRequest,
-    ctx: InferContext<TContext>,
+    env: LoaderEnv<TContext>,
   ): Promise<Page<EntityInput<TTarget>>>;
 
   /**
@@ -228,15 +229,15 @@ export class EntityLoaderImpl<E extends EntityDefAny, TContext extends ContextDe
     readonly strategy: LoaderStrategy,
     private loadFn: (
       ref: Ref<E>,
-      ctx: InferContext<TContext>,
+      env: LoaderEnv<TContext>,
     ) => Promise<EntityInput<E>>
   ) {}
 
   load(
     ref: Ref<E>,
-    ctx: InferContext<TContext>,
+    env: LoaderEnv<TContext>,
   ): Promise<EntityInput<E>> {
-    return this.loadFn(ref, ctx);
+    return this.loadFn(ref, env);
   }
 
   field(sourceField?: string): FieldAssignment<E> {
@@ -256,15 +257,15 @@ export class BatchedEntityLoaderImpl<E extends EntityDefAny, TContext extends Co
     readonly strategy: LoaderStrategy,
     private loadFn: (
       refs: readonly Ref<E>[],
-      ctx: InferContext<TContext>,
+      env: LoaderEnv<TContext>,
     ) => Promise<Batch<EntityInput<E>, Ref<E>>>
   ) {}
 
   load(
     refs: readonly Ref<E>[],
-    ctx: InferContext<TContext>,
+    env: LoaderEnv<TContext>,
   ): Promise<Batch<EntityInput<E>, Ref<E>>> {
-    return this.loadFn(refs, ctx);
+    return this.loadFn(refs, env);
   }
 
   field(sourceField?: string): FieldAssignment<E> {
@@ -289,16 +290,16 @@ export class CollectionLoaderImpl<
     private loadFn: (
       ref: Ref<E>,
       page: PageRequest,
-      ctx: InferContext<TContext>,
+      env: LoaderEnv<TContext>,
     ) => Promise<Page<EntityInput<TTarget>>>
   ) {}
 
   load(
     ref: Ref<E>,
     page: PageRequest,
-    ctx: InferContext<TContext>,
+    env: LoaderEnv<TContext>,
   ): Promise<Page<EntityInput<TTarget>>> {
-    return this.loadFn(ref, page, ctx);
+    return this.loadFn(ref, page, env);
   }
 
   field(sourceField?: string): FieldAssignment<E> {
@@ -322,7 +323,7 @@ export const Loader = StaticTypeCompanion({
     fetch: (
       ref: Ref<TParent>,
       page: PageRequest,
-      ctx: InferContext<TContext>,
+      env: LoaderEnv<TContext>,
     ) => Promise<SourcePage<TData>>;
   }): PaginatedSource<TData, TParent, TContext> {
     return new PaginatedSourceImpl(
@@ -342,7 +343,7 @@ export const Loader = StaticTypeCompanion({
     parent: TParent;
     fetch: (
       ref: Ref<TParent>,
-      ctx: InferContext<TContext>,
+      env: LoaderEnv<TContext>,
     ) => Promise<TData>;
   }): SingleSource<TData, TParent, TContext> {
     return new SingleSourceImpl(
@@ -388,7 +389,7 @@ export const Loader = StaticTypeCompanion({
     strategy?: LoaderStrategy;
     load: (
       ref: Ref<E>,
-      ctx: InferContext<TContext>,
+      env: LoaderEnv<TContext>,
     ) => Promise<EntityInput<E>>;
   }): EntityLoader<E, TContext> {
     return new EntityLoaderImpl(
@@ -410,7 +411,7 @@ export const Loader = StaticTypeCompanion({
     strategy?: LoaderStrategy;
     load: (
       refs: readonly Ref<E>[],
-      ctx: InferContext<TContext>,
+      env: LoaderEnv<TContext>,
     ) => Promise<Batch<EntityInput<E>, Ref<E>>>;
   }): BatchedEntityLoader<E, TContext> {
     return new BatchedEntityLoaderImpl(
@@ -438,7 +439,7 @@ export const Loader = StaticTypeCompanion({
     load: (
       ref: Ref<E>,
       page: PageRequest,
-      ctx: InferContext<TContext>,
+      env: LoaderEnv<TContext>,
     ) => Promise<Page<EntityInput<TTarget>>>;
   }): CollectionLoader<E, TTarget, TContext> {
     return new CollectionLoaderImpl(

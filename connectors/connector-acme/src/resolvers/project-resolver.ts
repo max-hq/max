@@ -9,8 +9,9 @@ import {
   Page,
   type LoaderName,
 } from "@max/core";
-import {AcmeWorkspace, AcmeUser, AcmeProject, AcmeTask} from "../entities.js";
+import { AcmeUser, AcmeProject, AcmeTask } from "../entities.js";
 import { AcmeAppContext } from "../context.js";
+import { GetProject, ListTasks } from "../operations.js";
 
 // ============================================================================
 // Loaders
@@ -21,13 +22,13 @@ export const ProjectBasicLoader = Loader.entity({
   context: AcmeAppContext,
   entity: AcmeProject,
 
-  async load(ref, ctx) {
-    const ws = await ctx.api.client.getProject(ref.id);
+  async load(ref, env) {
+    const project = await env.ops.execute(GetProject, { id: ref.id });
     return EntityInput.create(ref, {
-      description: ws.description || undefined,
-      name: ws.name,
-      owner: AcmeUser.ref(ws.ownerId),
-      status: ws.status,
+      description: project.description || undefined,
+      name: project.name,
+      owner: AcmeUser.ref(project.ownerId),
+      status: project.status,
     });
   },
 });
@@ -38,8 +39,8 @@ export const ProjectTasksLoader = Loader.collection({
   entity: AcmeProject,
   target: AcmeTask,
 
-  async load(ref, page, ctx) {
-    const tasks = await ctx.api.client.listTasks(ref.id);
+  async load(ref, page, env) {
+    const tasks = await env.ops.execute(ListTasks, { projectId: ref.id });
     const items = tasks.map((t) =>
       EntityInput.create(AcmeTask.ref(t.id), {
         status: t.status,

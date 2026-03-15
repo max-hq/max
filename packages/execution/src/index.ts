@@ -53,5 +53,15 @@ export type { SyncExecutorConfig } from "./sync-executor.js";
 // SyncObserver
 export type { SyncObserver, SyncProgressEvent } from "./sync-observer.js";
 
+// Operation dispatcher
+export { DefaultOperationDispatcher } from "./operation-dispatcher.js";
+export type { OperationDispatcher, OperationMiddleware } from "./operation-dispatcher.js";
+export { countingMiddleware } from "./middleware/counting-middleware.js";
+export type { OperationCounts } from "./middleware/counting-middleware.js";
+export { DispatchingOperationExecutor } from './dispatching-operation-executor.js'
+
+// StandardLoaderEnv
+export {StandardLoaderEnv} from "./standard-loader-env.js";
+
 // Errors
 export { Execution, ErrUnknownEntityType, ErrNoResolver, ErrNoCollectionLoader, ErrTaskNotFound, ErrUnknownTargetKind } from "./errors.js";

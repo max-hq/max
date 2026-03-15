@@ -69,6 +69,7 @@ import {
 import { Database } from 'bun:sqlite'
 import {
   type Engine,
+  Env,
   ErrConfigNotSupported,
   InstallationId,
   NoOpFlowController,
@@ -86,7 +87,7 @@ import {
   InMemoryCredentialProvider,
   InMemoryCredentialStore,
 } from '@max/connector'
-import { SyncExecutor, type TaskStore, DefaultOperationDispatcher } from '@max/execution'
+import { SyncExecutor, type TaskStore, DefaultOperationDispatcher, DispatchingOperationExecutor } from '@max/execution'
 import { DefaultTaskRunner, ExecutionRegistryImpl } from '@max/execution-local'
 import * as fs from 'node:fs'
 import path from 'node:path'
@@ -346,14 +347,16 @@ function createInstallationBootstrap(
     // Build operation dispatcher with standard middleware
     const { dispatcher } = DefaultOperationDispatcher.withDefaults()
 
+    const ctx = installation.context
+    const loaderEnv = Env.loader({ ctx, ops: new DispatchingOperationExecutor(dispatcher, Env.operation({ ctx })) })
+
     const registry = new ExecutionRegistryImpl(connector.def.resolvers)
     const taskRunner = new DefaultTaskRunner({
       engine: deps.engine,
       syncMeta: deps.syncMeta,
       registry,
       flowController: new NoOpFlowController(),
-      contextProvider: async () => installation.context,
-      dispatcher,
+      env: loaderEnv,
     })
     const syncExecutor = new SyncExecutor({ taskRunner, taskStore: deps.taskStore })
 

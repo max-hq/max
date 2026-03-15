@@ -8,7 +8,7 @@
  * Usage: bun run examples/src/benchmark-write-throughput.ts
  */
 
-import { Context, Env, NoOpFlowController } from "@max/core";
+import { BasicLoaderEnv, Context, Env, NoOpFlowController } from "@max/core";
 import { SqliteEngine } from "@max/storage-sqlite";
 import {
   SqliteExecutionSchema,
@@ -60,25 +60,22 @@ async function runSync(label: string, api: AcmeTestClient, dbPath: string, works
   // so { client: api } satisfies AcmeClientProvider
   const clientProvider = { client: api };
 
+  const ctx = Context.build(AcmeAppContext, {
+    api: clientProvider,
+    workspaceId,
+  });
+
   const registry = new ExecutionRegistryImpl(AcmeConnector.def.resolvers);
   const taskRunner = new DefaultTaskRunner({
     engine,
     syncMeta,
     registry,
     flowController: new NoOpFlowController(),
-    contextProvider: async () =>
-      Context.build(AcmeAppContext, {
-        api: clientProvider,
-        workspaceId,
-      }),
+    env: new BasicLoaderEnv(ctx),
   });
   const executor = new SyncExecutor({ taskRunner, taskStore });
 
   // Build the sync plan (seeds root entities, returns step graph)
-  const ctx = await Context.build(AcmeAppContext, {
-    api: clientProvider,
-    workspaceId,
-  });
   const plan = await AcmeSeeder.seed(Env.seeder({ ctx, engine }));
   console.log(`  Plan: ${plan.steps.length} steps`);
 

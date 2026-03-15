@@ -9,7 +9,7 @@
 
 import {afterEach, beforeEach, describe, expect, test} from "bun:test";
 import {Database} from "bun:sqlite";
-import {Context, Env, NoOpFlowController, Query} from "@max/core";
+import {BasicLoaderEnv, Context, Env, NoOpFlowController, Query} from "@max/core";
 import {SqliteEngine, SqliteSchema} from "@max/storage-sqlite";
 import AcmeConnector, {AcmeAppContext, AcmeProject, AcmeSchema, AcmeSeeder, AcmeWorkspace,} from "@max/connector-acme";
 import {AcmeTestClient} from "@max/acme";
@@ -44,11 +44,10 @@ describe("forAll loadCollection pagination", () => {
   });
 
   test("forAll().loadCollection() loads collections for entities on ALL pages", async () => {
-    const contextProvider = async () =>
-      Context.build(AcmeAppContext, {
-        api: { client: testClient },
-        workspaceId: "any",
-      });
+    const ctx = Context.build(AcmeAppContext, {
+      api: { client: testClient },
+      workspaceId: "any",
+    });
 
     const registry = new ExecutionRegistryImpl(AcmeConnector.def.resolvers);
     const taskRunner = new DefaultTaskRunner({
@@ -56,7 +55,7 @@ describe("forAll loadCollection pagination", () => {
       syncMeta: new InMemorySyncMeta(),
       registry,
       flowController: new NoOpFlowController(),
-      contextProvider,
+      env: new BasicLoaderEnv(ctx),
       // refPageSize=2 means 3 workspaces span 2 pages
       tuning: { refPageSize: 2 },
     });
@@ -65,7 +64,6 @@ describe("forAll loadCollection pagination", () => {
       taskStore: new InMemoryTaskStore(),
     });
 
-    const ctx = await contextProvider();
     const plan = await AcmeSeeder.seed(Env.seeder({ ctx, engine }));
     const handle = await executor.execute(plan);
     const result = await handle.completion();

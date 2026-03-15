@@ -13,11 +13,12 @@ import {
   type ConnectorVersionIdentifier,
   type Engine,
   type SyncMeta,
+  Env,
   NoOpFlowController,
 } from '@max/core'
 import type { ConnectorModuleAny, ConnectorPlatform, CredentialProvider, CredentialStore } from '@max/connector'
 import { InMemoryCredentialProvider } from '@max/connector'
-import { SyncExecutor, type TaskStore, DefaultOperationDispatcher } from '@max/execution'
+import { SyncExecutor, type TaskStore, DefaultOperationDispatcher, DispatchingOperationExecutor } from '@max/execution'
 import { DefaultTaskRunner, ExecutionRegistryImpl } from '@max/execution-local'
 import { InstallationMax } from '../installation-max.js'
 
@@ -73,13 +74,15 @@ export function bootstrapInstallation(deps: ResolvedInstallationDeps): Installat
 
   const registry = new ExecutionRegistryImpl(deps.connector.def.resolvers)
 
+  const ctx = installation.context
+  const loaderEnv = Env.loader({ ctx, ops: new DispatchingOperationExecutor(dispatcher, Env.operation({ ctx })) })
+
   const taskRunner = new DefaultTaskRunner({
     engine: deps.engine,
     syncMeta: deps.syncMeta,
     registry,
     flowController: new NoOpFlowController(),
-    contextProvider: async () => installation.context,
-    dispatcher,
+    env: loaderEnv,
   })
 
   const syncExecutor = new SyncExecutor({ taskRunner, taskStore: deps.taskStore })

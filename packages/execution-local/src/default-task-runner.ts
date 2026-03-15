@@ -5,7 +5,6 @@
  */
 
 import {
-  ContextValuesAny,
   Engine,
   EntityDefAny,
   EntityInputAny,
@@ -18,15 +17,8 @@ import {
   RefKey,
   DerivedEntityLoaderAny,
   SyncMeta,
-  LazyX,
-  Env,
 } from '@max/core'
 import { LoaderEnv, PageRequest, Projection, Ref } from '@max/core'
-import {
-  DefaultOperationDispatcher,
-  type OperationDispatcher,
-  StandardLoaderEnv,
-} from '@max/execution'
 
 import type {
   ExecutionRegistry,
@@ -68,8 +60,7 @@ export interface DefaultTaskRunnerConfig {
   syncMeta: SyncMeta
   registry: ExecutionRegistry
   flowController: FlowController
-  contextProvider: () => Promise<ContextValuesAny>
-  dispatcher?: OperationDispatcher
+  env: LoaderEnv
   /**
    * Execution tuning parameters. Static at construction time for now.
    * Future: make dynamic so an adaptive controller can adjust at runtime.
@@ -86,8 +77,7 @@ export class DefaultTaskRunner implements TaskRunner {
   private syncMeta: SyncMeta
   private registry: ExecutionRegistry
   private flowController: FlowController
-  private contextProvider: () => Promise<ContextValuesAny>
-  private dispatcher: OperationDispatcher
+  private env: LoaderEnv
   private tuning: ExecutionTuning
 
   constructor(config: DefaultTaskRunnerConfig) {
@@ -95,15 +85,9 @@ export class DefaultTaskRunner implements TaskRunner {
     this.syncMeta = config.syncMeta
     this.registry = config.registry
     this.flowController = config.flowController
-    this.contextProvider = config.contextProvider
-    this.dispatcher = config.dispatcher ?? new DefaultOperationDispatcher()
+    this.env = config.env
     this.tuning = { ...DEFAULT_TUNING, ...config.tuning }
   }
-
-  private builtEnv = LazyX.once(async (): Promise<LoaderEnv> => {
-    const ctx = await this.contextProvider()
-    return new StandardLoaderEnv(ctx, this.dispatcher)
-  })
 
 
   async execute(task: { readonly payload: TaskPayload }): Promise<TaskRunResult> {
@@ -289,7 +273,7 @@ export class DefaultTaskRunner implements TaskRunner {
       loaderFields.set(loader, existing)
     }
 
-    const env = await this.builtEnv.get
+    const env = this.env
 
     for (const [loader, fieldNames] of loaderFields) {
       const token = await this.flowController.acquire(getOperationForLoaderName(loader.name))
@@ -396,7 +380,7 @@ export class DefaultTaskRunner implements TaskRunner {
 
     const collectionLoader = loader
     const ref = Ref.fromKey(entityDef, refKey)
-    const env = await this.builtEnv.get
+    const env = this.env
     const token = await this.flowController.acquire(getOperationForLoaderName(loader.name))
 
     try {
@@ -466,7 +450,7 @@ export class DefaultTaskRunner implements TaskRunner {
     }
 
     const ref = Ref.fromKey(entityDef, refKey)
-    const env = await this.builtEnv.get
+    const env = this.env
     const token = await this.flowController.acquire(getOperationForLoaderName(derivation.name))
 
     try {

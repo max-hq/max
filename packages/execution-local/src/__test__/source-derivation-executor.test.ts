@@ -8,6 +8,7 @@
 import { describe, test, expect, beforeEach } from "bun:test";
 import { Database } from "bun:sqlite";
 import {
+  BasicLoaderEnv,
   Context,
   EntityDef,
   EntityInput,
@@ -286,12 +287,13 @@ describe("Source + Derivation E2E", () => {
       TestIssueResolver,
       TestUserResolver,
     ]);
+    const ctx = Context.build(TestContext, { api });
     const taskRunner = new DefaultTaskRunner({
       engine,
       syncMeta,
       registry,
       flowController: new NoOpFlowController(),
-      contextProvider: async () => Context.build(TestContext, { api }),
+      env: new BasicLoaderEnv(ctx),
     });
     return new SyncExecutor({
       taskRunner,

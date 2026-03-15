@@ -7,7 +7,7 @@
 
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { Database } from "bun:sqlite";
-import { Context, Env, Fields, NoOpFlowController, Query } from "@max/core";
+import { BasicLoaderEnv, Context, Env, Fields, NoOpFlowController, Query } from "@max/core";
 import { SqliteEngine, SqliteSchema } from "@max/storage-sqlite";
 import AcmeConnector, {
   AcmeUser,
@@ -53,29 +53,28 @@ describe("SyncExecutor E2E", () => {
     testClient.dispose();
   });
 
-  function contextProvider() {
-    return async () =>
-      Context.build(AcmeAppContext, {
-        api: { client: testClient },
-        workspaceId: "any",
-      });
+  function buildCtx() {
+    return Context.build(AcmeAppContext, {
+      api: { client: testClient },
+      workspaceId: "any",
+    });
   }
 
   function createExecutor(store: InMemoryTaskStore = taskStore) {
     const registry = new ExecutionRegistryImpl(AcmeConnector.def.resolvers);
+    const env = new BasicLoaderEnv(buildCtx());
     const taskRunner = new DefaultTaskRunner({
       engine,
       syncMeta,
       registry,
       flowController: new NoOpFlowController(),
-      contextProvider: contextProvider(),
+      env,
     });
     return new SyncExecutor({ taskRunner, taskStore: store });
   }
 
   async function seedAndExecute(executor: SyncExecutor) {
-    const ctx = await contextProvider()();
-    const plan = await AcmeSeeder.seed(Env.seeder({ ctx, engine }));
+    const plan = await AcmeSeeder.seed(Env.seeder({ ctx: buildCtx(), engine }));
     return executor.execute(plan);
   }
 

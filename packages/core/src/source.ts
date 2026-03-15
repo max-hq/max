@@ -36,7 +36,7 @@ import type { EntityInput } from './entity-input.js'
 import type { Ref } from './ref.js'
 import type { PageRequest } from './pagination.js'
 import type { ContextDefAny } from './context-def.js'
-import type { LoaderEnv } from './loader-env.js'
+import type { LoaderEnv } from './env.js'
 import type { ClassOf } from './type-system-utils.js'
 import type { BaseLoader, FieldAssignment, LoaderName, LoaderStrategy } from './loader.js'
 

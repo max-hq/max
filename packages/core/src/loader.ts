@@ -25,7 +25,7 @@ import type {Ref} from "./ref.js";
 import type {Page, PageRequest} from "./pagination.js";
 import type {Batch} from "./batch.js";
 import type {ContextDefAny} from "./context-def.js";
-import type {LoaderEnv} from "./loader-env.js";
+import type {LoaderEnv} from "./env.js";
 import {ClassOf} from "./type-system-utils.js";
 import {
   PaginatedSource,

@@ -19,30 +19,35 @@
  */
 
 import { StaticTypeCompanion } from './companion.js'
-import {ClassOf} from "./type-system-utils.js";
+import { ClassOf } from './type-system-utils.js'
 
 // ============================================================================
 // Operation
 // ============================================================================
 
-export interface Operation<TName extends string = string, TInput = unknown, TOutput = unknown, TContext = unknown> {
-  readonly name: TName;
-  readonly handle: (input: TInput, ctx: TContext) => Promise<TOutput>;
+export interface Operation<
+  TName extends string = string,
+  TInput = unknown,
+  TOutput = unknown,
+  TContext = unknown,
+> {
+  readonly name: TName
+  readonly handle: (input: TInput, ctx: TContext) => Promise<TOutput>
   readonly context: ClassOf<TContext>
   /** @internal - phantom, not present at runtime */
-  readonly _input?: TInput;
+  readonly _input?: TInput
   /** @internal - phantom, not present at runtime */
-  readonly _output?: TOutput;
+  readonly _output?: TOutput
 }
 
-export type OperationAny = Operation<string, any, any, any>;
+export type OperationAny = Operation<string, any, any, any>
 
 // ============================================================================
 // Type Helpers
 // ============================================================================
 
-export type OperationInputOf<T> = T extends Operation<any, infer I, any, any> ? I : never;
-export type OperationOutputOf<T> = T extends Operation<any, any, infer O, any> ? O : never;
+export type OperationInputOf<T> = T extends Operation<any, infer I, any, any> ? I : never
+export type OperationOutputOf<T> = T extends Operation<any, any, infer O, any> ? O : never
 
 // ============================================================================
 // Operation Companion

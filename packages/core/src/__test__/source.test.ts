@@ -16,7 +16,8 @@ import { PageRequest } from "../pagination.js";
 import { Loader, LoaderName } from '../loader.js'
 import type { SourceName } from '../source.js'
 import type { EntityId } from "../core-id-types.js";
-import { LoaderEnv, BasicLoaderEnv } from '../loader-env.js'
+import type { LoaderEnv } from '../env.js'
+import { BasicLoaderEnv } from '../loader-env.js'
 import {BasicOperationExecutor} from "../operation-executor.js";
 
 // ============================================================================

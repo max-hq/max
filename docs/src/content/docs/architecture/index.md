@@ -62,7 +62,7 @@ See the [Connector SDK tutorial](/connector/entities-and-schema/) for the full w
 
 ## Sync pipeline
 
-Declarative plan → task graph → drain loop.
+Declarative plan → task graph → concurrent worker pool.
 
 1. **Seeder.seed(context, engine)** → SyncPlan (pure data)
 2. **SyncPlan** - Ordered list of Steps. Each Step = target + operation
@@ -71,9 +71,11 @@ Declarative plan → task graph → drain loop.
    - `Step.concurrent([...])` for parallel groups
 3. **PlanExpander** converts steps into a task graph with dependency edges
 4. **TaskStore** persists tasks with state and dependencies
-5. **SyncExecutor** runs the drain loop: claim → execute → complete → unblock dependents
+5. **SyncExecutor** runs a pool of concurrent workers gated by a FlowController
 6. **TaskRunner** dispatches to the correct Loader, calls engine.store()
 7. **SyncHandle** returned immediately - exposes status, pause/resume/cancel, completion()
+
+Concurrency is controlled at two layers: the executor-level FlowController limits how many tasks run in parallel, and operation-level Limits (enforced via middleware) control per-API concurrency.
 
 See [Synchronisation Layer](/architecture/sync-layer/) for the full walkthrough.
 
@@ -177,6 +179,8 @@ Interfaces are defined in core/execution/federation. Implementations are pluggab
 | Engine | SqliteEngine | @max/storage-sqlite |
 | TaskStore | SqliteTaskStore / InMemoryTaskStore | @max/execution-sqlite / @max/execution-local |
 | SyncMeta | SqliteSyncMeta / InMemorySyncMeta | @max/execution-sqlite / @max/execution-local |
+| FlowControllerProvider | LocalFlowControllerProvider | @max/execution |
+| FlowController | SemaphoreFlowController / NoOpFlowController | @max/execution / @max/core |
 | CredentialStore | FsCredentialStore | @max/platform-bun |
 | ConnectorRegistry | NaiveBunConnectorRegistry | @max/platform-bun |
 | WorkspaceRegistry | FsWorkspaceRegistry | @max/platform-bun |

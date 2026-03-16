@@ -100,7 +100,31 @@ const AcmeDef = ConnectorDef.create({
 
 You'll see the full `ConnectorDef` assembly in [Wiring and Packaging](/connector/wiring-and-packaging/).
 
-For the middleware pipeline, flow control, and how operations are dispatched at the framework level, see [Operations and Middleware](/reference/operations/).
+## Limits
+
+Operations can declare a concurrency limit to prevent overwhelming external APIs:
+
+```typescript
+import { Limit } from "@max/core";
+
+const AcmeApi = Limit.concurrent("acme:api", 50);
+
+export const GetUser = Operation.define({
+  name: "acme:user:get",
+  limit: AcmeApi,
+  async handle(input: { id: string }, ctx: Ctx) {
+    return ctx.api.client.getUser(input.id);
+  },
+});
+```
+
+Operations sharing the same `Limit` instance share a concurrency gate. In this example, all operations using `AcmeApi` collectively cannot exceed 50 concurrent executions. This is useful when an API has a global rate limit across all endpoints.
+
+Name limits after the resource they protect: `acme:api`, `gmail:batch`, `linear:graphql`.
+
+Operations without a `limit` are unrestricted - they execute immediately.
+
+For how limits are enforced at the framework level, see [Operations and Middleware](/reference/operations/#flow-control-and-limits).
 
 ## What you have so far
 

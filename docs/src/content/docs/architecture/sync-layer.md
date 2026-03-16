@@ -286,7 +286,12 @@ stateDiagram-v2
 
 ### Dynamic Children
 
-Some tasks spawn child tasks at runtime. When a `forAll` step processes a collection, it creates one `load-collection` child per entity. The parent moves to `awaiting_children` and completes when all children finish.
+Tasks spawn child tasks at runtime. Both `loadCollection` and `loadFields` steps produce children:
+
+- **`forAll.loadCollection`** creates one `load-collection` child per entity
+- **`forAll.loadFields`** pages through refs and creates batched `load-fields` children (default: 25 refs per batch)
+
+The parent moves to `awaiting_children` and completes when all children finish. Because children are independent tasks, the worker pool executes them concurrently.
 
 ```mermaid
 flowchart TD
@@ -319,28 +324,43 @@ flowchart TD
     LC1 -->|hasMore| LC2 -->|hasMore| LC3
 ```
 
-### The Drain Loop
+### The Worker Pool
 
-The executor runs a single loop that claims and processes tasks one at a time:
+The executor runs a pool of 64 concurrent workers. Each worker independently claims tasks and executes them. A `FlowController` at the executor level gates how many tasks actually run in parallel (default: 50 concurrent tasks via a semaphore).
 
 ```mermaid
 flowchart TD
-    START([Start]) --> CLAIM[Claim next pending task]
-    CLAIM -->|got task| EXEC[Execute task]
-    CLAIM -->|none available| CHECK{Any pending\nor running\ntasks?}
-    CHECK -->|yes| WAIT[Sleep 10ms] --> CLAIM
-    CHECK -->|no| DONE([Sync complete])
-    EXEC -->|spawned children| AC[Set task to\nawaiting_children]
-    EXEC -->|no children| COMPLETE[Complete task]
-    EXEC -->|threw| FAIL[Fail task]
+    START([Start]) --> SPAWN["Spawn 64 workers"]
+    SPAWN --> CLAIM["Worker: claim next\npending task"]
+    CLAIM -->|got task| FC["Acquire FlowController slot"]
+    FC --> EXEC[Execute task]
+    CLAIM -->|none available| CHECK{Any active\ntasks?}
+    CHECK -->|yes| WAIT["Signal.wait()"] --> CLAIM
+    CHECK -->|no| DONE([Worker exits])
+    EXEC -->|spawned children| AC["Set task to\nawaiting_children\n+ notifyAll()"]
+    EXEC -->|no children| COMPLETE["Complete task\n+ notifyAll()"]
+    EXEC -->|threw| FAIL["Fail task\n+ notifyAll()"]
     AC --> CLAIM
     COMPLETE --> UNBLOCK[Unblock dependents\n+ check parent] --> CLAIM
     FAIL --> CLAIM
 ```
 
+Workers coordinate through a `Signal` primitive rather than polling. When no tasks are available, a worker calls `Signal.wait()` and blocks at zero CPU cost. When a task completes, spawns children, or fails, it calls `Signal.notifyAll()` to wake all idle workers immediately.
+
 When a task completes:
 1. Tasks blocked by it (`blockedBy`) move from `new` to `pending`
-2. If all siblings of a parent are complete, the parent completes too (recursively)
+2. If all siblings of a parent are complete, the parent completes too (walking up the parent chain iteratively)
+
+### Two layers of flow control
+
+Task execution is gated at two levels:
+
+| Layer | What it limits | Default |
+|-------|---------------|---------|
+| **Executor-level FlowController** | How many tasks run concurrently | 50 (semaphore) |
+| **Operation-level Limit** | How many API calls for a given limit run concurrently | Per-connector (e.g., 50 for `acme:api`) |
+
+The executor-level controller prevents overwhelming the system with too many concurrent tasks. The operation-level controller (enforced via [middleware](/reference/operations/#middleware)) prevents overwhelming external APIs. Both are `FlowController` implementations - the executor's is configured at wiring time, the operation's is declared per-connector via `Limit.concurrent()`.
 
 ### Error Handling
 
@@ -480,15 +500,7 @@ sequenceDiagram
 
 - **Error recovery / resume** - When a sync has failures, stranded tasks remain in honest states. A resume mechanism could retry failed tasks and naturally unblock the rest. The state model supports this; the trigger mechanism doesn't exist yet.
 
-### Current inefficiencies
-
-- **Loaders run inline, not as tasks** - A `sync-step` task resolves its loaders and calls them directly. This means there's no opportunity for the system to deduplicate or batch across steps. If step 3 discovers users u1, u2, u3 and step 4 also needs u1, u2, u3, they're loaded independently.
-
-  If loader calls were scheduled as tasks, two things become possible:
-  1. **Deduplication** - multiple tasks wanting the same entity could coalesce into one load
-  2. **Cross-step batching** - a batched loader could collect refs from many sources into a single API call
-
-- **Single-threaded drain loop** - The executor claims one task at a time. For I/O-bound loaders, concurrent task execution would improve throughput significantly. The `FlowController` already exists for rate limiting and would pair naturally with concurrency.
+- **Cross-step deduplication** - If step 3 discovers users u1, u2, u3 and step 4 also needs them, they're loaded independently. Deduplication across steps would coalesce these into a single load.
 
 ---
 
@@ -504,7 +516,9 @@ sequenceDiagram
 | **SyncPlan** | Ordered list of steps to execute |
 | **Step** | Target (which entities) + operation (what to load) |
 | **Task** | Serialisable unit of work in the execution layer |
-| **SyncExecutor** | Orchestrates the drain loop |
+| **SyncExecutor** | Orchestrates the worker pool and task lifecycle |
 | **TaskRunner** | Executes a single task (calls loaders, stores results) |
+| **FlowController** | Gates concurrency (at executor and operation levels) |
+| **Signal** | Wait/notify primitive for worker coordination |
 | **TaskStore** | Persists task state (supports restart/resume) |
 | **SyncHandle** | Control and monitor a running sync |

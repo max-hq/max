@@ -7,7 +7,7 @@
 
 import { describe, test, expect, beforeEach } from "bun:test";
 import { Database } from "bun:sqlite";
-import { BasicLoaderEnv, Context, Env, Fields, NoOpFlowController, Query } from "@max/core";
+import { BasicLoaderEnv, Context, Env, Fields, Query } from "@max/core";
 import { SqliteEngine, SqliteSchema } from "@max/storage-sqlite";
 import AcmeConnector, {
   AcmeRoot,
@@ -125,7 +125,6 @@ describe("SqliteExecution E2E", () => {
       engine,
       syncMeta: meta,
       registry,
-      flowController: new NoOpFlowController(),
       env: new BasicLoaderEnv(buildCtx(api)),
     });
     return new SyncExecutor({ taskRunner, taskStore: store });

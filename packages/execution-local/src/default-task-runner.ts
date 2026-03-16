@@ -9,10 +9,7 @@ import {
   EntityDefAny,
   EntityInputAny,
   EntityType,
-  FlowController,
   LoaderAny,
-  LoaderName,
-  OperationKind,
   RefAny,
   RefKey,
   DerivedEntityLoaderAny,
@@ -44,11 +41,14 @@ export interface ExecutionTuning {
   refPageSize: number
   /** Page size hint for connector collection loads. */
   connectorPageSize: number
+  /** Refs per child task in forAll.loadFields batching. */
+  loadFieldsBatchSize: number
 }
 
 const DEFAULT_TUNING: ExecutionTuning = {
   refPageSize: 500,
   connectorPageSize: 100,
+  loadFieldsBatchSize: 25,
 }
 
 // ============================================================================
@@ -59,7 +59,6 @@ export interface DefaultTaskRunnerConfig {
   engine: Engine
   syncMeta: SyncMeta
   registry: ExecutionRegistry
-  flowController: FlowController
   env: LoaderEnv
   /**
    * Execution tuning parameters. Static at construction time for now.
@@ -76,7 +75,6 @@ export class DefaultTaskRunner implements TaskRunner {
   private engine: Engine
   private syncMeta: SyncMeta
   private registry: ExecutionRegistry
-  private flowController: FlowController
   private env: LoaderEnv
   private tuning: ExecutionTuning
 
@@ -84,7 +82,6 @@ export class DefaultTaskRunner implements TaskRunner {
     this.engine = config.engine
     this.syncMeta = config.syncMeta
     this.registry = config.registry
-    this.flowController = config.flowController
     this.env = config.env
     this.tuning = { ...DEFAULT_TUNING, ...config.tuning }
   }
@@ -140,7 +137,11 @@ export class DefaultTaskRunner implements TaskRunner {
   // ============================================================================
 
   /**
-   * ForAll loadFields: query a page of refs, run loaders, spawn continuation.
+   * ForAll loadFields: query a page of refs, spawn batched child tasks.
+   *
+   * Instead of processing refs inline, we chunk them into batches and spawn
+   * one load-fields child task per batch. The framework's concurrent drain
+   * loop + FlowController handle parallelism.
    */
   private async executeForAllLoadFields(
     entityDef: EntityDefAny,
@@ -155,32 +156,36 @@ export class DefaultTaskRunner implements TaskRunner {
     )
     if (page.items.length === 0) return {}
 
-    // Process this page inline (preserves batching for batched loaders)
-    await this.processLoadFieldsForRefs(entityDef, target, operation.fields!, page.items)
+    const children: TaskChildTemplate[] = []
 
-    const progress: TaskProgress = {
-      entityType: target.entityType,
-      operation: 'load-fields',
-      count: page.items.length,
+    // Chunk refs into batches, one load-fields child task per batch
+    const batchSize = this.tuning.loadFieldsBatchSize
+    for (let i = 0; i < page.items.length; i += batchSize) {
+      const batch = page.items.slice(i, i + batchSize)
+      children.push({
+        state: 'pending',
+        payload: {
+          kind: 'load-fields',
+          entityType: target.entityType,
+          refKeys: batch.map(ref => ref.toKey()),
+          fields: operation.fields!,
+        },
+      })
     }
 
+    // Continuation for next page of refs
     if (page.hasMore) {
-      return {
-        progress,
-        children: [
-          {
-            state: 'pending',
-            payload: {
-              kind: 'sync-step',
-              target: { ...target, cursor: page.cursor },
-              operation,
-            },
-          },
-        ],
-      }
+      children.push({
+        state: 'pending',
+        payload: {
+          kind: 'sync-step',
+          target: { ...target, cursor: page.cursor },
+          operation,
+        },
+      })
     }
 
-    return { progress }
+    return { children }
   }
 
   /**
@@ -276,56 +281,51 @@ export class DefaultTaskRunner implements TaskRunner {
     const env = this.env
 
     for (const [loader, fieldNames] of loaderFields) {
-      const token = await this.flowController.acquire(getOperationForLoaderName(loader.name))
-      try {
-        if (loader.kind === 'entityBatched') {
-          const batch = await loader.load(refs, env)
-          const inputs: EntityInputAny[] = []
-          const syncEntries: { ref: RefAny; field: string; timestamp: Date }[] = []
-          const now = new Date()
-          for (const ref of refs) {
-            const input = batch.get(ref)
-            if (input) {
-              inputs.push(input)
-              for (const f of fieldNames) {
-                syncEntries.push({ ref, field: f, timestamp: now })
-              }
-            }
-          }
-          await this.flushBatch(inputs, syncEntries)
-        } else if (loader.kind === 'entity') {
-          const inputs: EntityInputAny[] = []
-          const syncEntries: { ref: RefAny; field: string; timestamp: Date }[] = []
-          const now = new Date()
-          for (const ref of refs) {
-            const input = await loader.load(ref, env)
+      if (loader.kind === 'entityBatched') {
+        const batch = await loader.load(refs, env)
+        const inputs: EntityInputAny[] = []
+        const syncEntries: { ref: RefAny; field: string; timestamp: Date }[] = []
+        const now = new Date()
+        for (const ref of refs) {
+          const input = batch.get(ref)
+          if (input) {
             inputs.push(input)
             for (const f of fieldNames) {
               syncEntries.push({ ref, field: f, timestamp: now })
             }
           }
-          await this.flushBatch(inputs, syncEntries)
-        } else if (loader.kind === 'derivation' && loader.source.kind === 'single') {
-          const coDerivations = this.registry.getCoDerivations(loader)
-          for (const ref of refs) {
-            const data = await loader.source.fetch(ref, env)
-            const inputs: EntityInputAny[] = []
-            const syncEntries: { ref: RefAny; field: string; timestamp: Date }[] = []
-            const now = new Date()
-            for (const d of coDerivations) {
-              const items = d.extract(data)
-              for (const input of items) {
-                inputs.push(input)
-                for (const f of Object.keys(input.fields ?? {})) {
-                  syncEntries.push({ ref: input.ref, field: f, timestamp: now })
-                }
-              }
-            }
-            await this.flushBatch(inputs, syncEntries)
+        }
+        await this.flushBatch(inputs, syncEntries)
+      } else if (loader.kind === 'entity') {
+        const inputs: EntityInputAny[] = []
+        const syncEntries: { ref: RefAny; field: string; timestamp: Date }[] = []
+        const now = new Date()
+        for (const ref of refs) {
+          const input = await loader.load(ref, env)
+          inputs.push(input)
+          for (const f of fieldNames) {
+            syncEntries.push({ ref, field: f, timestamp: now })
           }
         }
-      } finally {
-        this.flowController.release(token)
+        await this.flushBatch(inputs, syncEntries)
+      } else if (loader.kind === 'derivation' && loader.source.kind === 'single') {
+        const coDerivations = this.registry.getCoDerivations(loader)
+        for (const ref of refs) {
+          const data = await loader.source.fetch(ref, env)
+          const inputs: EntityInputAny[] = []
+          const syncEntries: { ref: RefAny; field: string; timestamp: Date }[] = []
+          const now = new Date()
+          for (const d of coDerivations) {
+            const items = d.extract(data)
+            for (const input of items) {
+              inputs.push(input)
+              for (const f of Object.keys(input.fields ?? {})) {
+                syncEntries.push({ ref: input.ref, field: f, timestamp: now })
+              }
+            }
+          }
+          await this.flushBatch(inputs, syncEntries)
+        }
       }
     }
   }
@@ -381,56 +381,51 @@ export class DefaultTaskRunner implements TaskRunner {
     const collectionLoader = loader
     const ref = Ref.fromKey(entityDef, refKey)
     const env = this.env
-    const token = await this.flowController.acquire(getOperationForLoaderName(loader.name))
 
-    try {
-      const page = await collectionLoader.load(
-        ref,
-        PageRequest.create({ cursor, limit: this.tuning.connectorPageSize }),
-        env,
-      )
+    const page = await collectionLoader.load(
+      ref,
+      PageRequest.create({ cursor, limit: this.tuning.connectorPageSize }),
+      env,
+    )
 
-      const inputs: EntityInputAny[] = []
-      const syncEntries: { ref: RefAny; field: string; timestamp: Date }[] = []
-      const now = new Date()
-      for (const input of page.items) {
-        inputs.push(input)
-        for (const f of Object.keys(input.fields ?? {})) {
-          syncEntries.push({ ref: input.ref, field: f, timestamp: now })
-        }
+    const inputs: EntityInputAny[] = []
+    const syncEntries: { ref: RefAny; field: string; timestamp: Date }[] = []
+    const now = new Date()
+    for (const input of page.items) {
+      inputs.push(input)
+      for (const f of Object.keys(input.fields ?? {})) {
+        syncEntries.push({ ref: input.ref, field: f, timestamp: now })
       }
-      await this.flushBatch(inputs, syncEntries)
-
-      const targetEntityType = collectionLoader.target.name
-      const progress: TaskProgress = {
-        entityType: targetEntityType,
-        operation: 'load-collection',
-        count: page.items.length,
-      }
-
-      if (page.hasMore && page.cursor) {
-        return {
-          progress,
-          children: [
-            {
-              state: 'pending',
-              payload: {
-                kind: 'load-collection',
-                entityType: entityDef.name,
-                targetEntityType,
-                refKey,
-                field,
-                cursor: page.cursor,
-              },
-            },
-          ],
-        }
-      }
-
-      return { progress }
-    } finally {
-      this.flowController.release(token)
     }
+    await this.flushBatch(inputs, syncEntries)
+
+    const targetEntityType = collectionLoader.target.name
+    const progress: TaskProgress = {
+      entityType: targetEntityType,
+      operation: 'load-collection',
+      count: page.items.length,
+    }
+
+    if (page.hasMore && page.cursor) {
+      return {
+        progress,
+        children: [
+          {
+            state: 'pending',
+            payload: {
+              kind: 'load-collection',
+              entityType: entityDef.name,
+              targetEntityType,
+              refKey,
+              field,
+              cursor: page.cursor,
+            },
+          },
+        ],
+      }
+    }
+
+    return { progress }
   }
 
   /**
@@ -451,66 +446,61 @@ export class DefaultTaskRunner implements TaskRunner {
 
     const ref = Ref.fromKey(entityDef, refKey)
     const env = this.env
-    const token = await this.flowController.acquire(getOperationForLoaderName(derivation.name))
 
-    try {
-      const sourcePage = await source.fetch(
-        ref,
-        PageRequest.create({ cursor, limit: this.tuning.connectorPageSize }),
-        env,
-      )
+    const sourcePage = await source.fetch(
+      ref,
+      PageRequest.create({ cursor, limit: this.tuning.connectorPageSize }),
+      env,
+    )
 
-      let triggerCount = 0
+    let triggerCount = 0
 
-      // Run ALL co-derivations from this source - one fetch, multiple entity types
-      const coDerivations = this.registry.getCoDerivations(derivation)
-      const inputs: EntityInputAny[] = []
-      const syncEntries: { ref: RefAny; field: string; timestamp: Date }[] = []
-      const now = new Date()
-      for (const d of coDerivations) {
-        const items = d.extract(sourcePage.data)
-        for (const input of items) {
-          inputs.push(input)
-          for (const f of Object.keys(input.fields ?? {})) {
-            syncEntries.push({ ref: input.ref, field: f, timestamp: now })
-          }
-        }
-        if (d === derivation) {
-          triggerCount = items.length
+    // Run ALL co-derivations from this source - one fetch, multiple entity types
+    const coDerivations = this.registry.getCoDerivations(derivation)
+    const inputs: EntityInputAny[] = []
+    const syncEntries: { ref: RefAny; field: string; timestamp: Date }[] = []
+    const now = new Date()
+    for (const d of coDerivations) {
+      const items = d.extract(sourcePage.data)
+      for (const input of items) {
+        inputs.push(input)
+        for (const f of Object.keys(input.fields ?? {})) {
+          syncEntries.push({ ref: input.ref, field: f, timestamp: now })
         }
       }
-      await this.flushBatch(inputs, syncEntries)
-
-      const targetEntityType = derivation.target.name
-      const progress: TaskProgress = {
-        entityType: targetEntityType,
-        operation: 'load-collection',
-        count: triggerCount,
+      if (d === derivation) {
+        triggerCount = items.length
       }
-
-      if (sourcePage.hasMore && sourcePage.cursor) {
-        return {
-          progress,
-          children: [
-            {
-              state: 'pending',
-              payload: {
-                kind: 'load-collection',
-                entityType: entityDef.name,
-                targetEntityType,
-                refKey,
-                field,
-                cursor: sourcePage.cursor,
-              },
-            },
-          ],
-        }
-      }
-
-      return { progress }
-    } finally {
-      this.flowController.release(token)
     }
+    await this.flushBatch(inputs, syncEntries)
+
+    const targetEntityType = derivation.target.name
+    const progress: TaskProgress = {
+      entityType: targetEntityType,
+      operation: 'load-collection',
+      count: triggerCount,
+    }
+
+    if (sourcePage.hasMore && sourcePage.cursor) {
+      return {
+        progress,
+        children: [
+          {
+            state: 'pending',
+            payload: {
+              kind: 'load-collection',
+              entityType: entityDef.name,
+              targetEntityType,
+              refKey,
+              field,
+              cursor: sourcePage.cursor,
+            },
+          },
+        ],
+      }
+    }
+
+    return { progress }
   }
 
   /**
@@ -541,15 +531,4 @@ export class DefaultTaskRunner implements TaskRunner {
     await this.syncMeta.recordFieldSyncBatch(syncEntries)
   }
 
-}
-
-/**
- * Maps a loader name to an OperationKind for flow control.
- *
- * Temporary shim: loaders predate the operations framework and don't have
- * an Operation.name yet. Once loaders dispatch through operations, this
- * goes away and the operation's own name is used directly.
- */
-function getOperationForLoaderName(loaderName: LoaderName): OperationKind {
-  return loaderName as OperationKind
 }

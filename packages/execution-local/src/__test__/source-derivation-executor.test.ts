@@ -15,7 +15,6 @@ import {
   Env,
   Field,
   Fields,
-  NoOpFlowController,
   Page,
   PageRequest,
   Query,
@@ -292,7 +291,6 @@ describe("Source + Derivation E2E", () => {
       engine,
       syncMeta,
       registry,
-      flowController: new NoOpFlowController(),
       env: new BasicLoaderEnv(ctx),
     });
     return new SyncExecutor({

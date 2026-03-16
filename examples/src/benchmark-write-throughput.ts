@@ -8,7 +8,7 @@
  * Usage: bun run examples/src/benchmark-write-throughput.ts
  */
 
-import { BasicLoaderEnv, Context, Env, NoOpFlowController } from "@max/core";
+import { BasicLoaderEnv, Context, Env } from "@max/core";
 import { SqliteEngine } from "@max/storage-sqlite";
 import {
   SqliteExecutionSchema,
@@ -70,7 +70,6 @@ async function runSync(label: string, api: AcmeTestClient, dbPath: string, works
     engine,
     syncMeta,
     registry,
-    flowController: new NoOpFlowController(),
     env: new BasicLoaderEnv(ctx),
   });
   const executor = new SyncExecutor({ taskRunner, taskStore });

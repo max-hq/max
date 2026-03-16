@@ -7,7 +7,7 @@
 
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { Database } from "bun:sqlite";
-import { BasicLoaderEnv, Context, Env, Fields, NoOpFlowController, Query } from "@max/core";
+import { BasicLoaderEnv, Context, Env, Fields, Query } from "@max/core";
 import { SqliteEngine, SqliteSchema } from "@max/storage-sqlite";
 import AcmeConnector, {
   AcmeUser,
@@ -67,7 +67,6 @@ describe("SyncExecutor E2E", () => {
       engine,
       syncMeta,
       registry,
-      flowController: new NoOpFlowController(),
       env,
     });
     return new SyncExecutor({ taskRunner, taskStore: store });

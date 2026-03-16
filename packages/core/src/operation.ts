@@ -22,6 +22,7 @@ import { StaticTypeCompanion } from './companion.js'
 import { ClassOf } from './type-system-utils.js'
 import type { OperationEnv } from './env.js'
 import type { ContextDefAny } from './context-def.js'
+import type { Limit } from './limit.js'
 
 // ============================================================================
 // Operation
@@ -36,6 +37,7 @@ export interface Operation<
   readonly name: TName
   readonly handle: (input: TInput, env: OperationEnv<TContext>) => Promise<TOutput>
   readonly context: ClassOf<TContext>
+  readonly limit?: Limit
   /** @internal - phantom, not present at runtime */
   readonly _input?: TInput
   /** @internal - phantom, not present at runtime */
@@ -59,9 +61,10 @@ export const Operation = StaticTypeCompanion({
   define<TName extends string, TInput, TOutput, TContext extends ContextDefAny>(config: {
     name: TName
     context: ClassOf<TContext>
+    limit?: Limit
     handle: (input: TInput, env: OperationEnv<TContext>) => Promise<TOutput>
   }): Operation<TName, TInput, TOutput, TContext> {
-    return { name: config.name, context: config.context, handle: config.handle } as Operation<
+    return { name: config.name, context: config.context, limit: config.limit, handle: config.handle } as Operation<
       TName,
       TInput,
       TOutput,

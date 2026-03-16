@@ -9,7 +9,7 @@
 
 import {afterEach, beforeEach, describe, expect, test} from "bun:test";
 import {Database} from "bun:sqlite";
-import {BasicLoaderEnv, Context, Env, NoOpFlowController, Query} from "@max/core";
+import {BasicLoaderEnv, Context, Env, Query} from "@max/core";
 import {SqliteEngine, SqliteSchema} from "@max/storage-sqlite";
 import AcmeConnector, {AcmeAppContext, AcmeProject, AcmeSchema, AcmeSeeder, AcmeWorkspace,} from "@max/connector-acme";
 import {AcmeTestClient} from "@max/acme";
@@ -54,7 +54,6 @@ describe("forAll loadCollection pagination", () => {
       engine,
       syncMeta: new InMemorySyncMeta(),
       registry,
-      flowController: new NoOpFlowController(),
       env: new BasicLoaderEnv(ctx),
       // refPageSize=2 means 3 workspaces span 2 pages
       tuning: { refPageSize: 2 },

@@ -53,10 +53,16 @@ export type { SyncExecutorConfig } from "./sync-executor.js";
 // SyncObserver
 export type { SyncObserver, SyncProgressEvent } from "./sync-observer.js";
 
+// Concurrency primitives
+export { Semaphore } from "./semaphore.js";
+export { Signal } from "./signal.js";
+export { SemaphoreFlowController } from "./semaphore-flow-controller.js";
+
 // Operation dispatcher
 export { DefaultOperationDispatcher } from "./operation-dispatcher.js";
 export type { OperationDispatcher, OperationMiddleware } from "./operation-dispatcher.js";
 export { countingMiddleware } from "./middleware/counting-middleware.js";
+export { rateLimitingMiddleware } from "./middleware/rate-limiting-middleware.js";
 export type { OperationCounts } from "./middleware/counting-middleware.js";
 export { DispatchingOperationExecutor } from './dispatching-operation-executor.js'
 

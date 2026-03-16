@@ -14,7 +14,6 @@ import {
   type Engine,
   type SyncMeta,
   Env,
-  NoOpFlowController,
 } from '@max/core'
 import type { ConnectorModuleAny, ConnectorPlatform, CredentialProvider, CredentialStore } from '@max/connector'
 import { InMemoryCredentialProvider } from '@max/connector'
@@ -81,11 +80,13 @@ export function bootstrapInstallation(deps: ResolvedInstallationDeps): Installat
     engine: deps.engine,
     syncMeta: deps.syncMeta,
     registry,
-    flowController: new NoOpFlowController(),
     env: loaderEnv,
   })
 
-  const syncExecutor = new SyncExecutor({ taskRunner, taskStore: deps.taskStore })
+  const syncExecutor = new SyncExecutor({
+    taskRunner,
+    taskStore: deps.taskStore,
+  })
 
   return new InstallationMax({
     connector: deps.connectorVersionIdentifier,

@@ -5,7 +5,7 @@
  */
 
 import { Database } from 'bun:sqlite'
-import { Context, NoOpFlowController } from '@max/core'
+import { Context } from '@max/core'
 import { SqliteEngine, SqliteSchema } from '@max/storage-sqlite'
 import { SqliteExecutionSchema, SqliteSyncMeta, SqliteTaskStore } from '@max/execution-sqlite'
 import { DefaultTaskRunner, ExecutionRegistryImpl } from '@max/execution-local'
@@ -48,7 +48,6 @@ const taskRunner = new DefaultTaskRunner({
   engine,
   syncMeta,
   registry,
-  flowController: new NoOpFlowController(),
   contextProvider: async () => Context.build(AcmeAppContext, { api: api as AcmeClient,, installationId: "acme-1" }),
 });
 const executor = new SyncExecutor({ taskRunner, taskStore });

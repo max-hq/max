@@ -10,6 +10,7 @@
 import type { OperationAny, OperationExecutor, OperationInputOf, OperationOutputOf, OperationEnv } from '@max/core'
 import { countingMiddleware } from './middleware/counting-middleware.js'
 import type { OperationCounts } from './middleware/counting-middleware.js'
+import { rateLimitingMiddleware } from './middleware/rate-limiting-middleware.js'
 
 // ============================================================================
 // Middleware
@@ -36,10 +37,14 @@ export interface OperationDispatcher {
 export class DefaultOperationDispatcher implements OperationDispatcher {
   constructor(private middleware: OperationMiddleware[] = []) {}
 
-  /** Create a dispatcher with the standard middleware stack (counting). */
+  /** Create a dispatcher with the standard middleware stack (counting + rate limiting). */
   static withDefaults(): { dispatcher: DefaultOperationDispatcher; counts: () => OperationCounts } {
     const counting = countingMiddleware()
-    return { dispatcher: new DefaultOperationDispatcher([counting.middleware]), counts: counting.counts }
+    const rateLimiting = rateLimitingMiddleware()
+    return {
+      dispatcher: new DefaultOperationDispatcher([counting.middleware, rateLimiting]),
+      counts: counting.counts,
+    }
   }
 
   dispatch(op: OperationAny, input: unknown, env: OperationEnv): Promise<unknown> {

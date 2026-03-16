@@ -71,8 +71,8 @@ import {
   type Engine,
   Env,
   ErrConfigNotSupported,
+  type FlowController,
   InstallationId,
-  NoOpFlowController,
   Printer,
   ResolverGraph,
   type ResolverFactories,
@@ -87,7 +87,7 @@ import {
   InMemoryCredentialProvider,
   InMemoryCredentialStore,
 } from '@max/connector'
-import { SyncExecutor, type TaskStore, DefaultOperationDispatcher, DispatchingOperationExecutor } from '@max/execution'
+import { SyncExecutor, type TaskStore, DefaultOperationDispatcher, DispatchingOperationExecutor, SemaphoreFlowController } from '@max/execution'
 import { DefaultTaskRunner, ExecutionRegistryImpl } from '@max/execution-local'
 import * as fs from 'node:fs'
 import path from 'node:path'
@@ -355,10 +355,12 @@ function createInstallationBootstrap(
       engine: deps.engine,
       syncMeta: deps.syncMeta,
       registry,
-      flowController: new NoOpFlowController(),
       env: loaderEnv,
     })
-    const syncExecutor = new SyncExecutor({ taskRunner, taskStore: deps.taskStore })
+    const syncExecutor = new SyncExecutor({
+      taskRunner,
+      taskStore: deps.taskStore,
+    })
 
     return new InstallationMax({
       connector: spec.connector,

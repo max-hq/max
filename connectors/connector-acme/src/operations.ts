@@ -6,10 +6,11 @@
  * API client directly.
  */
 
-import { Operation } from "@max/core";
+import { Operation, Limit } from "@max/core";
 import type { Workspace, User, Project, Task } from "@max/acme";
 import { AcmeAppContext } from "./context.js";
 
+const AcmeApi = Limit.concurrent("acme:api", 50);
 
 // ============================================================================
 // Workspace operations
@@ -18,6 +19,7 @@ import { AcmeAppContext } from "./context.js";
 export const ListWorkspaces = Operation.define({
   name: "acme:workspace:list",
   context: AcmeAppContext,
+  limit: AcmeApi,
   async handle(_input: {}, env): Promise<Workspace[]> {
     return env.ctx.api.client.listWorkspaces();
   },
@@ -26,6 +28,7 @@ export const ListWorkspaces = Operation.define({
 export const GetWorkspace = Operation.define({
   name: 'acme:workspace:get',
   context: AcmeAppContext,
+  limit: AcmeApi,
   async handle(input: { id: string }, env): Promise<Workspace> {
     return env.ctx.api.client.getWorkspace(input.id)
   },
@@ -38,6 +41,7 @@ export const GetWorkspace = Operation.define({
 export const ListUsers = Operation.define({
   name: 'acme:user:list',
   context: AcmeAppContext,
+  limit: AcmeApi,
   async handle(input: { workspaceId: string }, env): Promise<User[]> {
     return env.ctx.api.client.listUsers(input.workspaceId)
   },
@@ -46,6 +50,7 @@ export const ListUsers = Operation.define({
 export const GetUser = Operation.define({
   name: 'acme:user:get',
   context: AcmeAppContext,
+  limit: AcmeApi,
   async handle(input: { id: string }, env): Promise<User> {
     return env.ctx.api.client.getUser(input.id)
   },
@@ -58,6 +63,7 @@ export const GetUser = Operation.define({
 export const ListProjects = Operation.define({
   name: 'acme:project:list',
   context: AcmeAppContext,
+  limit: AcmeApi,
   async handle(input: { workspaceId: string }, env): Promise<Project[]> {
     return env.ctx.api.client.listProjects(input.workspaceId)
   },
@@ -66,6 +72,7 @@ export const ListProjects = Operation.define({
 export const GetProject = Operation.define({
   name: 'acme:project:get',
   context: AcmeAppContext,
+  limit: AcmeApi,
   async handle(input: { id: string }, env): Promise<Project> {
     return env.ctx.api.client.getProject(input.id)
   },
@@ -78,6 +85,7 @@ export const GetProject = Operation.define({
 export const ListTasks = Operation.define({
   name: 'acme:task:list',
   context: AcmeAppContext,
+  limit: AcmeApi,
   async handle(input: { projectId: string }, env): Promise<Task[]> {
     return env.ctx.api.client.listTasks(input.projectId)
   },

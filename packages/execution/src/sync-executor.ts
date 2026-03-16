@@ -3,19 +3,23 @@
  *
  * Dependency-driven task execution:
  *   1. Expand SyncPlan into a full task graph (all tasks registered upfront)
- *   2. Single drain loop: claim → execute → complete → unblock dependents
+ *   2. Worker pool drain loop: claim -> execute -> complete -> unblock dependents
  *   3. When a task spawns children, it moves to awaiting_children
- *   4. When all children complete, parent completes (recursively unblocking)
+ *   4. When all children complete, parent completes (iteratively unblocking)
  *   5. When no active tasks remain, sync is done
  *
- * The executor is abstract — it delegates actual task execution to a
+ * The executor is abstract - it delegates actual task execution to a
  * TaskRunner. Loader dispatch, engine.store, and syncMeta bookkeeping
  * all live in the runner, not here.
  *
- * This model survives restarts — all state is in the task store.
+ * Concurrency is controlled at two layers:
+ * - Task-level: FlowController gates how many tasks run in parallel
+ * - Operation-level: Limit on Operation, enforced by middleware (not here)
+ *
+ * This model survives restarts - all state is in the task store.
  */
 
-import { Lifecycle, LifecycleManager, SyncPlan, type EntityType } from '@max/core'
+import { type FlowController, Lifecycle, LifecycleManager, SyncPlan, type EntityType } from '@max/core'
 
 import type {Task, TaskId, TaskPayload} from "./task.js";
 import type {TaskStore} from "./task-store.js";
@@ -23,6 +27,14 @@ import type {TaskRunner, TaskRunResult} from "./task-runner.js";
 import type {SyncHandle, SyncResult, SyncStatus, SyncRegistry, SyncId} from "./sync-handle.js";
 import type {SyncObserver, SyncProgressEvent} from "./sync-observer.js";
 import {PlanExpander} from "./plan-expander.js";
+import {Signal} from "./signal.js";
+import {SemaphoreFlowController} from "./semaphore-flow-controller.js";
+
+// ============================================================================
+// Constants
+// ============================================================================
+
+const DEFAULT_TASK_CONCURRENCY = 5;
 
 // ============================================================================
 // Config
@@ -31,6 +43,12 @@ import {PlanExpander} from "./plan-expander.js";
 export interface SyncExecutorConfig {
   taskRunner: TaskRunner;
   taskStore: TaskStore;
+  /**
+   * Task-level concurrency control.
+   * - number: max concurrent tasks (default 5)
+   * - FlowController: custom strategy
+   */
+  concurrency?: number | FlowController;
 }
 
 // ============================================================================
@@ -46,6 +64,7 @@ export class SyncExecutor implements Lifecycle {
 
   private taskRunner: TaskRunner;
   private taskStore: TaskStore;
+  private flowController: FlowController;
   private expander: PlanExpander;
 
   private activeSyncs = new Map<SyncId, SyncHandleImpl>();
@@ -53,9 +72,14 @@ export class SyncExecutor implements Lifecycle {
 
   readonly syncs: SyncRegistry;
 
+  // Workers are lightweight async functions - idle workers cost nothing.
+  // The FlowController is the actual concurrency bottleneck.
+  private static WORKER_POOL_SIZE = 64;
+
   constructor(config: SyncExecutorConfig) {
     this.taskRunner = config.taskRunner;
     this.taskStore = config.taskStore;
+    this.flowController = resolveFlowController(config.concurrency);
     this.expander = new PlanExpander();
 
     this.syncs = new SyncRegistryImpl(this.activeSyncs);
@@ -87,7 +111,7 @@ export class SyncExecutor implements Lifecycle {
     // 2. Enqueue all tasks with dependency resolution
     await this.taskStore.enqueueGraph(templates);
 
-    // 3. Single drain loop
+    // 3. Concurrent drain loop
     await this.drainTasks(handle);
 
     if (!handle.isDone()) {
@@ -96,31 +120,44 @@ export class SyncExecutor implements Lifecycle {
   }
 
   private async drainTasks(handle: SyncHandleImpl): Promise<void> {
+    const workers = Array.from(
+      { length: SyncExecutor.WORKER_POOL_SIZE },
+      () => this.workerLoop(handle),
+    );
+    await Promise.all(workers);
+  }
+
+  private async workerLoop(handle: SyncHandleImpl): Promise<void> {
     while (!handle.isDone()) {
-      // Respect pause
       if (handle.isPaused()) {
-        await sleep(100);
+        await handle.workSignal.wait();
         continue;
       }
 
       const task = await this.taskStore.claim(handle.id);
       if (!task) {
         if (!await this.taskStore.hasActiveTasks(handle.id)) break;
-        await sleep(10);
+        await handle.workSignal.wait();
         continue;
       }
 
+      // FlowController gates actual execution
+      const token = await this.flowController.acquire();
       try {
         const result = await this.executeTask(task);
         const hasChildren = (result.children?.length ?? 0) > 0;
+
         if (hasChildren) {
           await this.taskStore.setAwaitingChildren(task.id);
+          handle.workSignal.notifyAll(); // Wake workers - new tasks available
         } else {
           const completed = await this.taskStore.complete(task.id);
           handle.tasksCompleted++;
           emitTaskCompleted(handle, task.payload);
-          await this.onTaskCompleted(completed);
+          await this.onTaskCompleted(completed, handle);
+          handle.workSignal.notifyAll(); // Wake workers - dependents may be unblocked
         }
+
         // Emit progress from inline work (e.g. batch field loading)
         if (result.progress) {
           handle.emit({
@@ -135,6 +172,9 @@ export class SyncExecutor implements Lifecycle {
         await this.taskStore.fail(task.id, message);
         handle.tasksFailed++;
         emitTaskFailed(handle, task.payload, message);
+        handle.workSignal.notifyAll(); // Wake workers - failed task may have been the last active
+      } finally {
+        this.flowController.release(token);
       }
     }
   }
@@ -143,22 +183,25 @@ export class SyncExecutor implements Lifecycle {
    * After a task completes:
    * 1. Unblock any tasks waiting on this one (blockedBy = this task)
    * 2. If this task has a parent, check if all siblings are done
-   *    → if so, complete the parent (recursively)
+   *    -> if so, complete the parent (iteratively up the chain)
    */
-  private async onTaskCompleted(task: Task): Promise<void> {
-    await this.taskStore.unblockDependents(task.id);
+  private async onTaskCompleted(task: Task, handle: SyncHandleImpl): Promise<void> {
+    let current: Task | undefined = task;
 
-    if (task.parentId) {
-      const allDone = await this.taskStore.allChildrenComplete(task.parentId);
-      if (allDone) {
-        const parent = await this.taskStore.complete(task.parentId);
-        await this.onTaskCompleted(parent);
-      }
+    while (current) {
+      await this.taskStore.unblockDependents(current.id);
+
+      if (!current.parentId) break;
+
+      const allDone = await this.taskStore.allChildrenComplete(current.parentId);
+      if (!allDone) break;
+
+      current = await this.taskStore.complete(current.parentId);
     }
   }
 
   // ============================================================================
-  // Task execution — delegates to TaskRunner
+  // Task execution - delegates to TaskRunner
   // ============================================================================
 
   private async executeTask(task: Task): Promise<TaskRunResult> {
@@ -183,7 +226,7 @@ export class SyncExecutor implements Lifecycle {
   // ============================================================================
 
   private nextSyncId(): SyncId {
-    return `sync-${++this.syncCounter}` as SyncId;
+    return `sync-${++this.syncCounter}`;
   }
 }
 
@@ -197,6 +240,9 @@ class SyncHandleImpl implements SyncHandle {
   private resolveCompletion!: (result: SyncResult) => void;
   private completionPromise: Promise<SyncResult>;
   private observer?: SyncObserver;
+
+  /** Signal for waking worker loops when new work is available. */
+  readonly workSignal = new Signal();
 
   tasksCompleted = 0;
   tasksFailed = 0;
@@ -220,7 +266,10 @@ class SyncHandleImpl implements SyncHandle {
   isPaused(): boolean { return this._status === "paused"; }
   async pause(): Promise<void> { this._status = "paused"; }
   async resume(): Promise<void> {
-    if (this._status === "paused") this._status = "running";
+    if (this._status === "paused") {
+      this._status = "running";
+      this.workSignal.notifyAll();
+    }
   }
   async cancel(): Promise<void> {
     this._status = "cancelled";
@@ -305,10 +354,8 @@ function emitTaskFailed(handle: SyncHandleImpl, payload: TaskPayload, error: str
   }
 }
 
-// ============================================================================
-// Helpers
-// ============================================================================
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function resolveFlowController(concurrency: number | FlowController | undefined): FlowController {
+  if (concurrency === undefined) return new SemaphoreFlowController(DEFAULT_TASK_CONCURRENCY);
+  if (typeof concurrency === 'number') return new SemaphoreFlowController(concurrency);
+  return concurrency;
 }

@@ -1,42 +1,25 @@
 /**
- * FlowController - Interface for rate-limiting operations.
+ * FlowController - Task-level concurrency gate.
  *
- * The executor checks the FlowController before running loaders.
- * If rate-limited, the task is requeued with a delay.
- *
- * Interface defined now; v1 uses NoOpFlowController.
+ * Controls how many tasks the SyncExecutor runs in parallel.
+ * Operation-level rate limiting is handled separately by middleware.
  */
-
-import type {Id} from "./brand.js";
 
 // ============================================================================
 // Types
 // ============================================================================
 
-/**
- * Identifies an operation for rate limiting (e.g., "acme:user:get").
- *
- * This is the same namespace as Operation.name. When an Operation is
- * dispatched, its name is the OperationKind that FlowController throttles on.
- * For loaders that predate the operations framework, the loader name is
- * used as a stand-in until they are migrated.
- */
-export type OperationKind = Id<"operation-kind">;
-
-/** Token returned by acquire(), released when the operation completes */
-export interface FlowToken {
-  readonly operationKind: OperationKind;
-}
+export interface FlowToken {}
 
 // ============================================================================
 // FlowController Interface
 // ============================================================================
 
 export interface FlowController {
-  /** Request permission to perform an operation. Returns when allowed. */
-  acquire(operation: OperationKind, count?: number): Promise<FlowToken>;
+  /** Request permission to execute a task. Returns when a slot is available. */
+  acquire(): Promise<FlowToken>;
 
-  /** Release a token (for operations that hold a slot) */
+  /** Release a slot when the task completes. */
   release(token: FlowToken): void;
 }
 
@@ -44,10 +27,10 @@ export interface FlowController {
 // NoOpFlowController
 // ============================================================================
 
-/** FlowController that permits all operations immediately */
+/** FlowController that permits all tasks immediately - unlimited concurrency. */
 export class NoOpFlowController implements FlowController {
-  async acquire(operation: OperationKind): Promise<FlowToken> {
-    return { operationKind: operation };
+  async acquire(): Promise<FlowToken> {
+    return {};
   }
 
   release(): void {}

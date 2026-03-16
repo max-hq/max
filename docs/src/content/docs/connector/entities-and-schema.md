@@ -45,7 +45,9 @@ const ref: Ref<AcmeUser> = ...
 AcmeUser.ref("u123")
 ```
 
-This dual declaration is admittedly verbose - code generation is planned.
+:::note
+This dual declaration is verbose - an improvement is planned.
+:::
 
 ### Relational fields
 
@@ -124,6 +126,10 @@ export const AcmeSchema = Schema.create({
 
 Context holds the runtime dependencies your loaders will need - API clients, configuration values, workspace IDs.
 
+:::tip
+If your context includes an API client, you'll likely want to define [Operations](/connector/operations/) first. Operations wrap API calls with middleware (retries, rate limiting, logging), and your context will hold the operation executor rather than a raw HTTP client. Read the operations page before designing your context.
+:::
+
 ```typescript
 // connectors/connector-acme/src/context.ts
 import { Context } from "@max/core";
@@ -154,6 +160,6 @@ At this point your connector has:
 - A schema that registers all entities and declares entry points
 - A context class describing what runtime dependencies loaders will need
 
-Next, you'll learn how Max turns this data model into actual synced data.
+Next, you'll learn how to wrap your API calls in operations - giving the framework visibility into every external call your connector makes.
 
-**Next: [The Sync Pipeline](/connector/sync-pipeline/)**
+**Next: [Operations](/connector/operations/)**

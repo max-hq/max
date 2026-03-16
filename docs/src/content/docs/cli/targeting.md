@@ -30,16 +30,33 @@ max://@/my-project/linear-1
 
 Without `-t`, Max resolves your target from the current working directory - similar to how npm finds the nearest `package.json`:
 
+```
+~/projects/
+└── my-project/                         ← workspace level
+    ├── max.json
+    ├── src/                            ← still workspace level
+    └── .max/
+        └── installations/
+            └── linear-1/               ← installation level
+                ├── credentials.json
+                └── data.db
+```
+
+The resolution rules:
+1. Inside `.max/installations/<name>/` - you're at the **installation** level
+2. Inside a directory with a `.max/` folder - you're at the **workspace** level
+3. Anywhere else - you're at the **global** level
+
 ```bash
-# Inside ~/projects/my-project/ (which has a .max/ folder)
-max ls                    # workspace-level: lists installations
-max search linear-1 ...  # workspace-level: searches within this workspace
+# Inside ~/projects/my-project/ (workspace level)
+max ls                    # lists installations in this workspace
+max search linear-1 ...  # searches within this workspace
 
-# Inside ~/projects/my-project/.max/installations/linear-1/
-max search LinearIssue    # installation-level: no need to name the installation
+# Inside ~/projects/my-project/.max/installations/linear-1/ (installation level)
+max search LinearIssue    # no need to name the installation
 
-# Outside any workspace
-max -g ls                 # global-level: lists workspaces
+# Outside any workspace (global level)
+max -g ls                 # lists workspaces
 ```
 
 ## The `-t` flag

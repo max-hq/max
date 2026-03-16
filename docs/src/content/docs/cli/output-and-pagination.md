@@ -73,8 +73,8 @@ Each line is a complete JSON object, so tools like `jq`, `wc`, and `grep` work l
 
 | Format | Best for | Parseable | Streamable |
 |--------|----------|-----------|------------|
-| `text` | Exploration, quick checks | No | No |
-| `json` | Scripts, programmatic use | Yes | No (buffered) |
+| `text` | Exploration, quick checks | No | Yes |
+| `json` | Paginating, programmatic processing | Yes | No (buffered per page) |
 | `ndjson` | Piping, large datasets, streaming | Yes | Yes |
 
 ## Pagination

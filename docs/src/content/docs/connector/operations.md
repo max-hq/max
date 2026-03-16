@@ -1,10 +1,10 @@
 ---
 title: Operations
 sidebar:
-  order: 3
+  order: 2
 ---
 
-Operations are named, typed wrappers around your API calls. They sit between loaders and the raw API, giving the framework visibility into every external call your connector makes.
+Operations are named, typed wrappers around your API calls. They give the framework visibility into every external call your connector makes, enabling middleware like rate limiting, retries, and logging without changing connector code.
 
 ## Why operations?
 
@@ -57,7 +57,7 @@ Keep inputs explicit - pass primitive values (`{ id: string }`) rather than fram
 
 ## Use operations in loaders
 
-Loaders call operations through `env.ops.execute`:
+When you build loaders in the [next part](/connector/sync-pipeline/), they'll call operations through `env.ops.execute`:
 
 ```typescript
 const UserBasicLoader = Loader.entity({
@@ -107,9 +107,8 @@ For more on the middleware system and writing custom middleware, see the [Operat
 Your connector now has:
 
 - Entities, schema, and context (data model)
-- Loaders, resolvers, and a seeder (sync pipeline)
-- Operations wrapping every API call (observability)
+- Operations wrapping every API call (observability and middleware)
 
-Next, you'll build the onboarding flow - the step-by-step setup users go through when installing your connector.
+Next, you'll build the sync pipeline - loaders that fetch data using your operations, resolvers that wire fields to loaders, and a seeder that orchestrates the full sync sequence.
 
-**Next: [Onboarding](/connector/onboarding/)**
+**Next: [The Sync Pipeline](/connector/sync-pipeline/)**

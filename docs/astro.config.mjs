@@ -36,41 +36,46 @@ export default defineConfig({
   },
   integrations: [
     starlight({
-      title: "Max",
-      description: "A federated data query layer for AI agents",
+      title: 'Max',
+      logo: {
+        light: './src/assets/max-logo-inline-light.svg',
+        dark: './src/assets/max-logo-inline-dark.svg',
+        replacesTitle: true
+      },
+      description: 'A federated data query layer for AI agents',
       social: [
         {
-          icon: "github",
-          label: "GitHub",
-          href: "https://github.com/max-hq/max",
+          icon: 'github',
+          label: 'GitHub',
+          href: 'https://github.com/max-hq/max',
         },
       ],
       sidebar: [
         {
-          label: "Guide",
-          autogenerate: { directory: "guide" },
+          label: 'Guide',
+          autogenerate: { directory: 'guide' },
         },
         {
-          label: "CLI",
-          autogenerate: { directory: "cli" },
+          label: 'CLI',
+          autogenerate: { directory: 'cli' },
         },
         {
-          label: "Connector SDK",
-          autogenerate: { directory: "connector" },
+          label: 'Connector SDK',
+          autogenerate: { directory: 'connector' },
         },
         {
-          label: "SDK Reference",
-          autogenerate: { directory: "reference" },
+          label: 'SDK Reference',
+          autogenerate: { directory: 'reference' },
         },
         {
-          label: "Architecture",
-          autogenerate: { directory: "architecture" },
+          label: 'Architecture',
+          autogenerate: { directory: 'architecture' },
         },
       ],
       head: [
         {
-          tag: "script",
-          attrs: { type: "module" },
+          tag: 'script',
+          attrs: { type: 'module' },
           content: `
 import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
 mermaid.initialize({ startOnLoad: true, theme: 'neutral' });
@@ -79,4 +84,4 @@ mermaid.initialize({ startOnLoad: true, theme: 'neutral' });
       ],
     }),
   ],
-});
+})

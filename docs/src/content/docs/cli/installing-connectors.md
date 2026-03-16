@@ -33,14 +33,15 @@ Collections are stored globally at `~/.max/collections/`:
     └── ...
 ```
 
-## Listing available connectors
+## Discovering connectors
 
-After installing a collection, you can see what connectors are available:
+<!-- TODO: there is no dedicated CLI command to list available connectors yet. This section should be updated when one is added. -->
 
-<!-- TODO: verify - is there a dedicated command to list available connectors? -->
+There is currently no command to list all available connectors. You can inspect the collection directory directly:
 
 ```bash
-max -g status
+ls ~/.max/collections/max-connectors/
+# connector-linear/  connector-github/  connector-google-drive/  ...
 ```
 
 To see what entity types a connector provides before connecting it:

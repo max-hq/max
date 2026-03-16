@@ -4,81 +4,54 @@ sidebar:
   order: 3
 ---
 
-Max can run commands in two ways: directly (as a one-shot process) or through a background daemon. Understanding the difference helps when troubleshooting or running long operations.
+Max runs a background daemon to keep responses fast. The daemon holds the Max runtime in memory so commands like search, tab completion, and status return instantly instead of booting from scratch each time.
 
-## Two execution modes
+## How it works
 
-### Direct mode
+When you run a Max command, the CLI connects to a daemon process over a Unix socket. The daemon executes the command and streams results back. Because the runtime is already warm - workspace loaded, connectors initialised, database connections open - there's no startup cost.
 
-The default. When you run a command, Max starts a process, executes the command, and exits:
+```
+You type:     max search linear-1 LinearIssue --limit 5
+              │
+CLI binary    ├── Connects to daemon via Unix socket
+              ├── Sends command as structured request
+              ├── Receives streamed output
+              └── Prints results
 
-```bash
-max search linear-1 LinearIssue --limit 5
-# Process starts, runs query, prints results, exits
+Daemon        ├── Already running (runtime warm)
+              ├── Receives request
+              ├── Executes against loaded workspace
+              └── Streams results back
 ```
 
-Direct mode is simple and predictable. Each command starts fresh - it boots the Max runtime, connects to your workspace, runs the operation, and tears down.
+The daemon listens at `~/.max/daemon.sock` and writes its PID to `~/.max/daemon.pid`.
 
-### Daemon mode
+## Direct mode
 
-A background process that stays running and serves commands over a Unix socket. The daemon keeps the Max runtime warm, so commands don't pay the startup cost on each invocation.
-
-<!-- TODO: verify current daemon status - is it actively used or infrastructure-only? -->
-
-The daemon listens at `~/.max/daemon.sock` and maintains a PID file at `~/.max/daemon.pid`. When active, the CLI connects to the daemon instead of starting a fresh runtime.
-
-## Managing the daemon
+If you need to bypass the daemon, use `--direct`:
 
 ```bash
-# Check daemon status
-max daemon status
-
-# Start the daemon
-max daemon start
-
-# Stop the daemon
-max daemon stop
-
-# Restart
-max daemon restart
+max --direct search linear-1 LinearIssue --limit 5
 ```
 
-<!-- TODO: verify daemon subcommands - enable/disable/list also available? -->
-
-## When each mode applies
-
-**Direct mode** is used for most day-to-day commands. It's the default and requires no setup.
-
-**Daemon mode** is beneficial when you're running many commands in quick succession. The daemon keeps your workspace runtime warm, so subsequent commands skip the initialization step.
-
-The CLI automatically routes to the daemon when one is running. If no daemon is active, commands run in direct mode.
+In direct mode, Max starts a fresh runtime, executes the command, and exits. This is slower (startup cost on every invocation) but useful for troubleshooting or when the daemon is unhealthy.
 
 ## Troubleshooting
 
-### Daemon not responding
+### Daemon seems stuck
 
-If commands hang or fail to connect:
+If commands hang or return unexpected errors:
 
-```bash
-# Check if the daemon is running
-max daemon status
-
-# Restart it
-max daemon restart
-```
-
-### Port or socket conflicts
-
-The daemon uses a Unix socket at `~/.max/daemon.sock`. If this file exists but no daemon is running (e.g., after a crash), the stale socket can block a new daemon from starting:
-
-<!-- TODO: verify - does Max handle stale sockets automatically? -->
+:::note
+Daemon management commands (`max daemon start`, `max daemon stop`, etc.) haven't been added to the CLI yet. If you need to kill the daemon, use `pkill bun`. Dedicated daemon controls are coming soon.
+:::
 
 ```bash
-# Stop any existing daemon
-max daemon stop
+# Kill the daemon process
+pkill bun
 
-# If that doesn't work, restart
-max daemon restart
+# Your next max command will start a fresh daemon automatically
+max status
 ```
 
 ### Checking logs

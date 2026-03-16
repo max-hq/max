@@ -21,7 +21,7 @@ The raw identifier for this entity within its entity type. This is the value tha
 
 ### `_ref` - the entity's address
 
-A scoped reference key that encodes the entity type, ID, and routing context. At the installation level this looks like `ein:LinearUser:user-abc123`.
+An opaque scoped reference key that encodes routing context for the entity. Treat it as an opaque string - don't parse or introspect its contents.
 
 `_ref` is opt-in (not shown by default) because it's verbose and primarily useful for programmatic consumption or debugging. Unlike `_id`, `_ref` values differ across installations even for the same underlying entity.
 

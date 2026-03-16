@@ -1,7 +1,7 @@
 ---
 title: The Sync Pipeline
 sidebar:
-  order: 2
+  order: 3
 ---
 
 With your entities and schema defined, the next step is teaching Max how to fetch data from your API. This involves three concepts: **loaders** (fetch data), **resolvers** (wire fields to loaders), and a **seeder** (orchestrate the sync).
@@ -114,6 +114,10 @@ The `page` parameter carries `cursor` and `limit` for APIs that paginate. Return
 
 Pick the largest page size the API allows. Fewer round-trips means faster syncs.
 
+:::tip
+If your API returns data for multiple entity types in one call (e.g., an issues endpoint that includes user and label data), see [Source + Derivation](/connector/advanced-patterns/) instead. It lets you paginate once and fan out to multiple entity types automatically.
+:::
+
 ### Loader variants at a glance
 
 | Factory | Signature | Use case |
@@ -215,6 +219,6 @@ Your connector now has:
 - Resolvers that wire entity fields to loaders
 - A seeder that orchestrates the full sync sequence
 
-The loaders above reference `env.ops.execute(GetUser, ...)` - that's an **operation**, which is what the next part covers.
+Next, you'll build the onboarding flow - the step-by-step setup users go through when connecting your connector.
 
-**Next: [Operations](/connector/operations/)**
+**Next: [Onboarding](/connector/onboarding/)**

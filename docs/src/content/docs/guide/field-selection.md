@@ -52,8 +52,4 @@ Field names occupy three distinct namespaces, each with its own prefix conventio
 - **Underscore prefix** (`_id`, `_ref`) - meta fields provided by Max on every entity
 - **Dot prefix** (`.props`, `.meta`, `.all`) - group selectors that expand to sets of fields
 
-## How it works
-
-Field selection is purely a display concern. The engine always fetches all data from storage; `--fields` controls which columns the printer renders. This means group selectors are expanded at the CLI layer before reaching the printer - the engine and storage layer are unaware of them.
-
 The default output (no `--fields`) is equivalent to `--fields=_id,.props`.

@@ -98,7 +98,7 @@ for issue in issues:
 
 **Use `--all` freely.** Data is local. Agents can request thousands of rows without cost concerns. This is one of Max's key advantages over direct API access.
 
-**Prefer `json` output for programmatic use.** The structured `json` format with `data` array and pagination metadata is easier for agents to parse than table output.
+**Use the right output format.** Use `ndjson` when streaming large result sets with `--all`. Use `json` when paginating and processing individual pages - the structured object with `data` array and pagination metadata is easy for agents to work with.
 
 **Don't parse `_ref` values.** When entity fields reference other entities (like an issue's assignee), the value is a ref string. Agents should look up the referenced entity by `_id` rather than trying to decode the ref.
 

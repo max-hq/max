@@ -64,7 +64,7 @@ The connect command runs an interactive onboarding flow. Depending on the connec
 - Workspace or organisation selection
 - Configuration options specific to that data source
 
-Credentials are stored securely in `.max/installations/<name>/credentials.json`, never in `max.json`.
+Credentials are stored via the credential provider. By default, this stores credentials on the filesystem at `.max/installations/<name>/credentials.json`. They are never written to `max.json`.
 
 You can name your installation explicitly:
 

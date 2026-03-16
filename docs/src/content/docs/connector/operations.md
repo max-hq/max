@@ -34,16 +34,11 @@ An operation is a named function with typed input and output:
 
 ```typescript
 // connectors/connector-acme/src/operations.ts
-import { Operation } from "@max/core";
-import type { InferContext } from "@max/core";
-import type { User } from "@max/acme";
-import type { AcmeAppContext } from "./context.js";
-
-type Ctx = InferContext<AcmeAppContext>;
 
 export const GetUser = Operation.define({
   name: "acme:user:get",
-  async handle(input: { id: string }, ctx: Ctx): Promise<User> {
+  context: AcmeAppContext,
+  async handle(input: { id: string }, ctx): Promise<User> {
     return ctx.api.client.getUser(input.id);
   },
 });
@@ -112,7 +107,7 @@ const AcmeApi = Limit.concurrent("acme:api", 50);
 export const GetUser = Operation.define({
   name: "acme:user:get",
   limit: AcmeApi,
-  async handle(input: { id: string }, ctx: Ctx) {
+  async handle(input: { id: string }, ctx) {
     return ctx.api.client.getUser(input.id);
   },
 });

@@ -103,7 +103,12 @@ const WorkspaceUsersLoader = Loader.collection({
   async load(ref, page, env) {
     const users = await env.ops.execute(ListUsers, { workspaceId: ref.id });
     const items = users.map(u =>
-      EntityInput.create(AcmeUser.ref(u.id), {})
+      EntityInput.create(AcmeUser.ref(u.id), {
+        displayName: `${u.firstName} ${u.lastName}`,
+        email: u.email,
+        role: u.role,
+        active: u.active
+      })
     );
     return Page.from(items, false, undefined);
   },

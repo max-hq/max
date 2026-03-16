@@ -214,4 +214,4 @@ You now have a working, installable connector with:
 
 For most connectors, this is everything you need. The next part covers an advanced optimization for connectors that need to extract multiple entity types from a single API endpoint.
 
-**Next: [Advanced Patterns](/tutorial/06-advanced-patterns/)**
+**Next: [Advanced Patterns](/connector/advanced-patterns/)**

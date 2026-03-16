@@ -47,11 +47,19 @@ export default defineConfig({
       ],
       sidebar: [
         {
-          label: "Tutorial",
-          autogenerate: { directory: "tutorial" },
+          label: "Guide",
+          autogenerate: { directory: "guide" },
         },
         {
-          label: "Reference",
+          label: "CLI",
+          autogenerate: { directory: "cli" },
+        },
+        {
+          label: "Connector SDK",
+          autogenerate: { directory: "connector" },
+        },
+        {
+          label: "SDK Reference",
           autogenerate: { directory: "reference" },
         },
         {

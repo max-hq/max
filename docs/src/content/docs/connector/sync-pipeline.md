@@ -217,4 +217,4 @@ Your connector now has:
 
 The loaders above reference `env.ops.execute(GetUser, ...)` - that's an **operation**, which is what the next part covers.
 
-**Next: [Operations](/tutorial/03-operations/)**
+**Next: [Operations](/connector/operations/)**

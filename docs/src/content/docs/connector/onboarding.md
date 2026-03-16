@@ -161,4 +161,4 @@ Your connector now has:
 
 The final step is wiring everything together into an installable connector package.
 
-**Next: [Wiring and Packaging](/tutorial/05-wiring-and-packaging/)**
+**Next: [Wiring and Packaging](/connector/wiring-and-packaging/)**

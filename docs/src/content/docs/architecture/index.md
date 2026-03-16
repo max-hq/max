@@ -58,7 +58,7 @@ A connector is a self-contained package that teaches Max how to sync from one ex
 - **Onboarding** - Step pipeline (InputStep, ValidationStep, SelectStep, CustomStep) that collects config + credentials before first sync
 - **Credentials** - CredentialStore (get/set/has/delete key-value) → CredentialProvider (connector-facing, typed handles)
 
-See the [Tutorial](/tutorial/01-entities-and-schema/) for the full walkthrough.
+See the [Connector SDK tutorial](/connector/entities-and-schema/) for the full walkthrough.
 
 ## Sync pipeline
 
@@ -75,7 +75,7 @@ Declarative plan → task graph → drain loop.
 6. **TaskRunner** dispatches to the correct Loader, calls engine.store()
 7. **SyncHandle** returned immediately - exposes status, pause/resume/cancel, completion()
 
-See [Synchronisation Layer](/reference/sync-layer/) for the full walkthrough.
+See [Synchronisation Layer](/architecture/sync-layer/) for the full walkthrough.
 
 ## Federation - three-tier architecture
 

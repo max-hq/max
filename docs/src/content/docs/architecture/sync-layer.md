@@ -1,7 +1,7 @@
 ---
 title: Synchronisation Layer
 sidebar:
-  order: 2
+  order: 3
 ---
 
 How Max syncs data from external sources into its local store.

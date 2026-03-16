@@ -144,7 +144,7 @@ Extend `Context` and use typed descriptors as field initializers:
 | `Context.number` | Number value |
 | `Context.boolean` | Boolean value |
 
-The context is hydrated later when the connector is installed - you'll see this in [Wiring and Packaging](/tutorial/05-wiring-and-packaging/).
+The context is hydrated later when the connector is installed - you'll see this in [Wiring and Packaging](/connector/wiring-and-packaging/).
 
 ## What you have so far
 
@@ -156,4 +156,4 @@ At this point your connector has:
 
 Next, you'll learn how Max turns this data model into actual synced data.
 
-**Next: [The Sync Pipeline](/tutorial/02-sync-pipeline/)**
+**Next: [The Sync Pipeline](/connector/sync-pipeline/)**

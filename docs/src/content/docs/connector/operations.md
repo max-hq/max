@@ -98,7 +98,7 @@ const AcmeDef = ConnectorDef.create({
 });
 ```
 
-You'll see the full `ConnectorDef` assembly in [Wiring and Packaging](/tutorial/05-wiring-and-packaging/).
+You'll see the full `ConnectorDef` assembly in [Wiring and Packaging](/connector/wiring-and-packaging/).
 
 For more on the middleware system and writing custom middleware, see the [Operations reference](/reference/operations/).
 
@@ -112,4 +112,4 @@ Your connector now has:
 
 Next, you'll build the onboarding flow - the step-by-step setup users go through when installing your connector.
 
-**Next: [Onboarding](/tutorial/04-onboarding/)**
+**Next: [Onboarding](/connector/onboarding/)**

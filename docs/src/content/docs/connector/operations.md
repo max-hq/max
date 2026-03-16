@@ -100,7 +100,7 @@ const AcmeDef = ConnectorDef.create({
 
 You'll see the full `ConnectorDef` assembly in [Wiring and Packaging](/connector/wiring-and-packaging/).
 
-For more on the middleware system and writing custom middleware, see the [Operations reference](/reference/operations/).
+For the middleware pipeline, flow control, and how operations are dispatched at the framework level, see [Operations and Middleware](/reference/operations/).
 
 ## What you have so far
 

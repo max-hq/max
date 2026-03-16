@@ -1,190 +1,93 @@
 ---
-title: Operations
+title: Operations and Middleware
 sidebar:
-  order: 3
+  order: 2
 ---
 
-Operations are named, typed wrappers around external API calls. They sit between loaders and the raw API, giving the framework visibility into every call a connector makes.
+This page covers how operations are executed at the framework level - the dispatch pipeline, middleware model, flow control, and testing. For defining and using operations in a connector, see the [Connector SDK Operations](/connector/operations/) tutorial.
 
----
+## The execution pipeline
 
-## Why operations?
+When a loader calls `env.ops.execute(GetUser, { id })`, the call passes through several layers before reaching the handler:
 
-Without operations, loaders call APIs directly:
-
-```typescript
-async load(ref, env) {
-  const user = await env.ctx.api.client.getUser(ref.id);
-}
+```
+Loader                              Framework
+──────                              ─────────
+env.ops.execute(GetUser, { id })
+       │
+       v
+  OperationExecutor                 DispatchingOperationExecutor
+  (typed, in @max/core)       ───>  (bridges to dispatcher)
+                                           │
+                                           v
+                                    OperationDispatcher
+                                    (middleware pipeline)
+                                           │
+                                    ┌──────┴──────┐
+                                    │  counting   │
+                                    │  middleware  │
+                                    ├─────────────┤
+                                    │ rate limit  │
+                                    │  middleware  │
+                                    ├─────────────┤
+                                    │  op.handle  │
+                                    │  (handler)  │
+                                    └─────────────┘
 ```
 
-This works, but the framework can't see inside. It doesn't know what API calls are happening, can't count them, can't rate-limit them, and can't replay or mock them.
-
-Operations make each API call a first-class thing:
-
-```typescript
-async load(ref, env) {
-  const user = await env.ops.execute(GetUser, { id: ref.id });
-}
-```
-
-Now the framework can intercept every call through middleware - counting, rate limiting, recording, and mocking all become possible without changing connector code.
-
----
-
-## Defining operations
-
-An operation is a named function with typed input and output. Define them with `Operation.define`:
-
-```typescript
-// connectors/connector-acme/src/operations.ts
-import { Operation } from "@max/core";
-import type { InferContext } from "@max/core";
-import type { User } from "@max/acme";
-import type { AcmeAppContext } from "./context.js";
-
-type Ctx = InferContext<AcmeAppContext>;
-
-const GetUser = Operation.define({
-  name: "acme:user:get",
-  async handle(input: { id: string }, ctx: Ctx) {
-    return ctx.api.client.getUser(input.id);
-  },
-});
-```
-
-The operation carries its type information as phantom types. When a loader calls `env.ops.execute(GetUser, { id })`, TypeScript infers the input type (`{ id: string }`) and return type (`Promise<User>`) from the `GetUser` token.
-
-### Name convention
-
-Use `connector:entity:verb`:
-
-| Operation | Name |
-|-----------|------|
-| Get a single user | `acme:user:get` |
-| List all workspaces | `acme:workspace:list` |
-| List a team's issues | `linear:team:issues` |
-
-### Handler signature
-
-The handler receives two arguments:
-
-| Argument | Type | What it is |
-|----------|------|------------|
-| `input` | Typed per operation | The data needed for the API call |
-| `ctx` | `InferContext<YourContext>` | The connector's resolved context |
-
-Keep inputs explicit - pass primitive values (`{ id: string }`) rather than framework types like `Ref`. The handler should do one thing: call the API and return the result. Let the loader handle mapping to `EntityInput`.
-
----
-
-## Using operations in loaders
-
-Loaders receive an `env` parameter (a `LoaderEnv`) that contains both the connector context and the operation executor:
-
-| Field | What it is |
-|-------|------------|
-| `env.ctx` | The connector's context (API client, config, etc.) |
-| `env.ops` | The operation executor |
-
-Call operations through `env.ops.execute`:
-
-```typescript
-const UserBasicLoader = Loader.entity({
-  name: "acme:user:basic",
-  context: AcmeAppContext,
-  entity: AcmeUser,
-  strategy: "autoload",
-
-  async load(ref, env) {
-    const user = await env.ops.execute(GetUser, { id: ref.id });
-    return EntityInput.create(ref, {
-      displayName: user.displayName,
-      email: user.email,
-    });
-  },
-});
-```
-
-```typescript
-const WorkspaceUsersLoader = Loader.collection({
-  name: "acme:workspace:users",
-  context: AcmeAppContext,
-  entity: AcmeWorkspace,
-  target: AcmeUser,
-
-  async load(ref, page, env) {
-    const users = await env.ops.execute(ListUsers, { workspaceId: ref.id });
-    const items = users.map((u) =>
-      EntityInput.create(AcmeUser.ref(u.id), {}),
-    );
-    return Page.from(items, false, undefined);
-  },
-});
-```
-
----
-
-## Registering operations
-
-Operations are registered on the `ConnectorDef` so the framework can discover them:
-
-```typescript
-import { AcmeOperations } from "./operations.js";
-
-const AcmeDef = ConnectorDef.create({
-  name: "acme",
-  // ...
-  resolvers: [AcmeRootResolver, AcmeUserResolver, AcmeWorkspaceResolver],
-  operations: [...AcmeOperations],
-});
-```
-
-Export your operations as a const array for easy registration:
-
-```typescript
-export const AcmeOperations = [
-  ListWorkspaces, GetWorkspace,
-  ListUsers, GetUser,
-  ListProjects, GetProject,
-  ListTasks,
-] as const;
-```
-
----
+The separation is intentional. Connector code imports `OperationExecutor` from `@max/core` and calls `execute()`. How that call is dispatched - what middleware runs, whether limits are enforced - is decided by the framework at wiring time. Connectors don't need to know.
 
 ## Middleware
 
-Operations pass through a middleware pipeline before reaching the handler. Middleware can observe, modify, or short-circuit execution.
+Middleware functions intercept operation execution. They can observe, modify, or short-circuit calls.
 
+### Signature
+
+```typescript
+type OperationMiddleware = (
+  op: OperationAny,
+  input: unknown,
+  next: () => Promise<unknown>,
+) => Promise<unknown>;
 ```
-execute(GetUser, { id })
-    |
-    v
-[counting middleware]  ->  [rate limiter]  ->  [handler]
-    |                          |                   |
-    v                          v                   v
-  count++               check limits         ctx.api.client.getUser(id)
+
+- `op` - the operation being executed (carries `name`, `handle`, `limit`, etc.)
+- `input` - the input payload (untyped at the middleware level)
+- `next` - calls the next middleware in the chain, or the handler if this is the last middleware
+
+Middleware can run code before and after `next()`, modify the return value, catch errors, or skip `next()` entirely to short-circuit.
+
+### The default stack
+
+`DefaultOperationDispatcher.withDefaults()` builds the standard pipeline:
+
+```typescript
+const provider = new LocalFlowControllerProvider();
+const { dispatcher, counts } = DefaultOperationDispatcher.withDefaults(provider);
 ```
+
+This wires two middleware in order:
+
+1. **Counting middleware** - tracks invocation counts per operation
+2. **Rate limiting middleware** - enforces concurrency limits via flow controllers
 
 ### Counting middleware
 
-The only middleware shipped today. It tracks how many times each operation is called during a sync:
+Tracks how many times each operation is called during a sync:
 
 ```typescript
 import { countingMiddleware } from "@max/execution";
 
 const { middleware, counts } = countingMiddleware();
-const dispatcher = new DefaultOperationDispatcher([middleware]);
 
-// ... after sync ...
+// After a sync completes:
 const c = counts();
 // { total: 47, byOperation: { "acme:user:get": 12, "acme:workspace:list": 1, ... } }
 ```
 
-### Writing middleware
+The factory returns both the middleware and a `counts()` accessor. Counts accumulate across the lifetime of the middleware instance.
 
-A middleware function receives the operation, input, and a `next` function:
+### Writing custom middleware
 
 ```typescript
 import type { OperationMiddleware } from "@max/execution";
@@ -195,46 +98,116 @@ const logger: OperationMiddleware = async (op, input, next) => {
   console.log(`<- ${op.name}`);
   return result;
 };
+
+const dispatcher = new DefaultOperationDispatcher([logger]);
 ```
 
----
+Middleware is chained with `reduceRight` - the first middleware in the array is the outermost wrapper.
 
-## Architecture
+## Flow control and limits
 
-Operations span two packages:
+Operations can declare a concurrency limit. The rate limiting middleware enforces these limits using flow controllers.
 
-| Package | What lives there | Why |
-|---------|-----------------|-----|
-| `@max/core` | `Operation`, `OperationExecutor`, `LoaderEnv` | Connector authors type against these |
-| `@max/execution` | `OperationDispatcher`, `DefaultOperationDispatcher`, middleware | Framework internals connectors never see |
+### Declaring limits
 
-The separation is intentional. Connector code imports from `@max/core` and calls `env.ops.execute()`. How that call is dispatched (middleware, mocking, replay) is decided by the framework at wiring time - connectors don't need to know.
+Connectors attach a `Limit` to operations that should be throttled:
 
-```
-Connector code                Framework
---------------                ---------
-env.ops.execute(GetUser, {id})
-       |
-       v
-  OperationExecutor           OperationDispatcher
-  (typed, safe)         --->  (middleware pipeline)
-                                     |
-                                     v
-                              op.handle(input, ctx)
+```typescript
+import { Limit, Operation } from "@max/core";
+
+const AcmeApi = Limit.concurrent("acme:api", 50);
+
+const GetUser = Operation.define({
+  name: "acme:user:get",
+  limit: AcmeApi,
+  async handle(input: { id: string }, env) {
+    return env.ctx.api.client.getUser(input.id);
+  },
+});
 ```
 
----
+Multiple operations can share the same limit by referencing the same `Limit` instance. In this example, all operations using `AcmeApi` collectively cannot exceed 50 concurrent executions.
+
+### How limits are enforced
+
+The rate limiting middleware checks each operation's `limit` property:
+
+```typescript
+const rateLimitingMiddleware = (provider: FlowControllerProvider): OperationMiddleware => {
+  return async (op, _input, next) => {
+    const limit = op.limit;
+    if (!limit) return next();
+    return provider.get(limit).run(next);
+  };
+};
+```
+
+If the operation has no limit, execution proceeds immediately. Otherwise, `provider.get(limit)` returns a `FlowController` that gates execution.
+
+### FlowController
+
+The `FlowController` interface is simple:
+
+```typescript
+interface FlowController {
+  run<T>(fn: () => Promise<T>): Promise<T>;
+}
+```
+
+It wraps a function and decides when to execute it. Implementations:
+
+| Implementation | Behaviour |
+|----------------|-----------|
+| `NoOpFlowController` | Runs immediately, no limits |
+| `SemaphoreFlowController` | Limits concurrent executions using a semaphore |
+
+`SemaphoreFlowController` acquires a slot before running, and releases it after completion (or failure). If all slots are taken, execution waits in a queue.
+
+### Limit strategies
+
+Currently one strategy is supported:
+
+```typescript
+const limit = Limit.concurrent("acme:api", 50);
+// { name: "acme:api", strategy: { kind: "concurrency", max: 50 } }
+```
+
+The `LocalFlowControllerProvider` creates and caches `SemaphoreFlowController` instances by limit name. Requesting the same name with a different strategy is a configuration error and throws immediately.
+
+## Package boundaries
+
+| Package | Contains | Audience |
+|---------|----------|----------|
+| `@max/core` | `Operation`, `Limit`, `OperationExecutor`, `LoaderEnv`, `FlowController` (interface) | Connector authors |
+| `@max/execution` | `DefaultOperationDispatcher`, middleware, `SemaphoreFlowController`, `LocalFlowControllerProvider` | Framework internals |
+
+Connector code only touches `@max/core` types. The execution machinery in `@max/execution` is wired by the platform at startup.
 
 ## Testing
 
-For tests that don't exercise operations, use `BasicLoaderEnv`:
+### BasicLoaderEnv (no middleware)
+
+For tests that don't need the full pipeline:
 
 ```typescript
 import { BasicLoaderEnv } from "@max/core";
 
 const ctx = Context.build(TestContext, { value: "test" });
 const env = new BasicLoaderEnv(ctx);
-const result = await source.fetch(ref, page, env);
 ```
 
-`BasicLoaderEnv` calls operation handlers directly without middleware. If a loader calls `env.ops.execute()` and the operation is properly defined, it works. If no operation is defined, the call goes through `BasicOperationExecutor` which invokes the handler with the bound context.
+`BasicLoaderEnv` creates a `BasicOperationExecutor` that calls `op.handle()` directly - no middleware, no flow control. Operations work, but middleware doesn't run.
+
+### StandardLoaderEnv (full pipeline)
+
+For tests that exercise the complete execution path:
+
+```typescript
+import { StandardLoaderEnv } from "@max/execution";
+
+const provider = new LocalFlowControllerProvider();
+const { dispatcher } = DefaultOperationDispatcher.withDefaults(provider);
+const env = new StandardLoaderEnv(ctx, dispatcher);
+```
+
+This wires the full middleware stack, including counting and rate limiting.

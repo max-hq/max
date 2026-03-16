@@ -6,6 +6,24 @@ sidebar:
 
 MaxError is a composable error system with **boundaries**, **facets**, and **cause chains**. Errors are built from traits instead of class inheritance, with three discrimination axes: exact code, facet, or domain.
 
+Here's what a MaxError looks like when printed with `maxError.prettyPrint({ color: true, includeStackTrace: true })`:
+
+<div style="background: #1e1e2e; padding: 16px 20px; border-radius: 8px; font-family: 'SF Mono', 'Fira Code', 'Fira Mono', Menlo, Consolas, monospace; font-size: 13px; line-height: 1.7; overflow-x: auto; margin: 1em 0;">
+<span style="color: #6c7086;">MaxError[</span><span style="color: #f38ba8;">connector.error</span><span style="color: #6c7086;">]:</span> <span style="color: #cdd6f4;">connector error</span><br/>
+<span style="color: #6c7086;">&nbsp;&nbsp;├ data: { connectorId: 'lin_456', connectorType: 'linear' }</span><br/>
+<span style="color: #6c7086;">&nbsp;&nbsp;└ caused by: [</span><span style="color: #f38ba8;">sync.failed</span><span style="color: #6c7086;">]:</span> <span style="color: #cdd6f4;">Sync failed</span><br/>
+<span style="color: #6c7086;">&nbsp;&nbsp;&nbsp;&nbsp;└ caused by: [</span><span style="color: #f38ba8;">linear.api_timeout</span><span style="color: #6c7086;">]:</span> <span style="color: #cdd6f4;">API timeout: /issues</span><br/>
+<span style="color: #6c7086;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└ data: { endpoint: '/issues' }</span><br/>
+<span style="color: #6c7086;">&nbsp;&nbsp;➝ Stack trace:</span><br/>
+<span style="color: #6c7086;">&nbsp;&nbsp;&nbsp;&nbsp;at &lt;anonymous&gt; (/packages/core/src/max-error.ts:419:34)</span><br/>
+<span style="color: #6c7086;">&nbsp;&nbsp;&nbsp;&nbsp;at tryCatchWrap (/packages/core/src/max-error.ts:303:5)</span><br/>
+<span style="color: #6c7086;">&nbsp;&nbsp;&nbsp;&nbsp;at &lt;anonymous&gt; (/packages/core/src/__test__/max-error.test.ts:732:17)</span>
+</div>
+
+Error codes (<span style="color: #f38ba8; font-family: monospace; font-size: 13px;">connector.error</span>) appear in red. Primary messages appear in white. Structure, data, and stack traces are dimmed. The cause chain reads top-down - the outermost boundary error wraps the domain error, which wraps the root cause.
+
+The rest of this page covers how to build errors like this.
+
 ## Creating a boundary
 
 Every domain that throws errors defines a boundary. This is the first line of your `errors.ts`:
@@ -239,16 +257,15 @@ if (MaxError.isMaxError(err)) {
 }
 ```
 
-Output:
-```
-daemon.connector_not_found: Unknown connector: bogus
-  {"connector":"bogus"}
-  └ caused by: linear.sync_failed: Sync failed
-    └ caused by: unknown: ECONNREFUSED
-```
+<div style="background: #1e1e2e; padding: 16px 20px; border-radius: 8px; font-family: 'SF Mono', 'Fira Code', 'Fira Mono', Menlo, Consolas, monospace; font-size: 13px; line-height: 1.7; overflow-x: auto; margin: 1em 0;">
+<span style="color: #6c7086;">MaxError[</span><span style="color: #f38ba8;">daemon.connector_not_found</span><span style="color: #6c7086;">]:</span> <span style="color: #cdd6f4;">Unknown connector: bogus</span><br/>
+<span style="color: #6c7086;">&nbsp;&nbsp;├ data: { connector: 'bogus' }</span><br/>
+<span style="color: #6c7086;">&nbsp;&nbsp;└ caused by: [</span><span style="color: #f38ba8;">linear.sync_failed</span><span style="color: #6c7086;">]:</span> <span style="color: #cdd6f4;">Sync failed</span><br/>
+<span style="color: #6c7086;">&nbsp;&nbsp;&nbsp;&nbsp;└ caused by: [</span><span style="color: #f38ba8;">unknown</span><span style="color: #6c7086;">]:</span> <span style="color: #cdd6f4;">ECONNREFUSED</span>
+</div>
 
 Options:
-- `color` - ANSI color codes (error code in red, data and cause labels dimmed)
+- `color` - ANSI color codes (error codes in red, messages in white, structure dimmed)
 - `includeStackTrace` - append the stack trace at the end
 
 ### toJSON

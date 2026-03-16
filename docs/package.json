@@ -4,8 +4,9 @@
   "type": "module",
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build",
-    "preview": "astro preview"
+    "build": "rm -rf .astro && astro build",
+    "preview": "astro preview",
+    "clean": "rm -rf .astro dist"
   },
   "dependencies": {
     "@astrojs/starlight": "^0.33.0",

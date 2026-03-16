@@ -34,7 +34,7 @@ import {SemaphoreFlowController} from "./semaphore-flow-controller.js";
 // Constants
 // ============================================================================
 
-const DEFAULT_TASK_CONCURRENCY = 5;
+const DEFAULT_TASK_CONCURRENCY = 50;
 
 // ============================================================================
 // Config
@@ -43,12 +43,8 @@ const DEFAULT_TASK_CONCURRENCY = 5;
 export interface SyncExecutorConfig {
   taskRunner: TaskRunner;
   taskStore: TaskStore;
-  /**
-   * Task-level concurrency control.
-   * - number: max concurrent tasks (default 5)
-   * - FlowController: custom strategy
-   */
-  concurrency?: number | FlowController;
+  /** Task-level concurrency gate. Default: SemaphoreFlowController(50). */
+  flowController?: FlowController;
 }
 
 // ============================================================================
@@ -79,7 +75,7 @@ export class SyncExecutor implements Lifecycle {
   constructor(config: SyncExecutorConfig) {
     this.taskRunner = config.taskRunner;
     this.taskStore = config.taskStore;
-    this.flowController = resolveFlowController(config.concurrency);
+    this.flowController = config.flowController ?? new SemaphoreFlowController(DEFAULT_TASK_CONCURRENCY);
     this.expander = new PlanExpander();
 
     this.syncs = new SyncRegistryImpl(this.activeSyncs);
@@ -142,40 +138,39 @@ export class SyncExecutor implements Lifecycle {
       }
 
       // FlowController gates actual execution
-      const token = await this.flowController.acquire();
-      try {
-        const result = await this.executeTask(task);
-        const hasChildren = (result.children?.length ?? 0) > 0;
+      await this.flowController.run(async () => {
+        try {
+          const result = await this.executeTask(task);
+          const hasChildren = (result.children?.length ?? 0) > 0;
 
-        if (hasChildren) {
-          await this.taskStore.setAwaitingChildren(task.id);
-          handle.workSignal.notifyAll(); // Wake workers - new tasks available
-        } else {
-          const completed = await this.taskStore.complete(task.id);
-          handle.tasksCompleted++;
-          emitTaskCompleted(handle, task.payload);
-          await this.onTaskCompleted(completed, handle);
-          handle.workSignal.notifyAll(); // Wake workers - dependents may be unblocked
-        }
+          if (hasChildren) {
+            await this.taskStore.setAwaitingChildren(task.id);
+            handle.workSignal.notifyAll(); // Wake workers - new tasks available
+          } else {
+            const completed = await this.taskStore.complete(task.id);
+            handle.tasksCompleted++;
+            emitTaskCompleted(handle, task.payload);
+            await this.onTaskCompleted(completed, handle);
+            handle.workSignal.notifyAll(); // Wake workers - dependents may be unblocked
+          }
 
-        // Emit progress from inline work (e.g. batch field loading)
-        if (result.progress) {
-          handle.emit({
-            kind: "task-completed",
-            entityType: result.progress.entityType,
-            operation: result.progress.operation,
-            count: result.progress.count,
-          });
+          // Emit progress from inline work (e.g. batch field loading)
+          if (result.progress) {
+            handle.emit({
+              kind: "task-completed",
+              entityType: result.progress.entityType,
+              operation: result.progress.operation,
+              count: result.progress.count,
+            });
+          }
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          await this.taskStore.fail(task.id, message);
+          handle.tasksFailed++;
+          emitTaskFailed(handle, task.payload, message);
+          handle.workSignal.notifyAll(); // Wake workers - failed task may have been the last active
         }
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        await this.taskStore.fail(task.id, message);
-        handle.tasksFailed++;
-        emitTaskFailed(handle, task.payload, message);
-        handle.workSignal.notifyAll(); // Wake workers - failed task may have been the last active
-      } finally {
-        this.flowController.release(token);
-      }
+      });
     }
   }
 
@@ -354,8 +349,3 @@ function emitTaskFailed(handle: SyncHandleImpl, payload: TaskPayload, error: str
   }
 }
 
-function resolveFlowController(concurrency: number | FlowController | undefined): FlowController {
-  if (concurrency === undefined) return new SemaphoreFlowController(DEFAULT_TASK_CONCURRENCY);
-  if (typeof concurrency === 'number') return new SemaphoreFlowController(concurrency);
-  return concurrency;
-}

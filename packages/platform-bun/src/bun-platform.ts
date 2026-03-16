@@ -72,6 +72,7 @@ import {
   Env,
   ErrConfigNotSupported,
   type FlowController,
+  type FlowControllerProvider,
   InstallationId,
   Printer,
   ResolverGraph,
@@ -87,7 +88,7 @@ import {
   InMemoryCredentialProvider,
   InMemoryCredentialStore,
 } from '@max/connector'
-import { SyncExecutor, type TaskStore, DefaultOperationDispatcher, DispatchingOperationExecutor, SemaphoreFlowController } from '@max/execution'
+import { SyncExecutor, type TaskStore, DefaultOperationDispatcher, DispatchingOperationExecutor, SemaphoreFlowController, LocalFlowControllerProvider } from '@max/execution'
 import { DefaultTaskRunner, ExecutionRegistryImpl } from '@max/execution-local'
 import * as fs from 'node:fs'
 import path from 'node:path'
@@ -124,6 +125,8 @@ export interface InstallationGraphConfig {
   credentials?: CredentialStoreConfig
   taskStore?: TaskStoreConfig
   syncMeta?: SyncMetaConfig
+  /** Max concurrent sync tasks. Default: 50. */
+  taskConcurrency?: number
 }
 
 export interface InstallationGraphDeps {
@@ -143,6 +146,8 @@ export interface InstallationGraphDeps {
   credentialProvider: InMemoryCredentialProvider
   taskStore: TaskStore
   syncMeta: SyncMeta
+  flowControllerProvider: FlowControllerProvider
+  flowController: FlowController
 }
 
 export const installationGraph = ResolverGraph.define<InstallationGraphConfig, InstallationGraphDeps>({
@@ -207,6 +212,10 @@ export const installationGraph = ResolverGraph.define<InstallationGraphConfig, I
     if (r.engine instanceof SqliteEngine) return new SqliteSyncMeta(r.engine.db)
     return new SqliteSyncMeta(Database.open(r.dbPath))
   },
+
+  flowControllerProvider: () => new LocalFlowControllerProvider(),
+
+  flowController: (c) => new SemaphoreFlowController(c.taskConcurrency ?? 50),
 })
 
 // ============================================================================
@@ -345,7 +354,7 @@ function createInstallationBootstrap(
     const installation = connector.initialise(spec.connectorConfig, platform)
 
     // Build operation dispatcher with standard middleware
-    const { dispatcher } = DefaultOperationDispatcher.withDefaults()
+    const { dispatcher } = DefaultOperationDispatcher.withDefaults(deps.flowControllerProvider)
 
     const ctx = installation.context
     const loaderEnv = Env.loader({ ctx, ops: new DispatchingOperationExecutor(dispatcher, Env.operation({ ctx })) })
@@ -360,6 +369,7 @@ function createInstallationBootstrap(
     const syncExecutor = new SyncExecutor({
       taskRunner,
       taskStore: deps.taskStore,
+      flowController: deps.flowController,
     })
 
     return new InstallationMax({

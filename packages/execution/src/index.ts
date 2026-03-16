@@ -57,6 +57,7 @@ export type { SyncObserver, SyncProgressEvent } from "./sync-observer.js";
 export { Semaphore } from "./semaphore.js";
 export { Signal } from "./signal.js";
 export { SemaphoreFlowController } from "./semaphore-flow-controller.js";
+export { LocalFlowControllerProvider } from "./local-flow-controller-provider.js";
 
 // Operation dispatcher
 export { DefaultOperationDispatcher } from "./operation-dispatcher.js";
@@ -70,4 +71,4 @@ export { DispatchingOperationExecutor } from './dispatching-operation-executor.j
 export {StandardLoaderEnv} from "./standard-loader-env.js";
 
 // Errors
-export { Execution, ErrUnknownEntityType, ErrNoResolver, ErrNoCollectionLoader, ErrTaskNotFound, ErrUnknownTargetKind } from "./errors.js";
+export { Execution, ErrUnknownEntityType, ErrNoResolver, ErrNoCollectionLoader, ErrTaskNotFound, ErrUnknownTargetKind, ErrLimitStrategyConflict } from "./errors.js";

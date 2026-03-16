@@ -12,6 +12,8 @@
 import {
   type ConnectorVersionIdentifier,
   type Engine,
+  type FlowController,
+  type FlowControllerProvider,
   type SyncMeta,
   Env,
 } from '@max/core'
@@ -51,6 +53,12 @@ export interface ResolvedInstallationDeps {
   /** Ready-to-use sync metadata tracker. */
   syncMeta: SyncMeta
 
+  /** Provider for operation-level flow controllers. */
+  flowControllerProvider: FlowControllerProvider
+
+  /** Optional task-level flow controller override. */
+  flowController?: FlowController
+
   /** Connector-specific config passed to connector.initialise(). Opaque. */
   connectorConfig?: unknown
 }
@@ -69,7 +77,7 @@ export function bootstrapInstallation(deps: ResolvedInstallationDeps): Installat
   const installation = deps.connector.initialise(deps.connectorConfig, platform)
 
   // Build operation dispatcher with standard middleware
-  const { dispatcher } = DefaultOperationDispatcher.withDefaults()
+  const { dispatcher } = DefaultOperationDispatcher.withDefaults(deps.flowControllerProvider)
 
   const registry = new ExecutionRegistryImpl(deps.connector.def.resolvers)
 
@@ -86,6 +94,7 @@ export function bootstrapInstallation(deps: ResolvedInstallationDeps): Installat
   const syncExecutor = new SyncExecutor({
     taskRunner,
     taskStore: deps.taskStore,
+    flowController: deps.flowController,
   })
 
   return new InstallationMax({

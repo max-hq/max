@@ -7,6 +7,7 @@
 import {
   MaxError,
   NotFound,
+  BadInput,
   HasEntityField,
   HasEntityType,
   ErrFacet,
@@ -53,5 +54,12 @@ export const ErrUnknownTargetKind = Execution.define("unknown_target_kind", {
   customProps: ErrFacet.props<{targetKind: string}>(),
   facets: [InvariantViolated],
   message: (d) => `Unknown target kind: ${d.targetKind}`,
+});
+
+/** Limit name registered with conflicting strategy */
+export const ErrLimitStrategyConflict = Execution.define("limit_strategy_conflict", {
+  customProps: ErrFacet.props<{limitName: string; existing: string; requested: string}>(),
+  facets: [BadInput],
+  message: (d) => `Limit "${d.limitName}" registered with ${d.existing} but requested with ${d.requested}`,
 });
 

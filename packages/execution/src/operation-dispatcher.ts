@@ -7,7 +7,7 @@
  * for a ReplayDispatcher, MockDispatcher, etc.
  */
 
-import type { OperationAny, OperationExecutor, OperationInputOf, OperationOutputOf, OperationEnv } from '@max/core'
+import type { OperationAny, OperationExecutor, OperationInputOf, OperationOutputOf, OperationEnv, FlowControllerProvider } from '@max/core'
 import { countingMiddleware } from './middleware/counting-middleware.js'
 import type { OperationCounts } from './middleware/counting-middleware.js'
 import { rateLimitingMiddleware } from './middleware/rate-limiting-middleware.js'
@@ -38,9 +38,9 @@ export class DefaultOperationDispatcher implements OperationDispatcher {
   constructor(private middleware: OperationMiddleware[] = []) {}
 
   /** Create a dispatcher with the standard middleware stack (counting + rate limiting). */
-  static withDefaults(): { dispatcher: DefaultOperationDispatcher; counts: () => OperationCounts } {
+  static withDefaults(provider: FlowControllerProvider): { dispatcher: DefaultOperationDispatcher; counts: () => OperationCounts } {
     const counting = countingMiddleware()
-    const rateLimiting = rateLimitingMiddleware()
+    const rateLimiting = rateLimitingMiddleware(provider)
     return {
       dispatcher: new DefaultOperationDispatcher([counting.middleware, rateLimiting]),
       counts: counting.counts,

@@ -1,37 +1,34 @@
 /**
- * FlowController - Task-level concurrency gate.
+ * FlowController - Concurrency/rate gate.
  *
- * Controls how many tasks the SyncExecutor runs in parallel.
- * Operation-level rate limiting is handled separately by middleware.
+ * Wraps async work with flow control. The implementation decides the
+ * strategy (semaphore, token bucket, composite, etc). Consumers just
+ * call run() and the controller handles the rest.
  */
 
-// ============================================================================
-// Types
-// ============================================================================
-
-export interface FlowToken {}
-
-// ============================================================================
-// FlowController Interface
-// ============================================================================
-
 export interface FlowController {
-  /** Request permission to execute a task. Returns when a slot is available. */
-  acquire(): Promise<FlowToken>;
-
-  /** Release a slot when the task completes. */
-  release(token: FlowToken): void;
+  /** Execute fn under flow control. Waits if necessary, then runs fn. */
+  run<T>(fn: () => Promise<T>): Promise<T>
 }
 
-// ============================================================================
-// NoOpFlowController
-// ============================================================================
+/**
+ * FlowControllerProvider - Registry of named FlowController instances.
+ *
+ * Manages a flat map of named pools. Consumers declare what they need
+ * via a Limit, and the provider decides how to implement it.
+ */
+export interface FlowControllerProvider {
+  /** Get or create a flow controller for the given limit. */
+  get(limit: { readonly name: string; readonly strategy: LimitStrategy }): FlowController
+}
 
-/** FlowController that permits all tasks immediately - unlimited concurrency. */
+// Re-export here to avoid circular dep - LimitStrategy is defined in limit.ts
+// but referenced in the provider signature. Import at usage sites from limit.ts.
+import type { LimitStrategy } from './limit.js'
+
+/** FlowController that permits all work immediately - unlimited concurrency. */
 export class NoOpFlowController implements FlowController {
-  async acquire(): Promise<FlowToken> {
-    return {};
+  async run<T>(fn: () => Promise<T>): Promise<T> {
+    return fn()
   }
-
-  release(): void {}
 }

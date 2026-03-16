@@ -169,10 +169,11 @@ export type { SyncMeta } from "./sync-meta.js";
 
 // Limit
 export { Limit } from "./limit.js";
+export type { LimitStrategy, ConcurrencyStrategy } from "./limit.js";
 
 // FlowController
 export { NoOpFlowController } from "./flow-controller.js";
-export type { FlowController, FlowToken } from "./flow-controller.js";
+export type { FlowController, FlowControllerProvider } from "./flow-controller.js";
 
 // Error system (MaxError and ErrFacet are both type and value)
 export { MaxError, ErrFacet } from "./max-error.js";

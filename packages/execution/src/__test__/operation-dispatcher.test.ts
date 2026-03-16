@@ -8,6 +8,7 @@ import {Context, Env, Operation } from "@max/core";
 import { DefaultOperationDispatcher } from "../operation-dispatcher.js";
 import { DispatchingOperationExecutor } from "../dispatching-operation-executor.js";
 import { countingMiddleware } from "../middleware/counting-middleware.js";
+import { LocalFlowControllerProvider } from "../local-flow-controller-provider.js";
 import type { OperationMiddleware } from "../operation-dispatcher.js";
 
 // ============================================================================
@@ -90,7 +91,7 @@ describe("DefaultOperationDispatcher", () => {
   });
 
   test("withDefaults creates dispatcher with counting middleware", async () => {
-    const { dispatcher, counts } = DefaultOperationDispatcher.withDefaults();
+    const { dispatcher, counts } = DefaultOperationDispatcher.withDefaults(new LocalFlowControllerProvider());
     const prefixEnv = Env.operation({ ctx: Context.build(TestCtxPrefix, { prefix: "x" }) })
 
     await dispatcher.dispatch(Add, { a: 1, b: 2 }, emptyEnv);

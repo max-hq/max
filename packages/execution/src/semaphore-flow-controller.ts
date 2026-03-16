@@ -1,7 +1,7 @@
-import type { FlowController, FlowToken } from '@max/core'
+import type { FlowController } from '@max/core'
 import { Semaphore } from './semaphore.js'
 
-/** Semaphore-backed concurrency gate for task-level parallelism. */
+/** Semaphore-backed concurrency gate. */
 export class SemaphoreFlowController implements FlowController {
   private semaphore: Semaphore
 
@@ -9,12 +9,12 @@ export class SemaphoreFlowController implements FlowController {
     this.semaphore = new Semaphore(concurrency)
   }
 
-  async acquire(): Promise<FlowToken> {
+  async run<T>(fn: () => Promise<T>): Promise<T> {
     await this.semaphore.acquire()
-    return {}
-  }
-
-  release(): void {
-    this.semaphore.release()
+    try {
+      return await fn()
+    } finally {
+      this.semaphore.release()
+    }
   }
 }

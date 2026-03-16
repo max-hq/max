@@ -1,4 +1,8 @@
-# Meta Fields
+---
+title: Meta Fields
+sidebar:
+  order: 2
+---
 
 Meta fields are Max-provided virtual fields available on every entity, regardless of the connector's schema definition. They use the `_` prefix, which is reserved - connectors cannot define schema fields starting with `_`.
 
@@ -62,7 +66,7 @@ max search linear-1 LinearUser --fields=.all
 max search linear-1 LinearUser --filter="_id=user-abc123"
 ```
 
-See [Field Selection](./field-selection.md) for the full guide on `--fields` and group selectors.
+See [Field Selection](/reference/data-model/field-selection/) for the full guide on `--fields` and group selectors.
 
 ## Federation semantics
 

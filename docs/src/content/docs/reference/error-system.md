@@ -1,4 +1,8 @@
-# Error System
+---
+title: Error System
+sidebar:
+  order: 4
+---
 
 MaxError is a composable error system with **boundaries**, **facets**, and **cause chains**. Errors are built from traits instead of class inheritance, with three discrimination axes: exact code, facet, or domain.
 
@@ -31,9 +35,9 @@ When wrapping, the boundary data is carried on the thin boundary error (see [Wra
 
 Three things per error:
 
-1. **Code** — just the suffix. The boundary prefixes the domain: `"auth_failed"` becomes `"linear.auth_failed"`
-2. **Facets** — what categories does this error belong to? Standard markers (`NotFound`, `BadInput`) and data facets
-3. **Message** — a function from data to a human-readable string. Keep it short; callers add detail via `context`
+1. **Code** - just the suffix. The boundary prefixes the domain: `"auth_failed"` becomes `"linear.auth_failed"`
+2. **Facets** - what categories does this error belong to? Standard markers (`NotFound`, `BadInput`) and data facets
+3. **Message** - a function from data to a human-readable string. Keep it short; callers add detail via `context`
 
 ### Error-local data with customProps
 
@@ -47,19 +51,19 @@ export const ErrIssueNotFound = Linear.define("issue_not_found", {
 });
 ```
 
-The `d` parameter is the intersection of customProps data and all facet data. Both are type-safe — `create()` requires them, `message()` can access them.
+The `d` parameter is the intersection of customProps data and all facet data. Both are type-safe - `create()` requires them, `message()` can access them.
 
 ```typescript
-// ✅ Typed — requires { issueId: string }
+// ✅ Typed - requires { issueId: string }
 throw ErrIssueNotFound.create({ issueId: "ISS-123" });
 
-// ❌ Compile error — missing issueId
+// ❌ Compile error - missing issueId
 throw ErrIssueNotFound.create({});
 ```
 
 ### When to use customProps vs. data facets
 
-**customProps** — data specific to this error, used in its message. No catch-site discrimination needed.
+**customProps** - data specific to this error, used in its message. No catch-site discrimination needed.
 
 ```typescript
 export const ErrMissingParam = Daemon.define("missing_param", {
@@ -69,7 +73,7 @@ export const ErrMissingParam = Daemon.define("missing_param", {
 });
 ```
 
-**Data facets** — reusable semantic data that catch sites extract. Multiple errors share the same facet, and callers branch on it.
+**Data facets** - reusable semantic data that catch sites extract. Multiple errors share the same facet, and callers branch on it.
 
 ```typescript
 const HasEntityRef = ErrFacet.data<{ entityType: string; entityId: string }>("HasEntityRef");
@@ -89,12 +93,12 @@ if (MaxError.has(err, HasEntityRef)) {
 
 ### Choosing facets
 
-Facets answer "what category of thing happened?" — they're for catch-site logic, not documentation.
+Facets answer "what category of thing happened?" - they're for catch-site logic, not documentation.
 
 - **Use a marker facet** when callers will branch on it: `NotFound` -> return 404, `BadInput` -> show validation error
 - **Use a data facet** when callers need structured info: `HasEntityRef` -> log the entity ID
 - **Use no facets** when the error is self-explanatory by its code alone
-- **Don't force-fit a facet.** `ErrAuthFailed` isn't `BadInput` — the user didn't provide bad input, the system isn't configured
+- **Don't force-fit a facet.** `ErrAuthFailed` isn't `BadInput` - the user didn't provide bad input, the system isn't configured
 
 ### Standard facets
 
@@ -103,7 +107,7 @@ Facets answer "what category of thing happened?" — they're for catch-site logi
 | `NotFound` | marker | Something expected doesn't exist |
 | `BadInput` | marker | Caller-supplied data failed validation |
 | `NotImplemented` | marker | Code path not yet built |
-| `Invariant` | marker | Should never happen — always a bug |
+| `Invariant` | marker | Should never happen - always a bug |
 | `HasEntityRef` | data: `{ entityType, entityId }` | Error relates to a specific entity |
 | `HasField` | data: `{ entityType, field }` | Error relates to a specific field |
 | `HasLoaderName` | data: `{ loaderName }` | Error relates to a specific loader |
@@ -114,11 +118,11 @@ Facets answer "what category of thing happened?" — they're for catch-site logi
 // Data is typed from customProps + facets
 throw ErrIssueNotFound.create({ issueId: "ISS-123" });
 
-// Optional context string — appended with " — "
+// Optional context string - appended with " - "
 throw ErrIssueNotFound.create({ issueId: "ISS-123" }, "during sync");
-// Message: "Issue not found: ISS-123 — during sync"
+// Message: "Issue not found: ISS-123 - during sync"
 
-// Optional cause — for manual chaining without wrap()
+// Optional cause - for manual chaining without wrap()
 throw ErrLinearSyncFailed.create({}, "page 3 of issues", innerError);
 ```
 
@@ -126,7 +130,7 @@ throw ErrLinearSyncFailed.create({}, "page 3 of issues", innerError);
 
 There are two wrapping mechanisms, serving distinct purposes.
 
-### ErrorDef.wrap — intent wrapping
+### ErrorDef.wrap - intent wrapping
 
 "Run this function. If it fails, the error is X."
 
@@ -148,7 +152,7 @@ await ErrSyncFailed.wrap({ source: "linear" }, async () => {
 });
 ```
 
-### Boundary.wrap — domain entry
+### Boundary.wrap - domain entry
 
 "You're entering this boundary. Here's the context."
 
@@ -181,10 +185,10 @@ await Linear.wrap(async () => {
 
 ### Rules
 
-- **Same-domain errors pass through** — if code inside `Linear.wrap()` throws a Linear error, it won't be double-wrapped
+- **Same-domain errors pass through** - if code inside `Linear.wrap()` throws a Linear error, it won't be double-wrapped
 - **Cross-domain errors are wrapped** with the original as `cause`
 - **Plain `Error` / strings** are first converted to a generic MaxError, then used as cause
-- **Compose naturally** — use `ErrorDef.wrap()` for specific operations inside a `Boundary.wrap()`:
+- **Compose naturally** - use `ErrorDef.wrap()` for specific operations inside a `Boundary.wrap()`:
 
 ```typescript
 await LinearConnector.wrap({ connectorType: "linear", connectorId: "lin_123" }, async () => {
@@ -195,23 +199,23 @@ await LinearConnector.wrap({ connectorType: "linear", connectorId: "lin_123" }, 
 
 ## Catching errors
 
-Three discrimination axes — use the narrowest one that fits:
+Three discrimination axes - use the narrowest one that fits:
 
 ```typescript
 try {
   await linear.sync();
 } catch (err) {
-  // Exact type — "is this specific error?"
+  // Exact type - "is this specific error?"
   if (ErrIssueNotFound.is(err)) {
     console.log(err.data.issueId);  // typed from customProps + facets
   }
 
-  // By facet — "is this any kind of not-found?"
+  // By facet - "is this any kind of not-found?"
   if (MaxError.has(err, NotFound)) {
     return 404;
   }
 
-  // By boundary — "did Linear fail?"
+  // By boundary - "did Linear fail?"
   if (Linear.is(err)) {
     reportToLinearMonitor(err);
   }
@@ -244,8 +248,8 @@ daemon.connector_not_found: Unknown connector: bogus
 ```
 
 Options:
-- `color` — ANSI color codes (error code in red, data and cause labels dimmed)
-- `includeStackTrace` — append the stack trace at the end
+- `color` - ANSI color codes (error code in red, data and cause labels dimmed)
+- `includeStackTrace` - append the stack trace at the end
 
 ### toJSON
 
@@ -270,13 +274,13 @@ Options:
 
 ## Core errors
 
-The `Core` boundary provides infrastructure errors. Prefer defining domain-owned errors — seeing `core.*` in production logs is a signal to go define a proper domain error.
+The `Core` boundary provides infrastructure errors. Prefer defining domain-owned errors - seeing `core.*` in production logs is a signal to go define a proper domain error.
 
 | Error | Code | Facets | customProps |
 |-------|------|--------|-------------|
 | `ErrInvalidRefKey` | `core.invalid_ref_key` | `BadInput` | `{ key: string }` |
-| `ErrFieldNotLoaded` | `core.field_not_loaded` | `Invariant`, `HasField` | — |
-| `ErrLoaderResultNotAvailable` | `core.loader_result_not_available` | `NotFound`, `HasLoaderName` | — |
-| `ErrContextBuildFailed` | `core.context_build_failed` | `BadInput` | — |
+| `ErrFieldNotLoaded` | `core.field_not_loaded` | `Invariant`, `HasField` | - |
+| `ErrLoaderResultNotAvailable` | `core.loader_result_not_available` | `NotFound`, `HasLoaderName` | - |
+| `ErrContextBuildFailed` | `core.context_build_failed` | `BadInput` | - |
 | `ErrBatchKeyMissing` | `core.batch_key_missing` | `NotFound` | `{ key: string }` |
-| `ErrBatchEmpty` | `core.batch_empty` | `Invariant` | — |
+| `ErrBatchEmpty` | `core.batch_empty` | `Invariant` | - |

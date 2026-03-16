@@ -17,7 +17,7 @@ Everything after the fields is the guidance text injected into context.
 - frequency: always
 
 This codebase uses MaxError with boundaries — never throw raw errors.
-See docs/developer/error-system.md.
+See the error system docs in `docs/src/content/docs/reference/error-system.md`.
 Create an errors.ts with MaxError.boundary("domain"), define errors with boundary.define("code", { facets, message }), and throw via ErrX.create().
 
 ## as-any

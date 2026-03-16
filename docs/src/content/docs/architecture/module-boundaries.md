@@ -1,4 +1,8 @@
-# Module Boundaries
+---
+title: Module Boundaries
+sidebar:
+  order: 2
+---
 
 How Max's packages relate to each other, what each one owns, and where new code should go.
 

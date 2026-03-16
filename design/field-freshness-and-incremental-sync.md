@@ -63,7 +63,7 @@ Fields need two new optional properties:
 }
 ```
 
-Open question: does TTL live on the field definition (`EntityDef`) or on the loader? Leaning towards loader — the same field could have different freshness guarantees depending on how it's fetched. A loader that calls a real-time API might have a short TTL; one that reads a cache might have a longer one.   
+Open question: does TTL live on the field definition (`EntityDef`) or on the loader? Leaning towards loader — the same field could have different freshness guarantees depending on how it's fetched. A loader that calls a real-time API might have a short TTL; one that reads a cache might have a longer one.
 
 ### SyncMeta interface (core)
 

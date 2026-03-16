@@ -1,4 +1,8 @@
-# Operations
+---
+title: Operations
+sidebar:
+  order: 3
+---
 
 Operations are named, typed wrappers around external API calls. They sit between loaders and the raw API, giving the framework visibility into every call a connector makes.
 

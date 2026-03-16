@@ -1,10 +1,14 @@
-# Serialisation
+---
+title: Serialisation
+sidebar:
+  order: 5
+---
 
 Strategy for serialising and deserialising Maxwell types across boundaries.
 
 ## The Problem
 
-Serialisation is trivial — most types flatten to JSON naturally. Deserialisation is where it gets hard. When a `Page<EntityInput<User>>` arrives as JSON, the receiving side needs to know:
+Serialisation is trivial - most types flatten to JSON naturally. Deserialisation is where it gets hard. When a `Page<EntityInput<User>>` arrives as JSON, the receiving side needs to know:
 
 1. The outer structure is a `Page`
 2. The items are `EntityInput`s
@@ -13,7 +17,7 @@ Serialisation is trivial — most types flatten to JSON naturally. Deserialisati
 
 Generics are erased at runtime. There's no trace of `User` in the serialised bytes. The deserialiser must be told the schema.
 
-This problem applies broadly — not just to entities. Sync task settings, action parameters, workflow inputs, and any structured type that crosses a boundary must round-trip cleanly.
+This problem applies broadly - not just to entities. Sync task settings, action parameters, workflow inputs, and any structured type that crosses a boundary must round-trip cleanly.
 
 ## Boundaries
 
@@ -78,7 +82,7 @@ const UserPageCodec = Codec.page(EntityInput.codec(User))
 
 The critical requirement: **the schema must be available on both sides of the boundary.**
 
-When an entity crosses a boundary and comes back, the receiving side needs the `EntityDef` to reconstruct `Ref`s, `EntityInput`s, and other schema-dependent types. This means boundaries need access to a schema registry — a mapping from entity type names to their definitions.
+When an entity crosses a boundary and comes back, the receiving side needs the `EntityDef` to reconstruct `Ref`s, `EntityInput`s, and other schema-dependent types. This means boundaries need access to a schema registry - a mapping from entity type names to their definitions.
 
 ```typescript
 // At a Temporal activity boundary
@@ -107,16 +111,16 @@ const codec = Codec.entityInput(registry)  // looks up EntityDef by entityType i
 
 Because `Codec<T>` is an interface, the implementation behind it can vary:
 
-- **JSON** — the default, works everywhere
-- **Temporal payload converters** — hook into Temporal's native serialisation
-- **Binary formats** — MessagePack, protobuf, etc. for performance-sensitive paths
-- **Compressed** — wrapping any codec with compression for large payloads
+- **JSON** - the default, works everywhere
+- **Temporal payload converters** - hook into Temporal's native serialisation
+- **Binary formats** - MessagePack, protobuf, etc. for performance-sensitive paths
+- **Compressed** - wrapping any codec with compression for large payloads
 
 The consuming code doesn't know or care which strategy is in use.
 
 ## Status
 
-Not yet implemented. The approach is settled; implementation will happen when we hit the first real serialisation boundary (likely Temporal integration). Until then, the design constraint is: **keep types codec-friendly** — meaning plain data, no closures or non-serialisable state in types that may cross boundaries.
+Not yet implemented. The approach is settled; implementation will happen when we hit the first real serialisation boundary (likely Temporal integration). Until then, the design constraint is: **keep types codec-friendly** - meaning plain data, no closures or non-serialisable state in types that may cross boundaries.
 
 ## Types Likely to Need Codecs
 

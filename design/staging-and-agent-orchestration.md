@@ -1,4 +1,4 @@
-# Staging and Agent Orchestration
+# Staging & Agent Orchestration
 
 A design for token-efficient data handoff between agents using Max.
 

@@ -1,0 +1,148 @@
+---
+title: Max
+template: splash
+hero:
+  title: Max
+  tagline: A federated data query layer for AI agents. Sync any data source into fast, local, queryable storage.
+  actions:
+    - text: Get Started
+      link: /tutorial/01-entities-and-schema/
+      icon: right-arrow
+      variant: primary
+    - text: Architecture
+      link: /architecture/
+      variant: secondary
+    - text: GitHub
+      link: https://github.com/max-hq/max
+      icon: external
+      variant: minimal
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## What Max does
+
+Max syncs data from external APIs (GitHub, Linear, Google Drive, HubSpot) into local SQLite through typed connectors. Queries run locally - millisecond latency, no rate limits, no network round-trips. Designed so AI agents have fast, unfettered data access.
+
+<Tabs>
+  <TabItem label="Use Max">
+    ```bash
+    # create a workspace
+    max init .
+
+    # add your favourite connectors
+    max install --collection git@github.com:max-hq/max-connectors.git
+    # > added 8 connectors
+
+    # connect a couple of sources
+    max connect @max/connector-github --name pi-mono-repo
+    max connect @max/connector-linear
+    max connect @max/connector-claude-code-conversations --name my-chats
+
+    # sync a connector
+    max sync pi-mono-repo
+    # Syncing...
+    #     GitHubRepo       █████      12  1021.8 op/s
+    #     GitHubUser       █████     283  4391.1 op/s
+    #     GitHubIssue      ███▒·    2156  4811.3 op/s
+    #     ──────────────────────────────────────────────
+    #     3.2s elapsed
+
+    # query it
+    max search pi-mono-repo GitHubIssue \
+      --filter="state = open AND labels ~= bug" \
+      --fields="title,author"
+
+    # tell your agent about max, so it's connected to your data
+    # > Hey Claude - run `max -g llm-bootstrap`
+    ```
+  </TabItem>
+  <TabItem label="Write a Connector">
+    ```typescript
+    // Define your entities
+    const GitHubIssue = EntityDef.create("GitHubIssue", {
+      title: Field.string(),
+      state: Field.string(),
+      author: Field.ref(GitHubUser),
+    });
+
+    // Create a loader that fetches from your API
+    const IssueLoader = Loader.entity({
+      name: "github:issue:basic",
+      context: GitHubContext,
+      entity: GitHubIssue,
+      async load(ref, env) {
+        const issue = await env.ops.execute(GetIssue, { id: ref.id });
+        return EntityInput.create(ref, {
+          title: issue.title,
+          state: issue.state,
+          author: GitHubUser.ref(issue.author.id),
+        });
+      },
+    });
+
+    // Wire fields to loaders
+    const IssueResolver = Resolver.for(GitHubIssue, {
+      title: IssueLoader.field("title"),
+      state: IssueLoader.field("state"),
+      author: IssueLoader.field("author"),
+    });
+
+    // Package it up
+    export default ConnectorModule.create({
+      def: ConnectorDef.create({
+        name: "github",
+        schema: GitHubSchema,
+        resolvers: [IssueResolver, UserResolver, RepoResolver],
+        seeder: GitHubSeeder,
+        onboarding: GitHubOnboarding,
+        operations: [...GitHubOperations],
+      }),
+      initialise(config, credentials) {
+        return Installation.create({ context, start, stop, health });
+      },
+    });
+    ```
+
+    The [tutorial](/tutorial/01-entities-and-schema/) walks through this step by step.
+  </TabItem>
+  <TabItem label="Embed Max">
+    ```typescript
+    import { GlobalMax } from "@max/federation";
+    import { BunPlatform } from "@max/platform-bun";
+
+    // Boot the platform
+    const max = await BunPlatform.createGlobalMax();
+
+    // Open a workspace and installation
+    const workspace = await max.workspace("./my-project");
+    const installation = await max.installation("pi-mono-repo");
+
+    // Sync
+    const handle = await installation.sync();
+    await handle.completion();
+
+    // Query - local SQLite, millisecond responses
+    const issues = await installation.engine.query(
+      Query.from(GitHubIssue)
+        .where("state", "=", "open")
+        .where("labels", "~=", "bug")
+        .select("title", "author")
+    );
+    ```
+
+    Max runs as a library. Same engine, same connectors - no CLI required.
+  </TabItem>
+</Tabs>
+
+## Get started
+
+The [connector tutorial](/tutorial/01-entities-and-schema/) walks through building a complete connector in six parts - from defining entities to publishing an installable package.
+
+## Deep-dive reference
+
+The [reference docs](/reference/core-concepts/) cover each subsystem in detail - the [sync layer](/reference/sync-layer/), [operations](/reference/operations/), [error system](/reference/error-system/), and [more](/reference/utilities/).
+
+## Architecture
+
+How Max is structured and why - [package layers, federation model, and module boundaries](/architecture/).

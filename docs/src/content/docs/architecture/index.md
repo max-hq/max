@@ -1,18 +1,16 @@
-# Max Architecture Overview
-
-Quick-reference overview of the Max codebase. Intended as an orientation document for agents and developers entering the codebase for the first time.
-
-**Last regenerated:** March 2026.
-
+---
+title: Architecture Overview
+sidebar:
+  order: 1
 ---
 
-## What Max Is
+Orientation to the Max codebase for developers and agents entering the project for the first time.
+
+## What Max is
 
 A federated data query layer that syncs external SaaS data (Linear, GitHub, Google Drive, etc.) into local SQLite via typed connectors. Bun runtime, TypeScript, monorepo.
 
----
-
-## Package Layers
+## Package layers
 
 Bottom-up dependency order. Each layer imports only from layers below it.
 
@@ -35,9 +33,9 @@ Bottom-up dependency order. Each layer imports only from layers below it.
 
 Supporting: `@max/query-parser` (query ASTs), `@max/plan-parser` (sync plan expressions).
 
----
+See [Module Boundaries](/architecture/module-boundaries/) for the full treatment of each package.
 
-## Core Type System
+## Core type system
 
 - **EntityDef** - Named entity with typed fields (Field.string, Field.ref, Field.collection, etc.)
 - **Ref\<E, S\>** - Type-safe reference to an entity. Polymorphic over Scope (local vs system)
@@ -46,11 +44,11 @@ Supporting: `@max/query-parser` (query ASTs), `@max/plan-parser` (sync plan expr
 - **Schema** - Collection of EntityDefs with designated roots
 - **Scope** - LocalScope (within one installation) vs SystemScope (cross-installation)
 - **Branded types** - SoftBrand (naked assignment OK) for IDs; HardBrand (factory required) for validated values
-- **Type + Companion Object** - Single name serves as both TypeScript type and value namespace. Used for schematic types only (EntityDef, Ref, Page, etc.), never services
+- **Type + Companion Object** - Single name serves as both TypeScript type and value namespace. Used for schematic types only, never services
 
----
+See [Core Concepts](/reference/core-concepts/) for details.
 
-## Connector Model
+## Connector model
 
 A connector is a self-contained package that teaches Max how to sync from one external system.
 
@@ -58,46 +56,28 @@ A connector is a self-contained package that teaches Max how to sync from one ex
 - **ConnectorModule** - Pairs ConnectorDef with `initialise(config, credentials) -> Installation`
 - **Installation** - Live runtime instance. Holds hydrated Context (API clients, tokens, workspace IDs)
 - **Onboarding** - Step pipeline (InputStep, ValidationStep, SelectStep, CustomStep) that collects config + credentials before first sync
-- **Credentials** - CredentialStore (get/set/has/delete key-value) -> CredentialProvider (connector-facing, typed handles)
+- **Credentials** - CredentialStore (get/set/has/delete key-value) → CredentialProvider (connector-facing, typed handles)
 
-### What a connector author provides
+See the [Tutorial](/tutorial/01-entities-and-schema/) for the full walkthrough.
 
-- **Entities** - EntityDef declarations with fields
-- **Schema** - `Schema.create({ namespace, entities, roots })`
-- **Context** - Class extending Context base. Holds API client instances, workspace IDs, etc.
-- **Resolvers** - One per entity. Maps every field to a Loader
-- **Loaders** - Data fetchers:
-  - `Loader.entity()` - single entity by ref
-  - `Loader.entityBatched()` - batch fetch (preferred when API supports it)
-  - `Loader.collection()` - paginated parent -> child relationship
-  - `Loader.paginatedSource()` / `Loader.singleSource()` + `Loader.deriveEntities()` - Source + Derivation pattern for efficient multi-entity extraction
-- **Seeder** - Produces initial SyncPlan from context + engine state
-- **Onboarding** - Step-by-step flow for user setup
+## Sync pipeline
 
-See [Creating a Connector](./creating-an-integration.md) for the full guide.
+Declarative plan → task graph → drain loop.
 
----
-
-## Sync Pipeline
-
-Declarative plan -> task graph -> drain loop.
-
-1. **Seeder.seed(context, engine)** -> SyncPlan (pure data)
+1. **Seeder.seed(context, engine)** → SyncPlan (pure data)
 2. **SyncPlan** - Ordered list of Steps. Each Step = target + operation
    - Targets: `forRoot(ref)`, `forAll(EntityDef)`, `forOne(ref)`
    - Operations: `loadFields("f1", "f2")`, `loadCollection("children")`
    - `Step.concurrent([...])` for parallel groups
 3. **PlanExpander** converts steps into a task graph with dependency edges
 4. **TaskStore** persists tasks with state and dependencies
-5. **SyncExecutor** runs the drain loop: claim -> execute -> complete -> unblock dependents
+5. **SyncExecutor** runs the drain loop: claim → execute → complete → unblock dependents
 6. **TaskRunner** dispatches to the correct Loader, calls engine.store()
 7. **SyncHandle** returned immediately - exposes status, pause/resume/cancel, completion()
 
-See [Synchronisation Layer](./synchronisation-layer.md) for the full walkthrough.
+See [Synchronisation Layer](/reference/sync-layer/) for the full walkthrough.
 
----
-
-## Federation - Three-Tier Architecture
+## Federation - three-tier architecture
 
 Max uses a three-level federation model. Each level has typed registries, clients, and lifecycle management.
 
@@ -119,11 +99,9 @@ Max uses a three-level federation model. Each level has typed registries, client
 
 Parent scopes provision children. A workspace provisions installations; global provisions workspaces.
 
----
-
 ## Deployers
 
-Installations can run in different process topologies. The deployer abstraction decouples "where code runs" from "what code does":
+Installations can run in different process topologies:
 
 | Deployer | Process model | Communication |
 |----------|--------------|---------------|
@@ -132,9 +110,7 @@ Installations can run in different process topologies. The deployer abstraction 
 | Remote | External HTTP endpoint | HTTP transport |
 | Docker | Container (planned) | Not yet implemented |
 
----
-
-## Process Architecture
+## Process architecture
 
 ```
 User
@@ -153,11 +129,7 @@ Rust proxy (max binary)
                           +-- SyncExecutor
 ```
 
-The Rust proxy handles terminal I/O (including secret prompts with echo suppression), color detection, and JSONL protocol with the daemon. It tries the daemon first, falls back to direct mode.
-
----
-
-## CLI Commands
+## CLI commands
 
 | Command | Purpose |
 |---------|---------|
@@ -172,9 +144,7 @@ The Rust proxy handles terminal I/O (including secret prompts with echo suppress
 | `daemon` | Daemon lifecycle management |
 | `llm-bootstrap` | Generate LLM agent context |
 
----
-
-## Filesystem Layout
+## Filesystem layout
 
 **Workspace** (project root):
 ```
@@ -198,9 +168,7 @@ project/
         +-- daemon.pid            # PID file
 ```
 
----
-
-## Swappable Boundaries
+## Swappable boundaries
 
 Interfaces are defined in core/execution/federation. Implementations are pluggable.
 
@@ -214,12 +182,10 @@ Interfaces are defined in core/execution/federation. Implementations are pluggab
 | WorkspaceRegistry | FsWorkspaceRegistry | @max/platform-bun |
 | InstallationRegistry | FsInstallationRegistry | @max/platform-bun |
 
----
-
-## Error System
+## Error system
 
 - **MaxError** - Composable error with facets (typed metadata) and boundaries (domain grouping)
-- Pattern: `boundary = MaxError.boundary("domain")` -> `ErrFoo = boundary.define("code", { facets, message })`
+- Pattern: `boundary = MaxError.boundary("domain")` → `ErrFoo = boundary.define("code", { facets, message })`
 - Errors carry structured data via facets, render with `prettyPrint({ color })`
 
-See [Error System](./error-system.md) for the full guide.
+See [Error System](/reference/error-system/) for the full guide.

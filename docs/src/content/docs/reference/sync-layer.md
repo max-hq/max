@@ -1,4 +1,8 @@
-# Synchronisation Layer
+---
+title: Synchronisation Layer
+sidebar:
+  order: 2
+---
 
 How Max syncs data from external sources into its local store.
 
@@ -33,7 +37,7 @@ flowchart LR
 
 ## Loaders
 
-A **Loader** fetches data from an external API and returns `EntityInput` values. Loaders receive an `env` parameter - a `LoaderEnv` that provides access to platform capabilities. Today this includes the connector context (`env.ctx`) and the operation executor (`env.ops`) - see [Operations](./operations.md) for details.
+A **Loader** fetches data from an external API and returns `EntityInput` values. Loaders receive an `env` parameter - a `LoaderEnv` that provides access to platform capabilities. Today this includes the connector context (`env.ctx`) and the operation executor (`env.ops`) - see [Operations](/reference/operations/) for details.
 
 There are three variants:
 
@@ -340,7 +344,7 @@ When a task completes:
 
 ### Error Handling
 
-When a task fails, the drain loop marks it as `failed` and moves on. The loop exits when no tasks are `pending` or `running` — tasks left in `new` (blocked by a failed task) or `awaiting_children` (with a failed child) remain in those states.
+When a task fails, the drain loop marks it as `failed` and moves on. The loop exits when no tasks are `pending` or `running` - tasks left in `new` (blocked by a failed task) or `awaiting_children` (with a failed child) remain in those states.
 
 The `SyncResult` reports both `tasksCompleted` and `tasksFailed`, so the caller knows the sync wasn't clean.
 
@@ -359,7 +363,7 @@ flowchart TD
     style T3 fill:#999,color:#fff
 ```
 
-The stranded tasks preserve honest state: they weren't cancelled or failed — they were never attempted. A future resume operation could retry the failed task, which would naturally unblock the rest.
+The stranded tasks preserve honest state: they weren't cancelled or failed - they were never attempted. A future resume operation could retry the failed task, which would naturally unblock the rest.
 
 ### SyncHandle
 
@@ -470,21 +474,21 @@ sequenceDiagram
 
 ### Not yet implemented
 
-- **Loader dependencies (`dependsOn`)** — Loaders can declare dependencies on other loaders in the type system, but the execution layer ignores this. `DefaultTaskRunner` throws if a loader has dependencies. This blocks any loader that needs shared data from another loader.
+- **Loader dependencies (`dependsOn`)** - Loaders can declare dependencies on other loaders in the type system, but the execution layer ignores this. `DefaultTaskRunner` throws if a loader has dependencies. This blocks any loader that needs shared data from another loader.
 
-- **Raw loaders** — `Loader.raw()` exists in the type system but the execution layer can't run it. There's no task payload type and no dispatch path. Raw loaders are intended for standalone data fetches (API config, rate limits) and are the primary use case for `dependsOn`. These two items are coupled.
+- **Raw loaders** - `Loader.raw()` exists in the type system but the execution layer can't run it. There's no task payload type and no dispatch path. Raw loaders are intended for standalone data fetches (API config, rate limits) and are the primary use case for `dependsOn`. These two items are coupled.
 
-- **Error recovery / resume** — When a sync has failures, stranded tasks remain in honest states. A resume mechanism could retry failed tasks and naturally unblock the rest. The state model supports this; the trigger mechanism doesn't exist yet.
+- **Error recovery / resume** - When a sync has failures, stranded tasks remain in honest states. A resume mechanism could retry failed tasks and naturally unblock the rest. The state model supports this; the trigger mechanism doesn't exist yet.
 
 ### Current inefficiencies
 
-- **Loaders run inline, not as tasks** — A `sync-step` task resolves its loaders and calls them directly. This means there's no opportunity for the system to deduplicate or batch across steps. If step 3 discovers users u1, u2, u3 and step 4 also needs u1, u2, u3, they're loaded independently.
+- **Loaders run inline, not as tasks** - A `sync-step` task resolves its loaders and calls them directly. This means there's no opportunity for the system to deduplicate or batch across steps. If step 3 discovers users u1, u2, u3 and step 4 also needs u1, u2, u3, they're loaded independently.
 
   If loader calls were scheduled as tasks, two things become possible:
-  1. **Deduplication** — multiple tasks wanting the same entity could coalesce into one load
-  2. **Cross-step batching** — a batched loader could collect refs from many sources into a single API call
+  1. **Deduplication** - multiple tasks wanting the same entity could coalesce into one load
+  2. **Cross-step batching** - a batched loader could collect refs from many sources into a single API call
 
-- **Single-threaded drain loop** — The executor claims one task at a time. For I/O-bound loaders, concurrent task execution would improve throughput significantly. The `FlowController` already exists for rate limiting and would pair naturally with concurrency.
+- **Single-threaded drain loop** - The executor claims one task at a time. For I/O-bound loaders, concurrent task execution would improve throughput significantly. The `FlowController` already exists for rate limiting and would pair naturally with concurrency.
 
 ---
 

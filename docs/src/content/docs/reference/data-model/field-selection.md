@@ -1,4 +1,8 @@
-# Field Selection
+---
+title: Field Selection
+sidebar:
+  order: 1
+---
 
 The `--fields` flag controls which columns appear in search output. When omitted, you get `_id` plus all schema properties - the sensible default for most queries.
 

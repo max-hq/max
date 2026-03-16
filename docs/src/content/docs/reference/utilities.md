@@ -1,4 +1,8 @@
-# Core Utilities & Patterns
+---
+title: Utilities & Patterns
+sidebar:
+  order: 6
+---
 
 Utilities and patterns used throughout Max.
 
@@ -207,7 +211,7 @@ if (MaxError.has(err, NotFound)) { ... }
 if (Linear.is(err)) { ... }
 ```
 
-See [Error System](./error-system.md) for the full guide: designing errors, choosing facets, wrapping boundaries, shared boundaries, and conventions.
+See [Error System](/reference/error-system/) for the full guide: designing errors, choosing facets, wrapping boundaries, shared boundaries, and conventions.
 
 ---
 
@@ -222,4 +226,4 @@ See [Error System](./error-system.md) for the full guide: designing errors, choo
 | `Scope` | Installation context | `Scope.local()`, `Scope.system(id)` |
 | `StaticTypeCompanion` | Type+Value pattern | Documents dual-use names |
 | `Inspect` | Custom console.log | `Inspect(this, self => ({ format, params }))` |
-| `MaxError` | Composable errors | `MaxError.boundary("linear")`, [full guide](./error-system.md) |
+| `MaxError` | Composable errors | `MaxError.boundary("linear")`, [full guide](/reference/error-system/) |

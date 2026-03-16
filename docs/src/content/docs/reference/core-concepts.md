@@ -1,4 +1,8 @@
-# Core Concepts
+---
+title: Core Concepts
+sidebar:
+  order: 1
+---
 
 Fundamental concepts in Max.
 

@@ -11,6 +11,20 @@ import {
 } from '../printers/context-printers.js'
 
 // ============================================================================
+// Helpers
+// ============================================================================
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('timeout')), ms)
+    promise.then(
+      (v) => { clearTimeout(timer); resolve(v) },
+      (e) => { clearTimeout(timer); reject(e) },
+    )
+  })
+}
+
+// ============================================================================
 // status at global level
 // ============================================================================
 
@@ -68,7 +82,10 @@ export class CmdStatusWorkspace implements Command {
       infos.map(async (inst) => {
         let instHealth
         try {
-          instHealth = await ctx.workspace.installation(inst.id).health()
+          instHealth = await withTimeout(
+            ctx.workspace.installation(inst.id).health(),
+            10_000,
+          )
         } catch {
           instHealth = { status: 'unhealthy' as const, reason: 'unreachable' }
         }

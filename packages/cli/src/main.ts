@@ -109,6 +109,12 @@ export async function main() {
     fs.mkdirSync(daemonPaths.root, { recursive: true })
     fs.writeFileSync(daemonPaths.pid, String(process.pid))
 
+    // Surface unhandled rejections - in daemon mode these are otherwise invisible
+    // (stderr goes to the log file, not the user's terminal)
+    process.on('unhandledRejection', (reason) => {
+      console.error('[daemon] Unhandled rejection:', reason)
+    })
+
     // Start GlobalMax eagerly — reconcile persisted workspaces before accepting requests
     const globalMax = await cli.lazy.globalStarted
     const workspaces = await globalMax.listWorkspaces()

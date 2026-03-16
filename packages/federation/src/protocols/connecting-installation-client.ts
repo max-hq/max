@@ -27,7 +27,7 @@ export class ConnectingInstallationClient implements InstallationClient {
   private ensure(): Promise<InstallationClient> {
     if (!this._connected) {
       this._connected = this._connect()
-      this._connected.then(actual => this._actual = actual)
+      this._connected.then(actual => this._actual = actual, () => {})
     }
     return this._connected
   }

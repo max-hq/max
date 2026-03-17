@@ -23,7 +23,8 @@ import { optional } from '@optique/core/modifiers'
 import { Mode, Parser, getDocPageAsync, suggestAsync, type Suggestion } from '@optique/core/parser'
 import { formatDocPage } from '@optique/core/doc'
 
-import { Fmt, makeLazy, MaxError, type MaxUrlLevel, type Printable, type Sink } from '@max/core'
+import { Fmt, makeLazy, MaxError, type MaxUrlLevel, type Sink } from '@max/core'
+import { tryRemoteExecute } from './remote-execute.js'
 import { CliRequest, ExecuteResult, ExecuteHandle } from './types.js'
 import { parseArgs, extractErrorValue, formatMessage } from './argv-parser.js'
 import { type Prompter } from './prompter.js'
@@ -348,6 +349,17 @@ export class CLI {
     const { sink } = opts
     const color = req.color ?? this.cfg.useColor ?? true
     const cwd = req.cwd ?? this.cfg.cwd
+
+    // Remote target intercept — forward over HTTP before touching local state.
+    // Temporary shim until core types support wire serialization.
+    const remoteResult = await tryRemoteExecute(req.argv, { kind: req.kind, shell: req.shell })
+    if (remoteResult !== null) {
+      if (remoteResult.stdout) sink.write(remoteResult.stdout)
+      if (remoteResult.completions) return { exitCode: remoteResult.exitCode, completions: remoteResult.completions }
+      if (remoteResult.stderr) return { exitCode: remoteResult.exitCode, stderr: remoteResult.stderr }
+      return { exitCode: remoteResult.exitCode }
+    }
+
     const globalMax = await this.lazy.globalStarted
 
     // Normalize: -g -> -t @, bare `max` -> `max status`

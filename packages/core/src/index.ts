@@ -51,7 +51,7 @@ export type { RefAny, LocalRef, SystemRef, GlobalRef, ScopeUpgradeable } from ".
 
 // Max URL (MaxUrl is a class)
 export { MaxUrl } from "./max-url.js";
-export type { MaxUrlLevel } from "./max-url.js";
+export type { MaxUrlLevel, MaxUrlScheme } from "./max-url.js";
 
 // Entity input (EntityInput is both type and value)
 export { EntityInput } from "./entity-input.js";

@@ -50,7 +50,7 @@ function extractTargetValue(argv: readonly string[]): string | undefined {
 
 /** Convert a -t value string into a MaxUrl. */
 export function parseTargetInput(input: string, cwdCtx: CwdContext): MaxUrl {
-  if (input.startsWith('max://')) return MaxUrl.parse(input)
+  if (input.startsWith('max://') || input.startsWith('max+http://')) return MaxUrl.parse(input)
   if (input === MaxConstants.GLOBAL_HOME) return MaxUrl.global()
   return input
     .split('/')

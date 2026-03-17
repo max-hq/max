@@ -1,0 +1,19 @@
+{
+  "name": "@max/mini-http",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@max/cli": "workspace:*",
+    "@max/core": "workspace:*",
+    "@max/federation": "workspace:*",
+    "@max/platform-bun": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "catalog:"
+  }
+}

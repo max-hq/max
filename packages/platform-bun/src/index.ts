@@ -31,7 +31,9 @@ export { FsCredentialStore } from './services/fs-credential-store.js'
 
 // Transport (Bun-specific Unix socket RPC)
 export { createRpcSocketServer, type RpcSocketServer, type RpcSocketServerOptions, type RpcDispatchFn } from './rpc-socket-server.js'
+export { createRpcHttpServer, type RpcHttpServer, type RpcHttpServerOptions, type AllowlistEntry } from './rpc-http-server.js'
 export { BunDaemonTransport } from './transports/bun-daemon-transport.js'
+export { HttpTransport } from './transports/http-transport.js'
 
 // Config (Bun platform concerns)
 export { GlobalConfig } from './global-config.js'

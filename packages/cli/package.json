@@ -3,8 +3,18 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    "types": "./src/index.ts",
-    "default": "./src/index.ts"
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./cli": {
+      "types": "./src/cli.ts",
+      "default": "./src/cli.ts"
+    },
+    "./types": {
+      "types": "./src/types.ts",
+      "default": "./src/types.ts"
+    }
   },
   "scripts": {
     "build": "bun build ./src/index.ts --outdir ./dist --target node",

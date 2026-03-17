@@ -552,10 +552,6 @@ Executor -> Seeder: "SyncResult { completed: 7, failed: 0 }"
 
 ### Not yet implemented
 
-- **Loader dependencies (`dependsOn`)** - Loaders can declare dependencies on other loaders in the type system, but the execution layer ignores this. `DefaultTaskRunner` throws if a loader has dependencies. This blocks any loader that needs shared data from another loader.
-
-- **Raw loaders** - `Loader.raw()` exists in the type system but the execution layer can't run it. There's no task payload type and no dispatch path. Raw loaders are intended for standalone data fetches (API config, rate limits) and are the primary use case for `dependsOn`. These two items are coupled.
-
 - **Error recovery / resume** - When a sync has failures, stranded tasks remain in honest states. A resume mechanism could retry failed tasks and naturally unblock the rest. The state model supports this; the trigger mechanism doesn't exist yet.
 
 - **Cross-step deduplication** - If step 3 discovers users u1, u2, u3 and step 4 also needs them, they're loaded independently. Deduplication across steps would coalesce these into a single load.

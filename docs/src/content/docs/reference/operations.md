@@ -10,29 +10,30 @@ This page covers how operations are executed at the framework level - the dispat
 
 When a loader calls `env.ops.execute(GetUser, { id })`, the call passes through several layers before reaching the handler:
 
-```
-Loader                              Framework
-──────                              ─────────
-env.ops.execute(GetUser, { id })
-       │
-       v
-  OperationExecutor                 DispatchingOperationExecutor
-  (typed, in @max/core)       ───>  (bridges to dispatcher)
-                                           │
-                                           v
-                                    OperationDispatcher
-                                    (middleware pipeline)
-                                           │
-                                    ┌──────┴──────┐
-                                    │  counting   │
-                                    │  middleware  │
-                                    ├─────────────┤
-                                    │ rate limit  │
-                                    │  middleware  │
-                                    ├─────────────┤
-                                    │  op.handle  │
-                                    │  (handler)  │
-                                    └─────────────┘
+```d2
+direction: down
+
+Connector Code: {
+  loader: "env.ops.execute(GetUser, { id })"
+  executor: OperationExecutor {
+    style.font-size: 13
+    tooltip: "Typed interface in @max/core"
+  }
+  loader -> executor
+}
+
+Framework: {
+  bridge: DispatchingOperationExecutor
+  pipeline: Middleware Pipeline {
+    counting: Counting Middleware
+    ratelimit: Rate Limiting Middleware
+    handler: "op.handle(input, env)"
+    counting -> ratelimit -> handler
+  }
+  bridge -> pipeline.counting
+}
+
+Connector Code.executor -> Framework.bridge: dispatches to
 ```
 
 The separation is intentional. Connector code imports `OperationExecutor` from `@max/core` and calls `execute()`. How that call is dispatched - what middleware runs, whether limits are enforced - is decided by the framework at wiring time. Connectors don't need to know.
@@ -129,6 +130,30 @@ const GetUser = Operation.define({
 Multiple operations can share the same limit by referencing the same `Limit` instance. In this example, all operations using `AcmeApi` collectively cannot exceed 50 concurrent executions.
 
 ### How limits are enforced
+
+```d2
+direction: right
+
+loader: Loader calls execute()
+middleware: Rate Limiting Middleware {
+  check: "op.limit?"
+  no_limit: "No limit" {style.font-size: 12}
+  has_limit: "Has limit" {style.font-size: 12}
+  check -> no_limit: "undefined"
+  check -> has_limit: "Limit defined"
+}
+provider: FlowControllerProvider
+fc: FlowController {
+  semaphore: "SemaphoreFlowController\nacquire slot, run, release"
+}
+handler: "op.handle()"
+
+loader -> middleware.check
+middleware.no_limit -> handler: "execute immediately"
+middleware.has_limit -> provider: "provider.get(limit)"
+provider -> fc.semaphore
+fc.semaphore -> handler: "when slot available"
+```
 
 The rate limiting middleware checks each operation's `limit` property:
 

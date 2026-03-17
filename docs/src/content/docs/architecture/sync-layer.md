@@ -16,21 +16,25 @@ The sync layer has three parts:
 2. **Seeders & SyncPlans** define *what* to sync and in what order
 3. **The Executor** turns a plan into a task graph and drains it
 
-```mermaid
-flowchart LR
-    subgraph Define
-        R[Resolvers] --> L[Loaders]
-    end
-    subgraph Plan
-        S[Seeder] --> SP[SyncPlan]
-    end
-    subgraph Execute
-        SP --> EX[Executor]
-        EX --> TG[Task Graph]
-        TG --> DR[Drain Loop]
-        DR --> |calls| L
-        DR --> |stores| E[Engine]
-    end
+```d2
+direction: right
+
+Define: {
+  Resolvers -> Loaders
+}
+
+Plan: {
+  Seeder -> SyncPlan
+}
+
+Execute: {
+  Executor -> Task Graph
+  Task Graph -> Drain Loop
+  Drain Loop -> Engine: stores
+}
+
+Plan.SyncPlan -> Execute.Executor
+Execute.Drain Loop -> Define.Loaders: calls
 ```
 
 ---
@@ -47,18 +51,18 @@ There are three variants:
 | `entityBatched` | `(refs[]) => Batch<EntityInput>` | Fetch many entities in one API call |
 | `collection` | `(parentRef, page) => Page<EntityInput>` | Paginated child entities |
 
-```mermaid
-flowchart TD
-    subgraph "Loader Variants"
-        EL["entity\n(ref) => EntityInput"]
-        EB["entityBatched\n(refs[]) => Batch"]
-        CL["collection\n(ref, page) => Page"]
-    end
+```d2
+Loader Variants: {
+  entity: "entity\n(ref) => EntityInput"
+  entityBatched: "entityBatched\n(refs[]) => Batch"
+  collection: "collection\n(ref, page) => Page"
+}
 
-    API[External API]
-    EL --> API
-    EB --> API
-    CL --> API
+API: External API
+
+Loader Variants.entity -> API
+Loader Variants.entityBatched -> API
+Loader Variants.collection -> API
 ```
 
 ### Entity Loader
@@ -134,17 +138,20 @@ const TeamMembersLoader = Loader.collection({
 
 A **Resolver** maps an entity's fields to the loaders that populate them. Each field points to exactly one loader.
 
-```mermaid
-flowchart LR
-    subgraph "AcmeTeam Resolver"
-        N[name] --> TBL[TeamBasicLoader]
-        D[description] --> TBL
-        O[owner] --> TBL
-        M[members] --> TML[TeamMembersLoader]
-    end
+```d2
+direction: right
 
-    TBL --> |"entity"| API[External API]
-    TML --> |"collection"| API
+AcmeTeam Resolver: {
+  name -> TeamBasicLoader
+  description -> TeamBasicLoader
+  owner -> TeamBasicLoader
+  members -> TeamMembersLoader
+}
+
+API: External API
+
+AcmeTeam Resolver.TeamBasicLoader -> API: entity
+AcmeTeam Resolver.TeamMembersLoader -> API: collection
 ```
 
 ```typescript
@@ -204,20 +211,29 @@ A SyncPlan is a sequence of steps. Each step has a **target** (which entities) a
 
 Steps run **sequentially** by default. Each step waits for the previous step (and all its children) to finish before starting. This matters because later steps often depend on entities discovered by earlier ones.
 
-```mermaid
-flowchart TD
-    S1["1. forRoot(root).loadCollection('teams')\nDiscover all teams"]
-    S2["2. forAll(AcmeTeam).loadFields(...)\nLoad team details"]
-    S3["3. forAll(AcmeTeam).loadCollection('members')\nDiscover team members"]
-    S4["4. forAll(AcmeUser).loadFields(...)\nLoad user details"]
+```d2
+S1: "1. forRoot(root).loadCollection('teams')\nDiscover all teams"
+S2: "2. forAll(AcmeTeam).loadFields(...)\nLoad team details"
+S3: "3. forAll(AcmeTeam).loadCollection('members')\nDiscover team members"
+S4: "4. forAll(AcmeUser).loadFields(...)\nLoad user details"
 
-    S1 --> S2 --> S3 --> S4
+S1 -> S2 -> S3 -> S4
 
-    S1 -.- T1["AcmeTeam entities\nappear in store"]
-    S3 -.- T2["AcmeUser entities\nappear in store"]
+T1: "AcmeTeam entities\nappear in store" {
+  style: {
+    stroke-dash: 3
+    fill: transparent
+  }
+}
+T2: "AcmeUser entities\nappear in store" {
+  style: {
+    stroke-dash: 3
+    fill: transparent
+  }
+}
 
-    style T1 fill:none,stroke-dasharray:5 5
-    style T2 fill:none,stroke-dasharray:5 5
+S1 -> T1: {style.stroke-dash: 3}
+S3 -> T2: {style.stroke-dash: 3}
 ```
 
 ### Concurrent Steps
@@ -244,44 +260,56 @@ The **SyncExecutor** turns a SyncPlan into a task graph and processes it.
 
 The **PlanExpander** converts each step into one or more tasks, wiring up dependencies:
 
-```mermaid
-flowchart TD
-    subgraph "SyncPlan (declarative)"
-        P1[Step 1: forRoot load teams]
-        P2[Step 2: forAll teams loadFields]
-        P3[Step 3: forAll teams loadCollection members]
-        P4[Step 4: forAll users loadFields]
-        P1 --> P2 --> P3 --> P4
-    end
+```d2
+SyncPlan: "SyncPlan (declarative)" {
+  P1: "Step 1: forRoot load teams"
+  P2: "Step 2: forAll teams loadFields"
+  P3: "Step 3: forAll teams loadCollection members"
+  P4: "Step 4: forAll users loadFields"
+  P1 -> P2 -> P3 -> P4
+}
 
-    subgraph "Task Graph (executable)"
-        T1["sync-step\n(pending)"]
-        T2["sync-step\n(new, blockedBy: T1)"]
-        T3["sync-step\n(new, blockedBy: T2)"]
-        T4["sync-step\n(new, blockedBy: T3)"]
-        T1 -.->|unblocks| T2 -.->|unblocks| T3 -.->|unblocks| T4
-    end
+Task Graph: "Task Graph (executable)" {
+  T1: "sync-step\n(pending)"
+  T2: "sync-step\n(new, blockedBy: T1)"
+  T3: "sync-step\n(new, blockedBy: T2)"
+  T4: "sync-step\n(new, blockedBy: T3)"
+  T1 -> T2: unblocks {style.stroke-dash: 3}
+  T2 -> T3: unblocks {style.stroke-dash: 3}
+  T3 -> T4: unblocks {style.stroke-dash: 3}
+}
 
-    P1 --> T1
-    P2 --> T2
-    P3 --> T3
-    P4 --> T4
+SyncPlan.P1 -> Task Graph.T1
+SyncPlan.P2 -> Task Graph.T2
+SyncPlan.P3 -> Task Graph.T3
+SyncPlan.P4 -> Task Graph.T4
 ```
 
 Tasks start in `new` (blocked) or `pending` (ready). When a blocking task completes, its dependents move from `new` to `pending`.
 
 ### Task States
 
-```mermaid
-stateDiagram-v2
-    [*] --> new : created with blockedBy
-    [*] --> pending : created without blockedBy
-    new --> pending : blocker completes
-    pending --> running : claimed by drain loop
-    running --> completed : success
-    running --> failed : error thrown
-    running --> awaiting_children : spawned child tasks
-    awaiting_children --> completed : all children completed
+```d2
+start: "" {
+  shape: circle
+  style.fill: "#333"
+}
+
+new
+pending
+running
+completed
+failed
+awaiting_children
+
+start -> new: created with blockedBy
+start -> pending: created without blockedBy
+new -> pending: blocker completes
+pending -> running: claimed by drain loop
+running -> completed: success
+running -> failed: error thrown
+running -> awaiting_children: spawned child tasks
+awaiting_children -> completed: all children completed
 ```
 
 ### Dynamic Children
@@ -293,56 +321,82 @@ Tasks spawn child tasks at runtime. Both `loadCollection` and `loadFields` steps
 
 The parent moves to `awaiting_children` and completes when all children finish. Because children are independent tasks, the worker pool executes them concurrently.
 
-```mermaid
-flowchart TD
-    T3["sync-step: forAll AcmeTeam loadCollection 'members'\n(awaiting_children)"]
-    C1["load-collection: team-1\n(pending)"]
-    C2["load-collection: team-2\n(pending)"]
-    C3["load-collection: team-3\n(pending)"]
+```d2
+T3: "sync-step: forAll AcmeTeam loadCollection 'members'\n(awaiting_children)"
+C1: "load-collection: team-1\n(pending)"
+C2: "load-collection: team-2\n(pending)"
+C3: "load-collection: team-3\n(pending)"
 
-    T3 --> C1
-    T3 --> C2
-    T3 --> C3
+T3 -> C1
+T3 -> C2
+T3 -> C3
 
-    C1 --> |stores| U1[AcmeUser entities]
-    C2 --> |stores| U2[AcmeUser entities]
-    C3 --> |stores| U3[AcmeUser entities]
+U1: AcmeUser entities {
+  style: {
+    stroke-dash: 3
+    fill: transparent
+  }
+}
+U2: AcmeUser entities {
+  style: {
+    stroke-dash: 3
+    fill: transparent
+  }
+}
+U3: AcmeUser entities {
+  style: {
+    stroke-dash: 3
+    fill: transparent
+  }
+}
 
-    style U1 fill:none,stroke-dasharray:5 5
-    style U2 fill:none,stroke-dasharray:5 5
-    style U3 fill:none,stroke-dasharray:5 5
+C1 -> U1: stores
+C2 -> U2: stores
+C3 -> U3: stores
 ```
 
 Collection loaders also paginate. If a page has more results, the task spawns a continuation child with the next cursor:
 
-```mermaid
-flowchart TD
-    LC1["load-collection: team-1\ncursor: undefined"]
-    LC2["load-collection: team-1\ncursor: '100'"]
-    LC3["load-collection: team-1\ncursor: '200'\n(last page)"]
+```d2
+LC1: "load-collection: team-1\ncursor: undefined"
+LC2: "load-collection: team-1\ncursor: '100'"
+LC3: "load-collection: team-1\ncursor: '200'\n(last page)"
 
-    LC1 -->|hasMore| LC2 -->|hasMore| LC3
+LC1 -> LC2: hasMore
+LC2 -> LC3: hasMore
 ```
 
 ### The Worker Pool
 
 The executor runs a pool of 64 concurrent workers. Each worker independently claims tasks and executes them. A `FlowController` at the executor level gates how many tasks actually run in parallel (default: 50 concurrent tasks via a semaphore).
 
-```mermaid
-flowchart TD
-    START([Start]) --> SPAWN["Spawn 64 workers"]
-    SPAWN --> CLAIM["Worker: claim next\npending task"]
-    CLAIM -->|got task| FC["Acquire FlowController slot"]
-    FC --> EXEC[Execute task]
-    CLAIM -->|none available| CHECK{Any active\ntasks?}
-    CHECK -->|yes| WAIT["Signal.wait()"] --> CLAIM
-    CHECK -->|no| DONE([Worker exits])
-    EXEC -->|spawned children| AC["Set task to\nawaiting_children\n+ notifyAll()"]
-    EXEC -->|no children| COMPLETE["Complete task\n+ notifyAll()"]
-    EXEC -->|threw| FAIL["Fail task\n+ notifyAll()"]
-    AC --> CLAIM
-    COMPLETE --> UNBLOCK[Unblock dependents\n+ check parent] --> CLAIM
-    FAIL --> CLAIM
+```d2
+START: Start {shape: oval}
+SPAWN: Spawn 64 workers
+CLAIM: "Worker: claim next\npending task"
+FC: Acquire FlowController slot
+EXEC: Execute task
+CHECK: "Any active\ntasks?" {shape: diamond}
+WAIT: Signal.wait()
+DONE: Worker exits {shape: oval}
+AC: "Set task to\nawaiting_children\n+ notifyAll()"
+COMPLETE: "Complete task\n+ notifyAll()"
+FAIL: "Fail task\n+ notifyAll()"
+UNBLOCK: "Unblock dependents\n+ check parent"
+
+START -> SPAWN -> CLAIM
+CLAIM -> FC: got task
+FC -> EXEC
+CLAIM -> CHECK: none available
+CHECK -> WAIT: yes
+WAIT -> CLAIM
+CHECK -> DONE: no
+EXEC -> AC: spawned children
+EXEC -> COMPLETE: no children
+EXEC -> FAIL: threw
+AC -> CLAIM
+COMPLETE -> UNBLOCK -> CLAIM
+FAIL -> CLAIM
 ```
 
 Workers coordinate through a `Signal` primitive rather than polling. When no tasks are available, a worker calls `Signal.wait()` and blocks at zero CPU cost. When a task completes, spawns children, or fails, it calls `Signal.notifyAll()` to wake all idle workers immediately.
@@ -368,19 +422,30 @@ When a task fails, the drain loop marks it as `failed` and moves on. The loop ex
 
 The `SyncResult` reports both `tasksCompleted` and `tasksFailed`, so the caller knows the sync wasn't clean.
 
-```mermaid
-flowchart TD
-    T1["sync-step: load team fields\n(failed - API error)"]
-    T2["sync-step: load members\n(new - still blocked)"]
-    T3["sync-step: load users\n(new - still blocked)"]
+```d2
+T1: "sync-step: load team fields\n(failed - API error)" {
+  style: {
+    fill: "#f66"
+    font-color: "#fff"
+  }
+}
+T2: "sync-step: load members\n(new - still blocked)" {
+  style: {
+    fill: "#999"
+    font-color: "#fff"
+  }
+}
+T3: "sync-step: load users\n(new - still blocked)" {
+  style: {
+    fill: "#999"
+    font-color: "#fff"
+  }
+}
 
-    T1 -.->|would unblock| T2 -.->|would unblock| T3
+T1 -> T2: would unblock {style.stroke-dash: 3}
+T2 -> T3: would unblock {style.stroke-dash: 3}
 
-    R["SyncResult\nstatus: completed\ntasksCompleted: 1\ntasksFailed: 1"]
-
-    style T1 fill:#f66,color:#fff
-    style T2 fill:#999,color:#fff
-    style T3 fill:#999,color:#fff
+R: "SyncResult\nstatus: completed\ntasksCompleted: 1\ntasksFailed: 1"
 ```
 
 The stranded tasks preserve honest state: they weren't cancelled or failed - they were never attempted. A future resume operation could retry the failed task, which would naturally unblock the rest.
@@ -411,81 +476,74 @@ const result = await handle.completion();
 
 Putting it all together for the Acme connector:
 
-```mermaid
-sequenceDiagram
-    participant Seeder
-    participant Engine as Engine (SQLite)
-    participant Executor
-    participant TaskStore
-    participant Loaders
-    participant API as Acme API
+```d2
+shape: sequence_diagram
 
-    Seeder->>Engine: store(AcmeRoot "root")
-    Seeder->>Executor: execute(SyncPlan)
+Seeder
+Engine: Engine (SQLite)
+Executor
+TaskStore
+Loaders
+API: Acme API
 
-    Note over Executor,TaskStore: Plan expansion
-    Executor->>TaskStore: enqueueGraph([T1, T2, T3, T4])
+Seeder -> Engine: "store(AcmeRoot 'root')"
+Seeder -> Executor: "execute(SyncPlan)"
 
-    Note over Executor: Drain loop begins
+plan expansion: {
+  Executor -> TaskStore: "enqueueGraph([T1, T2, T3, T4])"
+}
 
-    rect rgb(240, 248, 255)
-        Note over Executor: Step 1: Discover teams
-        Executor->>TaskStore: claim() => T1
-        Executor->>Loaders: RootTeamsLoader.load(root)
-        Loaders->>API: listTeams()
-        API-->>Loaders: [{id: "team-1"}, {id: "team-2"}]
-        Loaders->>Engine: store(AcmeTeam "team-1")
-        Loaders->>Engine: store(AcmeTeam "team-2")
-        Executor->>TaskStore: complete(T1), unblock(T2)
-    end
+step 1 - discover teams: {
+  Executor -> TaskStore: "claim() => T1"
+  Executor -> Loaders: "RootTeamsLoader.load(root)"
+  Loaders -> API: "listTeams()"
+  API -> Loaders: '[{id: "team-1"}, {id: "team-2"}]'
+  Loaders -> Engine: 'store(AcmeTeam "team-1")'
+  Loaders -> Engine: 'store(AcmeTeam "team-2")'
+  Executor -> TaskStore: "complete(T1), unblock(T2)"
+}
 
-    rect rgb(240, 255, 240)
-        Note over Executor: Step 2: Load team fields
-        Executor->>TaskStore: claim() => T2
-        Executor->>Loaders: TeamBasicLoader.load(team-1)
-        Loaders->>API: teams.get("team-1")
-        Executor->>Loaders: TeamBasicLoader.load(team-2)
-        Loaders->>API: teams.get("team-2")
-        Loaders->>Engine: store(team fields + owner refs)
-        Executor->>TaskStore: complete(T2), unblock(T3)
-    end
+step 2 - load team fields: {
+  Executor -> TaskStore: "claim() => T2"
+  Executor -> Loaders: "TeamBasicLoader.load(team-1)"
+  Loaders -> API: 'teams.get("team-1")'
+  Executor -> Loaders: "TeamBasicLoader.load(team-2)"
+  Loaders -> API: 'teams.get("team-2")'
+  Loaders -> Engine: "store(team fields + owner refs)"
+  Executor -> TaskStore: "complete(T2), unblock(T3)"
+}
 
-    rect rgb(255, 248, 240)
-        Note over Executor: Step 3: Load members (spawns children)
-        Executor->>TaskStore: claim() => T3
-        Note over Executor: Query all AcmeTeam refs from store
-        Executor->>TaskStore: enqueue(C1: load-collection team-1)
-        Executor->>TaskStore: enqueue(C2: load-collection team-2)
-        Executor->>TaskStore: setAwaitingChildren(T3)
+step 3 - load members: {
+  Executor -> TaskStore: "claim() => T3"
+  Executor."Query all AcmeTeam refs from store"
+  Executor -> TaskStore: "enqueue(C1: load-collection team-1)"
+  Executor -> TaskStore: "enqueue(C2: load-collection team-2)"
+  Executor -> TaskStore: "setAwaitingChildren(T3)"
+  Executor -> TaskStore: "claim() => C1"
+  Executor -> Loaders: "TeamMembersLoader.load(team-1)"
+  Loaders -> API: 'listMembers("team-1")'
+  API -> Loaders: '[{userId: "u1"}, {userId: "u2"}]'
+  Loaders -> Engine: 'store(AcmeUser "u1"), store(AcmeUser "u2")'
+  Executor -> TaskStore: "complete(C1)"
+  Executor -> TaskStore: "claim() => C2"
+  Executor -> Loaders: "TeamMembersLoader.load(team-2)"
+  Loaders -> API: 'listMembers("team-2")'
+  API -> Loaders: '[{userId: "u3"}]'
+  Loaders -> Engine: 'store(AcmeUser "u3")'
+  Executor -> TaskStore: "complete(C2)"
+  Executor."All children done => complete(T3), unblock(T4)"
+}
 
-        Executor->>TaskStore: claim() => C1
-        Executor->>Loaders: TeamMembersLoader.load(team-1)
-        Loaders->>API: listMembers("team-1")
-        API-->>Loaders: [{userId: "u1"}, {userId: "u2"}]
-        Loaders->>Engine: store(AcmeUser "u1"), store(AcmeUser "u2")
-        Executor->>TaskStore: complete(C1)
+step 4 - load user fields: {
+  Executor -> TaskStore: "claim() => T4"
+  Executor -> Loaders: 'BasicUserLoader.load([u1, u2, u3])'
+  Loaders -> API: 'users.getBatch(["u1", "u2", "u3"])'
+  Loaders -> Engine: "store(user fields)"
+  Executor -> TaskStore: "complete(T4)"
+}
 
-        Executor->>TaskStore: claim() => C2
-        Executor->>Loaders: TeamMembersLoader.load(team-2)
-        Loaders->>API: listMembers("team-2")
-        API-->>Loaders: [{userId: "u3"}]
-        Loaders->>Engine: store(AcmeUser "u3")
-        Executor->>TaskStore: complete(C2)
-
-        Note over Executor: All children done => complete(T3), unblock(T4)
-    end
-
-    rect rgb(248, 240, 255)
-        Note over Executor: Step 4: Load user fields
-        Executor->>TaskStore: claim() => T4
-        Executor->>Loaders: BasicUserLoader.load([u1, u2, u3])
-        Loaders->>API: users.getBatch(["u1", "u2", "u3"])
-        Loaders->>Engine: store(user fields)
-        Executor->>TaskStore: complete(T4)
-    end
-
-    Note over Executor: No active tasks => sync done
-    Executor-->>Seeder: SyncResult { completed: 7, failed: 0 }
+Executor."No active tasks => sync done"
+Executor -> Seeder: "SyncResult { completed: 7, failed: 0 }"
 ```
 
 ---

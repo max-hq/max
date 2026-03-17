@@ -1,0 +1,13 @@
+{
+  "name": "max-docs",
+  "compatibility_date": "2026-03-16",
+  "assets": {
+    "directory": "./dist",
+  },
+	"routes": [
+    {
+      "pattern": "docs.max.cloud", 
+      "custom_domain": true
+    }
+  ]
+}

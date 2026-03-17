@@ -1,0 +1,20 @@
+{
+  "name": "@max/explorer-demo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@max/core": "workspace:*",
+    "@max/federation": "workspace:*",
+    "@max/platform-bun": "workspace:*",
+    "@max/query-parser": "workspace:*",
+    "@max/storage-sqlite": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "catalog:"
+  }
+}

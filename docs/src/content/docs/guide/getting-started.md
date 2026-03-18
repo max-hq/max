@@ -8,7 +8,7 @@ This guide walks through setting up Max, connecting a data source, and running y
 
 ## Prerequisites
 
-You need Max installed and a connector collection available. If you don't have Max yet, see the project README for installation instructions.
+You need Max installed and a connector collection available. If you haven't set up Max yet, see the [installation guide](/guide/installation/).
 
 ## Create a workspace
 
@@ -64,7 +64,7 @@ The connect command runs an interactive onboarding flow. Depending on the connec
 - Workspace or organisation selection
 - Configuration options specific to that data source
 
-Credentials are stored via the credential provider. By default, this stores credentials on the filesystem at `.max/installations/<name>/credentials.json`. They are never written to `max.json`.
+Credentials are stored via the configured `CredentialProvider`. By default, this stores credentials on the filesystem at `.max/installations/<name>/credentials.json`. They are never written to `max.json`.
 
 You can name your installation explicitly:
 

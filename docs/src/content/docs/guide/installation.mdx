@@ -1,0 +1,125 @@
+---
+title: Installation
+sidebar:
+  order: 0
+---
+
+import { Tabs, TabItem, Card } from '@astrojs/starlight/components';
+
+This guide walks through installing Max and its dependencies from source.
+
+## Prerequisites
+
+### Bun
+
+Max uses Bun (v1.3.9 or later) as its runtime. Install it with:
+
+```bash
+curl -fsSL https://bun.sh/install | bash
+```
+
+See [bun.sh](https://bun.sh) for alternative installation methods.
+
+### Rust
+
+The Max CLI uses a lightweight Rust proxy binary. Install Rust with:
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+
+See [rustup.rs](https://rustup.rs) for details.
+
+## Build Max
+
+Clone the repository and install dependencies:
+
+```bash
+git clone git@github.com:max-hq/max.git
+cd max
+bun install
+bun run build
+```
+
+This compiles the TypeScript packages and the Rust proxy binary. The `max` entry point is at the repository root.
+
+Verify it works:
+
+```bash
+./max --help
+```
+
+For convenience, add the repository root to your `PATH` so you can run `max` from anywhere:
+
+```bash
+export PATH="/path/to/max:$PATH"
+```
+
+## Shell completions
+
+Max supports tab completion for commands, flags, installations, entity types, and more. Generate the completion script for your shell:
+
+<Card>
+    <Tabs>
+        <TabItem label="zsh">
+            ```bash
+            max completion zsh > ~/.zsh/completions/_max
+            ```
+
+            Make sure `~/.zsh/completions` is in your `fpath`. If it isn't, add this to your `.zshrc` before `compinit`:
+
+            ```bash
+            fpath=(~/.zsh/completions $fpath)
+            autoload -Uz compinit && compinit
+            ```
+        </TabItem>
+        <TabItem label="bash">
+            ```bash
+            max completion bash > ~/.bashrc.d/max.bash
+            source ~/.bashrc.d/max.bash
+            ```
+                </TabItem>
+                <TabItem label="fish">
+            ```bash
+            max completion fish > ~/.config/fish/completions/max.fish
+            ```
+        </TabItem>
+        <TabItem label="PowerShell">
+            ```powershell
+            max completion pwsh > $PROFILE/../max-completion.ps1
+            Add-Content $PROFILE ". $PROFILE/../max-completion.ps1"
+            ```
+        </TabItem>
+        <TabItem label="Nushell">
+            ```bash
+            max completion nu | save max-completion.nu
+            source max-completion.nu
+            ```
+        </TabItem>
+    </Tabs>
+    Restart your shell or source the config file for completions to take effect.
+</Card>
+
+## Set up a workspace
+
+With Max installed, create your first workspace:
+
+```bash
+max init my-project
+cd my-project
+```
+
+## Install a connector collection
+
+Add connectors so you have data sources to work with:
+
+```bash
+max install --collection git@github.com:max-hq/max-connectors.git
+```
+
+This clones the collection to `~/.max/collections/` and makes its connectors available to all workspaces.
+
+## What's next
+
+- [Getting Started](/guide/getting-started/) - connect a source and run your first sync
+- [CLI Overview](/cli/overview/) - understand the command hierarchy

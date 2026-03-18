@@ -14,7 +14,8 @@
     "test": "turbo run test --continue",
     "docs:dev": "bun run --cwd docs dev",
     "docs:build": "bun run --cwd docs build",
-    "docs:preview": "bun run --cwd docs preview"
+    "docs:preview": "bun run --cwd docs preview",
+    "postinstall": "bun run scripts/link-core-connector-packages.ts"
   },
   "devDependencies": {
     "@max/connector-acme": "workspace:*",

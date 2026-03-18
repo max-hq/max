@@ -67,11 +67,11 @@ export function createTargetValueParser(
           const workspaces = await globalMax.listWorkspaces()
           for (const ws of workspaces) {
             if (ws.name.startsWith(afterHost)) {
-              yield {
-                kind: 'literal',
-                text: `max://@/${ws.name}`,
-                description: message`Workspace`,
-              }
+              // yield {
+              //   kind: 'literal',
+              //   text: `max://@/${ws.name}`,
+              //   description: message`Workspace`,
+              // }
               yield {
                 kind: 'literal',
                 text: `max://@/${ws.name}/`,

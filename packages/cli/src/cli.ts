@@ -136,13 +136,15 @@ export class CLI {
   private encodeSuggestions(req: CliRequest, sink: Sink, suggestions: readonly Suggestion[]): ExecuteResult {
     const shell = req.shell && shells[req.shell]
     if (shell) {
-      const chunks: string[] = []
-      // There's a bug in the encoder that fails to treat max:// urls as atomic. Escaping the :// parts is necessary:
-      const preEncoded = suggestions.map(preEncodeSuggestion)
+      // There's a bug in the zsh encoder that fails to treat max:// urls as atomic. Escaping the :// parts is necessary:
+      // The better fix (FIXME) is to update the zsh completion script (optique) to understand the concept no-space (don't add a space) completion literals
+      const preEncoded = req.shell === 'zsh' ? suggestions.map(preEncodeSuggestion) : suggestions
       for (const chunk of shell.encodeSuggestions(preEncoded)) {
-        chunks.push(chunk)
+        sink.write(chunk + '\n')
       }
-      sink.write(chunks.join('\n'))
+      if (suggestions.length){
+        sink.write('\n')
+      }
       return { exitCode: 0 }
     }else{
       const completions = suggestions.filter((s) => s.kind === 'literal').map((s) => s.text)
@@ -256,6 +258,7 @@ export class CLI {
     program: Parser<Mode>,
     shell: string,
     args: string[],
+    cwd: string
   ): Promise<ExecuteResult> {
     const shellCodec = shells[shell]
     if (!shellCodec) {
@@ -264,20 +267,28 @@ export class CLI {
 
     // No extra args -> generate the shell setup script
     if (args.length === 0) {
-      sink.write(shellCodec.generateScript('max'))
+
+      const completionArg = 'completion'
+      const script = shellCodec.generateScript('max', [completionArg, shell])
+
+      sink.write(script)
       return { exitCode: 0 }
     }
 
     // With args -> inline completion (shell calling back for suggestions)
     try {
       const suggestions = await suggestAsync(program, asNonEmptyArgv(args))
-      const preEncoded = suggestions.map(preEncodeSuggestion)
-      const chunks: string[] = []
-      for (const chunk of shellCodec.encodeSuggestions(preEncoded)) {
-        chunks.push(chunk)
-      }
-      sink.write(chunks.join('\n'))
-      return { exitCode: 0 }
+      return this.encodeSuggestions(
+        {
+          shell,
+          argv: asNonEmptyArgv(args),
+          color: true,
+          kind: 'complete',
+          cwd,
+        },
+        sink,
+        suggestions
+      )
     } catch {
       return { exitCode: 1, stderr: '' }
     }
@@ -420,7 +431,7 @@ export class CLI {
       const rest = argv.slice(compIdx + 1)
       const shell = rest[0]
       if (shell) {
-        return this.handleCompletion(sink, program, shell, rest.slice(1) as string[])
+        return this.handleCompletion(sink, program, shell, rest.slice(1) as string[], cwd)
       }
     }
 
@@ -455,6 +466,6 @@ export class CLI {
 }
 
 const slashEscape = (str:string) => str.replaceAll(/[:/]/g, c => `\\${c}`)
-const preEncodeSuggestion = (suggestion: Suggestion):Suggestion => suggestion.kind === 'literal'
+const preEncodeSuggestion = (suggestion: Suggestion):Suggestion => suggestion.kind === 'literal' && suggestion.text.includes('://')
   ? {...suggestion, text: slashEscape(suggestion.text)}
   : suggestion

@@ -53,6 +53,8 @@ const shells: Record<string, ShellCompletion> = {
   zsh: Completion.zsh,
   bash: Completion.bash,
   fish: Completion.fish,
+  nu: Completion.nu,
+  pwsh: Completion.pwsh
 }
 
 // ============================================================================

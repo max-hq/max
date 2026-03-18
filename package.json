@@ -6,8 +6,7 @@
     "packages/*",
     "connectors/*",
     "apps/*",
-    "examples",
-    "docs"
+    "examples"
   ],
   "scripts": {
     "build": "turbo run build",

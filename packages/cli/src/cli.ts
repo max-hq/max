@@ -140,10 +140,14 @@ export class CLI {
       // The better fix (FIXME) is to update the zsh completion script (optique) to understand the concept no-space (don't add a space) completion literals
       const preEncoded = req.shell === 'zsh' ? suggestions.map(preEncodeSuggestion) : suggestions
       for (const chunk of shell.encodeSuggestions(preEncoded)) {
-        sink.write(chunk + '\n')
+        sink.write(chunk)
+        // FIXME: zsh completion script / bash completion scripts are slightly incompatible - bash wants no newlines here, zsh does
+        if (req.shell === 'zsh'){
+          sink.write("\n")
+        }
       }
       if (suggestions.length){
-        sink.write('\n')
+        sink.write("\n")
       }
       return { exitCode: 0 }
     }else{

@@ -46,8 +46,13 @@ export function createTargetValueParser(
     },
 
     async *suggest(prefix: string): AsyncGenerator<Suggestion> {
-      yield { kind: 'literal', text: '@', description: message`Global` }
-      yield { kind: 'literal', text: 'max://', description: message`Full URL` }
+
+      if (!prefix){
+        yield { kind: 'literal', text: '@', description: message`Global` }
+      }
+      if (!prefix || 'max://'.startsWith(prefix)){
+        yield { kind: 'literal', text: 'max://', description: message`Full URL` }
+      }
 
       // ---- Absolute max:// URL ----
 

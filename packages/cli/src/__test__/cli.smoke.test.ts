@@ -235,8 +235,9 @@ describe('CLI smoke', () => {
       const { complete } = await createTestCli()
       const res = await complete(['-t', 'max://@/'])
 
-      expect(res.completions).toContain('@')
-      expect(res.completions).toContain('max://@/test-project')
+      // NOTE: The trailing slash here is a compromise. We can't currently smooth over the difference between bash and zsh, so I'm opting to always emit the workspace trailing slash
+      // The fix for this is to update the completion scripts to understand when not to add a trailing _space_ - and then allow the user to type the slash (or suggest the /continuation on next <tab>)
+      expect(res.completions).toContain('max://@/test-project/')
     })
 
     test('-t max://@/test-project/ suggests installation URLs', async () => {
@@ -255,5 +256,5 @@ describe('CLI smoke', () => {
       expect(res.completions!.length).toBeGreaterThan(0)
     })
   })
-  
+
 })

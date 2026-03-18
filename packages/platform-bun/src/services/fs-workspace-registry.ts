@@ -52,6 +52,12 @@ export class FsWorkspaceRegistry implements WorkspaceRegistry {
     if (this.entries.has(entry.id)) {
       throw ErrRegistryEntryAlreadyExists.create({ name: entry.name })
     }
+    // Prevent same-name duplicates: if a workspace with this name already exists,
+    // replace the old entry (keeping the new ID + config).
+    const existingByName = [...this.entries.values()].find(e => e.name === entry.name)
+    if (existingByName) {
+      this.entries.delete(existingByName.id)
+    }
     this.entries.set(entry.id, entry)
   }
 

@@ -7,12 +7,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased]
 
 ### Added
+- HTTP server for serving Max data over HTTP, with remote command execution and completions support (max-mini-http, cli)
+- Explorer UI for browsing synced data visually (max-explorer-demo)
+- Tab completions for Nushell and PowerShell (cli)
+- Astro Starlight documentation site with restructured guides for connectors, SDK, and CLI
+- Getting-started documentation
 - Support for installing local connector collections via symlink
 - Dynamic onboarding flows for connectors with conditional step execution (connector)
 - Flow control framework - configurable concurrency and rate limiting for connector operations (execution, core)
 - Operations framework - structured indirection for upstream API calls with middleware support (execution)
 
+### Changed
+- Core connector packages are now automatically linked on install
+
 ### Fixed
+- Duplicate workspace names being allowed
+- Tab completions showing `@` and `max://` prefixes in contexts where they aren't valid (cli)
+- Invalid tab completions in bash shells (cli)
 - `max search` without `--limit` or `--all` fetching entire table into memory instead of defaulting to a page size of 1000 (storage-sqlite)
 - Daemon mode hanging forever when a connector fails during health check (federation, cli)
 

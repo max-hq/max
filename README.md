@@ -6,17 +6,15 @@
 | | | |     |-   -|
 |_|_|_|__|__|__|__|
 </pre>
-  <a href="https://max.cloud">Max</a> syncs data from any source into storage that you own.
-  <br/>
-  Your agents query the data locally - fast, unconstrained, and without API limits.
-  <br/><br/>
+
 </div>
 
-
-
-Max syncs data from SaaS tools into local storage. Your agents query it there - fast, cheap, and without touching the upstream API.
-
-It works with anything: Linear, GitHub, HubSpot, Google Drive, Hacker News, Hugging Face - [and more](https://github.com/max-hq/max-connectors).
+[Max](https://max.cloud) connects to arbitrary sources of data, and synchronises that data into portable storage.
+Once synced, queries run locally rather than against live APIs. This means that:
+- Queries are instant
+- There are no API rate limits
+- There is no incremental cost per query
+- Data sources take a familiar shape
 
 ## Install
 

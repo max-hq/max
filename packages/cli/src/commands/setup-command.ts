@@ -166,13 +166,9 @@ export async function handleSetup(sink: Sink, color: boolean): Promise<ExecuteRe
   const shellName = detectShell()
   const binDir = nodePath.join(home, '.local/bin')
 
-  // -- Bun PATH: check if bun is reachable without our exports --
-  const bunDir = nodePath.join(home, '.bun/bin')
-  if (fs.existsSync(nodePath.join(bunDir, 'bun'))) {
-    const pathDirs = (process.env.PATH || '').split(':')
-    if (!pathDirs.includes(bunDir)) {
-      manualSteps.push(`export PATH="$HOME/.bun/bin:$PATH"`)
-    }
+  // -- Bun PATH: if bun was installed during this run, the user's shell needs it --
+  if (process.env.MAX_SETUP_BUN_INSTALLED) {
+    manualSteps.push(`export PATH="$HOME/.bun/bin:$PATH"`)
   }
 
   if (shellName) {

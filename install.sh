@@ -28,6 +28,7 @@ main() {
             curl -fsSL https://bun.sh/install | bash
             export PATH="$HOME/.bun/bin:$PATH"
         fi
+        export MAX_SETUP_BUN_INSTALLED=1
     fi
 
     # Clone max

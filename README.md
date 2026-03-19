@@ -32,13 +32,13 @@ To get a feel for max, query live data on a public Max node:
 
 ```bash
 # What are the most downloaded text-generation models?
-max -t max://demo.max.cloud/max-demo/hf-popular search HfModel \                                                                                        (main✱)
+max -t max://demo.max.cloud/max-demo/hf-popular search HfModel \
   --filter 'pipelineTag = "text-generation" AND downloads > 10000' \
   --order-by downloads:desc \
   --fields id,downloads,likes
 
 # Find open issues across a GitHub repo
-max -t max://demo.max.cloud/max-demo/gh-pi-mono search GitHubIssue \                                                                                    (main✱)
+max -t max://demo.max.cloud/max-demo/gh-pi-mono search GitHubIssue \
   --filter 'state = "open"' \
   --order-by createdAt:desc \
   --fields title,author,state
@@ -51,8 +51,36 @@ max -t max://demo.max.cloud/max-demo/gh-pi-mono schema
 ### On your own data
 
 ```bash
-max 
+# Add connectors from any collection
+max -g install --collection git@github.com:max-hq/max-connectors.git
+
+# Create a workspace
+max init my-project && cd my-project
+
+# Connect a source and and trigger a sync
+max connect @max/connector-linear --name linear-1
+max sync linear-1
+
+# Query
+max search linear-1 LinearIssue \
+  --filter 'state = "In Progress" AND labels ~= "bug"' \
+  --fields title,assignee,priority 
 ```
+
+## Give your agent access to max
+
+```bash
+max -g llm-bootstrap
+```
+
+This prints a context document that teaches your agent how to use Max. You can wrap this in a skill, or just tell the agent to run the command directly. Your agent can then explore (`max schema`, `max ls`), query (`max search`), and pipe output into its own tools.
+
+
+## Storage model
+
+Max's storage is modular by design - the first available module in this repo is `storage-sqlite`.  
+This means queries run (typically) locally with high throughput and low latency - and without rate-limits.
+
 
 ## Documentation and examples
 
@@ -77,61 +105,15 @@ When given `max` with a connection to google and hubspot, the agent issued small
 
 The difference: with Max, data is already local, and it's CLI-friendly. Your agent runs `max search`, `grep`, `jq`, `sort` - whatever it needs, allowing data to be filtered *before* it hits the context window.
 
-## Connect your own sources
+## Embedded Max (library usage)
 
-```bash
-# Add connectors from any collection
-max -g install --collection git@github.com:max-hq/max-connectors.git
-
-# Create a workspace
-max init my-project && cd my-project
-
-# Connect and sync
-max connect @max/connector-linear --name linear-1
-max sync linear-1
-
-# Query
-max search linear-1 LinearIssue \
-  --filter 'state = "In Progress" AND labels ~= "bug"' \
-  --fields title,assignee,priority
-```
-
-### Storage
-
-Max's storage is modular by design - the first available module is `storage-sqlite`.  
-This means queries run (typically) locally with high throughput and low latency - and without rate-limits.
-
-## Give your agent access
-
-```bash
-max -g llm-bootstrap
-```
-
-This prints a context document that teaches your agent how to use Max - what's installed, what the schemas look like, how to search. Hand it to Claude, GPT, or whatever you're building with.
-
-Your agent can then explore (`max schema`, `max ls`), query (`max search`), and pipe output into its own tools.
-
-## Connectors
-
-| Connector | What it syncs |
-|-----------|---------------|
-| [Linear](https://github.com/max-hq/max-connectors) | Issues, projects, teams, users |
-| [GitHub](https://github.com/max-hq/max-connectors) | Repos, issues, users |
-| [Google Workspace](https://github.com/max-hq/max-connectors) | Directory, users, groups |
-| [Google Calendar](https://github.com/max-hq/max-connectors) | Calendars, events, attendees |
-| [HubSpot](https://github.com/max-hq/max-connectors) | Contacts, companies, deals |
-| [Hacker News](https://github.com/max-hq/max-connectors) | Stories, comments, users |
-| [Hugging Face](https://github.com/max-hq/max-connectors) | Models, datasets, spaces |
-| [Claude Code](https://github.com/max-hq/max-connectors) | Your conversation history |
-| [Datadog](https://github.com/max-hq/max-connectors) | Incidents, metrics |
-| [AWS Cost Explorer](https://github.com/max-hq/max-connectors) | Cost records, forecasts, budgets |
-
-Writing a connector is straightforward - define entities, write loaders, wire them up. See the [connector SDK docs](https://docs.max.cloud/connector/entities-and-schema/).
-
-## Use Max as a library
+You can run max directly (or script with it) by importing its core libraries.  
+- Check out the [documentation](https://docs.max.cloud). for more information,
+- Alternatively, look at some of the examples in `apps/*` or `examples/*`
 
 ```typescript
 import { BunPlatform } from "@max/platform-bun";
+import { LinearIssue } from '@max/connector-linear/schema'
 
 const max = await BunPlatform.createGlobalMax();
 const installation = await max.installation("linear-1");
@@ -142,6 +124,22 @@ const issues = await installation.engine.query(
     .select("title", "assignee")
 );
 ```
+
+## Connectors
+
+| Connector                                                            | What it syncs                    |
+|----------------------------------------------------------------------|----------------------------------|
+| [Linear](https://github.com/max-hq/max-connectors)                   | Issues, projects, teams, users   |
+| [GitHub](https://github.com/max-hq/max-connectors)                   | Repos, issues, users             |
+| [Google Workspace](https://github.com/max-hq/max-connectors)         | Directory, users, groups         |
+| [Google Calendar](https://github.com/max-hq/max-connectors)          | Calendars, events, attendees     |
+| [Claude Code](https://github.com/max-hq/max-connectors)              | Your conversation history        |
+| [Datadog](https://github.com/max-hq/max-connectors)                  | Incidents, metrics               |
+| [AWS Cost Explorer](https://github.com/max-hq/max-connectors)        | Cost records, forecasts, budgets |
+| [AWS Performance Insights](https://github.com/max-hq/max-connectors) | RDS query metrics and insights   |
+
+Writing a connector is straightforward - define entities, write loaders, wire them up. See the [connector SDK docs](https://docs.max.cloud/connector/entities-and-schema/).
+
 
 ## Status
 

@@ -3,6 +3,13 @@ set -e
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
 BIN="$DIR/packages/cli/rust-proxy/target/release/max"
+ENTRY="$DIR/packages/cli/src/index.ts"
+
+# --direct: bypass rust proxy, run bun directly
+if [ "$1" = "--direct" ]; then
+  shift
+  exec bun "$ENTRY" "$@"
+fi
 
 if ! command -v cargo &>/dev/null; then
   echo "Rust is required. Install via: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh" >&2

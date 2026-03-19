@@ -43,6 +43,7 @@ import { CmdStatusGlobal, CmdStatusWorkspace, CmdStatusInstallation } from './co
 import { CmdSearchGlobal, CmdSearchInstallation, CmdSearchWorkspace } from './commands/search-command.js'
 import { CmdLlmBootstrap } from './commands/llm-bootstrap-command.js'
 import { CmdInstall } from './commands/install-command.js'
+import { handleSetup } from './commands/setup-command.js'
 import { Command, CommandResult } from './command.js'
 
 // ============================================================================
@@ -395,6 +396,11 @@ export class CLI {
       const tIdx = argv.indexOf('-t')
       const insertAt = (tIdx >= 0 && tIdx + 1 < argv.length) ? tIdx + 2 : 0
       argv = [...argv.slice(0, insertAt), 'status', ...argv.slice(insertAt)]
+    }
+
+    // -- Setup: `max setup` --
+    if (argv[0] === 'setup' || (argv.length >= 3 && argv[2] === 'setup')) {
+      return await handleSetup(sink, color)
     }
 
     // Resolve target (global/workspace/installation) before parser runs

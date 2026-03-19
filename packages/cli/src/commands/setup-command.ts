@@ -166,6 +166,15 @@ export async function handleSetup(sink: Sink, color: boolean): Promise<ExecuteRe
   const shellName = detectShell()
   const binDir = nodePath.join(home, '.local/bin')
 
+  // -- Bun PATH: check if bun is reachable without our exports --
+  const bunDir = nodePath.join(home, '.bun/bin')
+  if (fs.existsSync(nodePath.join(bunDir, 'bun'))) {
+    const pathDirs = (process.env.PATH || '').split(':')
+    if (!pathDirs.includes(bunDir)) {
+      manualSteps.push(`export PATH="$HOME/.bun/bin:$PATH"`)
+    }
+  }
+
   if (shellName) {
     const rcFile = nodePath.join(home, rcFiles[shellName])
 
@@ -250,5 +259,7 @@ export async function handleSetup(sink: Sink, color: boolean): Promise<ExecuteRe
   lines.push(`Docs: https://docs.max.cloud`)
 
   sink.write(lines.join('\n') + '\n')
-  return { exitCode: 0 }
+
+  // Force exit - readline on /dev/tty can keep bun's event loop alive
+  process.exit(0)
 }

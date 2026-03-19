@@ -184,6 +184,25 @@ describe("Switch.noMatch - custom runtime error", () => {
 });
 
 // ============================================================================
+// Type errors
+// ============================================================================
+
+describe("type errors", () => {
+  test("cannot use both else and noMatch", () => {
+    const input = makeInput({ type: "sqlite", underlying: "SELECT 1" });
+
+    // @ts-expect-error - else and noMatch are contradictory
+    Switch(input, "type", {
+      duckdb: () => "d",
+      sqlite: () => "s",
+      txt: () => "t",
+      [Switch.else]: () => "else",
+      [Switch.noMatch]: () => "noMatch",
+    });
+  });
+});
+
+// ============================================================================
 // Error quality
 // ============================================================================
 

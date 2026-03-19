@@ -110,7 +110,7 @@ Both are equivalent. Use whichever is more convenient.
 | Flag | Description |
 |------|-------------|
 | `--limit <n>` | Max results per page (use large numbers freely) |
-| `--all` | Auto-paginate and stream all results (no limit) |
+| `--all` | Auto-paginate and stream all results (text/ndjson only, not json) |
 | `-f, --filter <expr>` | Filter expression |
 | `--fields <list>` | Comma-separated fields to include |
 | `--after <cursor>` | Cursor for next page (from previous result) |
@@ -311,20 +311,20 @@ To find the most active user per team from Linear issues:
 
 ```bash
 # Step 1: Get all issues with assignee info
-max -t wp/inst search LinearIssue --all --fields "_id,identifier,assignee" -o json > /tmp/issues.json
+max -t wp/inst search LinearIssue --all --fields "_id,identifier,assignee" -o ndjson > /tmp/issues.ndjson
 
 # Step 2: Get all users (for name resolution)
-max -t wp/inst search LinearUser --all --fields "_id,name,displayName" -o json > /tmp/users.json
+max -t wp/inst search LinearUser --all --fields "_id,name,displayName" -o ndjson > /tmp/users.ndjson
 
 # Step 3: Get teams
-max -t wp/inst search LinearTeam --all --fields "_id,name,key" -o json > /tmp/teams.json
+max -t wp/inst search LinearTeam --all --fields "_id,name,key" -o ndjson > /tmp/teams.ndjson
 
 # Step 4: Join and analyze in a script
 python3 -c "
 import json
 from collections import defaultdict
-issues = json.load(open('/tmp/issues.json'))['data']
-users = {u['_id']: u.get('displayName') or u.get('name') for u in json.load(open('/tmp/users.json'))['data']}
+issues = [json.loads(l) for l in open('/tmp/issues.ndjson')]
+users = {u['_id']: u.get('displayName') or u.get('name') for u in (json.loads(l) for l in open('/tmp/users.ndjson'))}
 # ... aggregate and report
 "
 ```

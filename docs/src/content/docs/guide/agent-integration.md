@@ -74,16 +74,16 @@ For questions that span entity types, agents can query each type and join the re
 
 ```bash
 # Get issues
-max search linear-1 LinearIssue --all --fields="_id,title,assignee" -o json > /tmp/issues.json
+max search linear-1 LinearIssue --all --fields="_id,title,assignee" -o ndjson > /tmp/issues.ndjson
 
 # Get users (for name resolution)
-max search linear-1 LinearUser --all --fields="_id,displayName" -o json > /tmp/users.json
+max search linear-1 LinearUser --all --fields="_id,displayName" -o ndjson > /tmp/users.ndjson
 
 # Join and analyse
 python3 -c "
 import json
-issues = json.load(open('/tmp/issues.json'))['data']
-users = {u['_id']: u['displayName'] for u in json.load(open('/tmp/users.json'))['data']}
+issues = [json.loads(l) for l in open('/tmp/issues.ndjson')]
+users = {u['_id']: u['displayName'] for u in (json.loads(l) for l in open('/tmp/users.ndjson'))}
 for issue in issues:
     name = users.get(issue.get('assignee', ''), 'Unassigned')
     print(f'{name}: {issue[\"title\"]}')
@@ -98,7 +98,7 @@ for issue in issues:
 
 **Use `--all` freely.** Data is local. Agents can request thousands of rows without cost concerns. This is one of Max's key advantages over direct API access.
 
-**Use the right output format.** Use `ndjson` when streaming large result sets with `--all`. Use `json` when paginating and processing individual pages - the structured object with `data` array and pagination metadata is easy for agents to work with.
+**Use the right output format.** Use `ndjson` for streaming with `--all` — it emits one JSON object per line, ideal for piping and large result sets. Use `json` for paginated access — it returns a single valid JSON object with `data` array and pagination metadata (`hasMore`, `cursor`). Note: `--all` is not compatible with `-o json`.
 
 **Don't parse `_ref` values.** When entity fields reference other entities (like an issue's assignee), the value is a ref string. Agents should look up the referenced entity by `_id` rather than trying to decode the ref.
 

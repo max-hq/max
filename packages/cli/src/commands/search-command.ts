@@ -24,7 +24,7 @@ import { dependency } from '@optique/core/dependency'
 import { outputOption } from '../parsers/standard-opts.js'
 import { parseFilter } from '../parsers/filter-parser.js'
 import { parseOrderBy, parseFieldList, expandFieldGroups } from '../parsers/search-args.js'
-import { ErrUnknownEntityType, ErrTargetResolutionFailed } from '../errors.js'
+import { ErrUnknownEntityType, ErrTargetResolutionFailed, ErrIncompatibleFlags } from '../errors.js'
 import { SearchTextPrinter, SearchJsonPrinter, SearchNdjsonPrinter } from '../printers/search-printers.js'
 import type { SearchView } from '../printers/search-printers.js'
 import { CommandResult, type Command, type Inferred, type CommandOptions } from '../command.js'
@@ -220,6 +220,13 @@ async function runSearch(
   }
 
   const selectedFields = args.fields ? expandFieldGroups(parseFieldList(args.fields), def) : undefined
+
+  if (args.all && args.output === 'json') {
+    throw ErrIncompatibleFlags.create({
+      flags: '--all with -o json',
+      reason: 'JSON output always returns a single page. Use -o ndjson for streaming, or paginate with --after.',
+    })
+  }
 
   // FIXME: This is a footgun. We need to start the installation before we can access the engine. Instead, engine should just be awaitable.
   await installation.start()

@@ -92,9 +92,13 @@ export const SearchTextPrinter = Printer.define<SearchView>((view, fmt) => {
 
   // Header - only on first page
   if (view.isFirstPage !== false) {
-    const count = page.items.length
-    const more = view.streaming ? '' : (page.hasMore ? ', more available' : '')
-    lines.push(`${fmt.underline(entityType)}: ${count} result${count !== 1 ? 's' : ''}${more}`)
+    if (view.streaming) {
+      lines.push(fmt.underline(entityType))
+    } else {
+      const count = page.items.length
+      const more = page.hasMore ? ', more available' : ''
+      lines.push(`${fmt.underline(entityType)}: ${count} result${count !== 1 ? 's' : ''}${more}`)
+    }
     lines.push('')
   }
 
@@ -121,6 +125,7 @@ export const SearchTextPrinter = Printer.define<SearchView>((view, fmt) => {
   if (!view.streaming && page.hasMore && page.cursor) {
     lines.push('')
     lines.push(fmt.dim(`Next page: --after ${page.cursor}`))
+    lines.push(fmt.dim(`All results: --all`))
   }
 
   return Printer.lines(lines)
@@ -152,15 +157,18 @@ export const SearchNdjsonPrinter = Printer.define<SearchView>((view, _fmt) => {
   for (const item of view.page.items) {
     lines.push(JSON.stringify(pickFields(item, fields)))
   }
-  // Only emit _meta on the final page (or single-page mode)
-  if (!view.streaming || !view.page.hasMore) {
-    lines.push(JSON.stringify({
-      _meta: {
-        type: view.entityType,
-        hasMore: view.page.hasMore,
-        cursor: view.page.cursor,
-      }
-    }))
+  // Emit _meta only in single-page mode (not streaming).
+  // When streaming (--all), the stream ending IS the end signal.
+  if (!view.streaming) {
+    const meta: Record<string, unknown> = {
+      type: view.entityType,
+      hasMore: view.page.hasMore,
+      cursor: view.page.cursor,
+    }
+    if (view.page.hasMore) {
+      meta.hint = 'Use --all to stream all results, or --after <cursor> for next page'
+    }
+    lines.push(JSON.stringify({ _meta: meta }))
   }
   return lines.join('\n')
 })

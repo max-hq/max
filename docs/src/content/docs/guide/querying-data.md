@@ -168,11 +168,11 @@ max search linear-1 LinearIssue -f 'state=Todo' --all -o ndjson | wc -l
 max search linear-1 LinearIssue --limit 10 -o json | jq '.data[].title'
 
 # Export to CSV
-max search linear-1 LinearIssue --all -o json \
-  | jq -r '.data[] | [.identifier, .title, .state] | @csv'
+max search linear-1 LinearIssue --all -o ndjson \
+  | jq -r '[.identifier, .title, .state] | @csv'
 
 # Find issues mentioning a keyword
-max search linear-1 LinearIssue --all -f 'title~="migration"' --fields="identifier,title" -o json
+max search linear-1 LinearIssue --all -f 'title~="migration"' --fields="identifier,title" -o ndjson
 ```
 
 Use `--all` to auto-paginate and stream all results. There's no practical cost to large result sets since everything runs locally.

@@ -43,6 +43,13 @@ export const ErrUnknownFieldGroup = CliBoundary.define('unknown_field_group', {
   message: (d) => `Unknown field group "${d.group}". Available: ${d.available.join(', ')}`,
 })
 
+/** Incompatible flag combination. */
+export const ErrIncompatibleFlags = CliBoundary.define('incompatible_flags', {
+  customProps: ErrFacet.props<{ flags: string; reason: string }>(),
+  facets: [BadInput],
+  message: (d) => `${d.flags} — ${d.reason}`,
+})
+
 /** Filter expression could not be parsed. */
 export const ErrFilterParse = CliBoundary.define('filter_parse', {
   customProps: ErrFacet.props<{ expression: string; reason: string }>(),

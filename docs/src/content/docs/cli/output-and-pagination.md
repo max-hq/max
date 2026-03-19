@@ -98,7 +98,7 @@ Cursors are opaque strings. Don't parse or modify them - just pass them back to 
 
 ### Auto-pagination
 
-Use `--all` to fetch everything automatically:
+Use `--all` to fetch everything automatically. Works with text and ndjson output formats (not json, which always returns a single page):
 
 ```bash
 max search linear-1 LinearIssue --all -o ndjson
@@ -119,17 +119,17 @@ NDJSON output works naturally with standard Unix tools:
 
 ```bash
 # Count results
-max search linear-1 LinearIssue --all -f 'state=Todo' -o ndjson | grep -v _meta | wc -l
+max search linear-1 LinearIssue --all -f 'state=Todo' -o ndjson | wc -l
 
 # Extract specific fields with jq
 max search linear-1 LinearIssue --limit 10 -o json | jq '.data[].title'
 
 # Export to CSV
-max search linear-1 LinearIssue --all -o json \
-  | jq -r '.data[] | [.identifier, .title, .state] | @csv'
+max search linear-1 LinearIssue --all -o ndjson \
+  | jq -r '[.identifier, .title, .state] | @csv'
 
-# Sort by a field
-max search linear-1 LinearIssue --all -o json | jq '.data | sort_by(.identifier)'
+# Sort by a field (single page)
+max search linear-1 LinearIssue -o json | jq '.data | sort_by(.identifier)'
 ```
 
 For large datasets, prefer `ndjson` over `json` since it streams line-by-line and doesn't need to buffer the full result set.

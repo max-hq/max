@@ -33,8 +33,8 @@ export class LocalFlowControllerProvider implements FlowControllerProvider {
     const controllers: FlowController[] = []
 
     // Rate gate first — don't hold a concurrency slot while waiting for a token
-    if (limit.rate) controllers.push(new TokenBucketFlowController(limit.rate))
-    if (limit.concurrent) controllers.push(new SemaphoreFlowController(limit.concurrent))
+    if (limit.rate != null) controllers.push(new TokenBucketFlowController(limit.rate))
+    if (limit.concurrent != null) controllers.push(new SemaphoreFlowController(limit.concurrent))
 
     if (controllers.length === 0) return new NoOpFlowController()
     if (controllers.length === 1) return controllers[0]
@@ -55,8 +55,8 @@ export class LocalFlowControllerProvider implements FlowControllerProvider {
 
   private describe(cfg: { concurrent?: number; rate?: number }): string {
     const parts: string[] = []
-    if (cfg.concurrent) parts.push(`concurrent(${cfg.concurrent})`)
-    if (cfg.rate) parts.push(`rate(${cfg.rate})`)
+    if (cfg.concurrent != null) parts.push(`concurrent(${cfg.concurrent})`)
+    if (cfg.rate != null) parts.push(`rate(${cfg.rate})`)
     return parts.join('+') || 'none'
   }
 }

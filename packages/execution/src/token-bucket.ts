@@ -37,8 +37,9 @@ export class TokenBucket {
     const elapsed = (now - this.lastRefill) / 1000
     const newTokens = elapsed * this.perSecond
     if (newTokens >= 1) {
-      this.tokens = Math.min(this.tokens + Math.floor(newTokens), this.perSecond)
-      this.lastRefill = now
+      const consumed = Math.floor(newTokens)
+      this.tokens = Math.min(this.tokens + consumed, this.perSecond)
+      this.lastRefill += (consumed / this.perSecond) * 1000
     }
   }
 

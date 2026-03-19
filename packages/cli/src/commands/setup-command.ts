@@ -23,14 +23,12 @@ const rcFiles: Record<string, string> = {
 }
 
 function detectShell(): string | null {
-  // 1. Check SHELL env var
   const shellPath = process.env.SHELL
   if (shellPath) {
     const name = nodePath.basename(shellPath)
     if (name in rcFiles) return name
   }
 
-  // 2. Fall back to checking /etc/passwd
   try {
     const user = os.userInfo().username
     const passwd = fs.readFileSync('/etc/passwd', 'utf-8')
@@ -41,7 +39,6 @@ function detectShell(): string | null {
     }
   } catch { /* not available */ }
 
-  // 3. Check if common shells exist on disk
   for (const name of ['zsh', 'bash', 'fish']) {
     try {
       execSync(`command -v ${name}`, { stdio: 'ignore' })
@@ -69,13 +66,19 @@ function prompt(question: string): Promise<string> {
   })
 }
 
-async function checkRust(sink: Sink, fmt: ReturnType<typeof Fmt.usingColor>): Promise<string[]> {
+/** Source cargo env prefix for execSync - picks up freshly installed rust */
+function cargoEnvPrefix(): string {
+  const cargoEnv = nodePath.join(os.homedir(), '.cargo/env')
+  return fs.existsSync(cargoEnv) ? `. "${cargoEnv}" && ` : ''
+}
+
+async function checkRust(sink: Sink, fmt: ReturnType<typeof Fmt.usingColor>, manualSteps: string[]): Promise<string[]> {
   const lines: string[] = []
 
   let version: string | null = null
   let minor = 0
   try {
-    version = execSync('rustc --version 2>/dev/null', { encoding: 'utf-8' }).trim()
+    version = execSync(`${cargoEnvPrefix()}rustc --version 2>/dev/null`, { encoding: 'utf-8', shell: '/bin/sh' }).trim()
     minor = parseInt(version.split(' ')[1]?.split('.')[1] ?? '0', 10)
   } catch { /* not installed */ }
 
@@ -89,6 +92,7 @@ async function checkRust(sink: Sink, fmt: ReturnType<typeof Fmt.usingColor>): Pr
           shell: '/bin/sh',
         })
         lines.push(`${fmt.green('✓')} Rust installed`)
+        manualSteps.push('. "$HOME/.cargo/env"')
       } catch {
         lines.push(`${fmt.yellow('!')} Rust installation failed`)
       }
@@ -102,6 +106,7 @@ async function checkRust(sink: Sink, fmt: ReturnType<typeof Fmt.usingColor>): Pr
         try {
           execSync('rustup update stable', { stdio: 'inherit' })
           lines.push(`${fmt.green('✓')} Rust updated`)
+          manualSteps.push('. "$HOME/.cargo/env"')
         } catch {
           lines.push(`${fmt.yellow('!')} Rust update failed`)
         }
@@ -116,6 +121,7 @@ async function checkRust(sink: Sink, fmt: ReturnType<typeof Fmt.usingColor>): Pr
             shell: '/bin/sh',
           })
           lines.push(`${fmt.green('✓')} Rust installed via rustup`)
+          manualSteps.push('. "$HOME/.cargo/env"')
         } catch {
           lines.push(`${fmt.yellow('!')} Rust installation failed`)
         }
@@ -129,22 +135,22 @@ async function checkRust(sink: Sink, fmt: ReturnType<typeof Fmt.usingColor>): Pr
 }
 
 async function buildRustProxy(sink: Sink, fmt: ReturnType<typeof Fmt.usingColor>): Promise<void> {
-  // Resolve repo root from this file's location (packages/cli/src/commands/)
   const repoRoot = nodePath.resolve(import.meta.dirname, '../../../../')
   const proxyDir = nodePath.join(repoRoot, 'packages/cli/rust-proxy')
   const binary = nodePath.join(proxyDir, 'target/release/max')
 
-  // Skip if already built or cargo not available
   if (fs.existsSync(binary)) return
+
+  const prefix = cargoEnvPrefix()
   try {
-    execSync('command -v cargo', { stdio: 'ignore' })
+    execSync(`${prefix}command -v cargo`, { stdio: 'ignore', shell: '/bin/sh' })
   } catch {
-    return // no rust, skip silently - they were already warned
+    return
   }
 
   sink.write('Building max CLI...\n')
   try {
-    execSync('cargo build --release', { cwd: proxyDir, stdio: 'inherit' })
+    execSync(`${prefix}cargo build --release`, { cwd: proxyDir, stdio: 'inherit', shell: '/bin/sh' })
     sink.write(`${fmt.green('✓')} CLI built\n`)
   } catch {
     sink.write(`${fmt.yellow('!')} CLI build failed - max will run in direct mode (slower)\n`)
@@ -155,6 +161,7 @@ export async function handleSetup(sink: Sink, color: boolean): Promise<ExecuteRe
   const fmt = Fmt.usingColor(color)
   const home = os.homedir()
   const lines: string[] = []
+  const manualSteps: string[] = []
 
   const shellName = detectShell()
   const binDir = nodePath.join(home, '.local/bin')
@@ -162,7 +169,7 @@ export async function handleSetup(sink: Sink, color: boolean): Promise<ExecuteRe
   if (shellName) {
     const rcFile = nodePath.join(home, rcFiles[shellName])
 
-    // -- PATH: ensure ~/.local/bin is in rc file --
+    // -- PATH --
     const pathAdded = ensureInRcFile(
       rcFile,
       '# max PATH',
@@ -172,6 +179,11 @@ export async function handleSetup(sink: Sink, color: boolean): Promise<ExecuteRe
     )
     if (pathAdded) {
       lines.push(`${fmt.green('✓')} Added ~/.local/bin to PATH in ${rcFile}`)
+      if (shellName === 'fish') {
+        manualSteps.push(`fish_add_path ${binDir}`)
+      } else {
+        manualSteps.push(`export PATH="$HOME/.local/bin:$PATH"`)
+      }
     }
 
     // -- Completions --
@@ -199,6 +211,7 @@ export async function handleSetup(sink: Sink, color: boolean): Promise<ExecuteRe
         )
         if (added) {
           lines.push(`${fmt.green('✓')} Added completion source to ${rcFile}`)
+          manualSteps.push(`source "${completionFile}"`)
         } else {
           lines.push(`  Completions already sourced in ${rcFile}`)
         }
@@ -211,7 +224,7 @@ export async function handleSetup(sink: Sink, color: boolean): Promise<ExecuteRe
   }
 
   // -- Rust check + build proxy --
-  lines.push(...await checkRust(sink, fmt))
+  lines.push(...await checkRust(sink, fmt, manualSteps))
   await buildRustProxy(sink, fmt)
 
   // -- Welcome --
@@ -222,7 +235,17 @@ export async function handleSetup(sink: Sink, color: boolean): Promise<ExecuteRe
   lines.push(`  max init my-project        Create a new workspace`)
   lines.push(`  max llm-bootstrap          Teach your AI agent about max`)
   lines.push('')
-  lines.push(fmt.yellow(fmt.underline('Restart your shell to apply changes.')))
+
+  if (manualSteps.length > 0) {
+    lines.push(fmt.yellow(fmt.underline('Restart your shell to apply changes.')))
+    lines.push('')
+    lines.push('Or, apply them to your current session:')
+    lines.push('')
+    for (const step of manualSteps) {
+      lines.push(`  ${step}`)
+    }
+  }
+
   lines.push('')
   lines.push(`Docs: https://docs.max.cloud`)
 

@@ -378,6 +378,14 @@ export class CLI {
       return { exitCode: remoteResult.exitCode }
     }
 
+    // -- Setup: intercept before GlobalMax init (setup doesn't need it) --
+    {
+      const argv = normalizeGlobalFlag(req.argv)
+      if (argv[0] === 'setup' || (argv.length >= 3 && argv[2] === 'setup')) {
+        return await handleSetup(sink, color)
+      }
+    }
+
     const globalMax = await this.lazy.globalStarted
 
     // Normalize: -g -> -t @, bare `max` -> `max status`
@@ -396,11 +404,6 @@ export class CLI {
       const tIdx = argv.indexOf('-t')
       const insertAt = (tIdx >= 0 && tIdx + 1 < argv.length) ? tIdx + 2 : 0
       argv = [...argv.slice(0, insertAt), 'status', ...argv.slice(insertAt)]
-    }
-
-    // -- Setup: `max setup` --
-    if (argv[0] === 'setup' || (argv.length >= 3 && argv[2] === 'setup')) {
-      return await handleSetup(sink, color)
     }
 
     // Resolve target (global/workspace/installation) before parser runs

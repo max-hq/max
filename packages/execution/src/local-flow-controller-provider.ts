@@ -1,55 +1,62 @@
-import type { FlowController, FlowControllerProvider } from '@max/core'
-import type { Limit, LimitStrategy } from '@max/core'
+import { NoOpFlowController, type FlowController, type FlowControllerProvider } from '@max/core'
+import type { Limit } from '@max/core'
 import { SemaphoreFlowController } from './semaphore-flow-controller.js'
+import { TokenBucketFlowController } from './token-bucket-flow-controller.js'
+import { CompositeFlowController } from './composite-flow-controller.js'
 import { ErrLimitStrategyConflict } from './errors.js'
 
 /**
  * Local (in-process) FlowControllerProvider.
  *
  * Creates FlowController instances lazily, cached by limit name.
- * Throws if the same name is requested with a different strategy
+ * Throws if the same name is requested with different configuration
  * (fail-fast on misconfiguration).
  */
 export class LocalFlowControllerProvider implements FlowControllerProvider {
   private controllers = new Map<string, FlowController>()
-  private strategies = new Map<string, LimitStrategy>()
+  private configs = new Map<string, { concurrent?: number; rate?: number }>()
 
   get(limit: Limit): FlowController {
     const existing = this.controllers.get(limit.name)
     if (existing) {
-      this.assertConsistentStrategy(limit)
+      this.assertConsistent(limit)
       return existing
     }
 
-    const fc = this.create(limit.strategy)
+    const fc = this.create(limit)
     this.controllers.set(limit.name, fc)
-    this.strategies.set(limit.name, limit.strategy)
+    this.configs.set(limit.name, { concurrent: limit.concurrent, rate: limit.rate })
     return fc
   }
 
-  private create(strategy: LimitStrategy): FlowController {
-    switch (strategy.kind) {
-      case 'concurrency':
-        return new SemaphoreFlowController(strategy.max)
-    }
+  private create(limit: Limit): FlowController {
+    const controllers: FlowController[] = []
+
+    // Rate gate first — don't hold a concurrency slot while waiting for a token
+    if (limit.rate) controllers.push(new TokenBucketFlowController(limit.rate))
+    if (limit.concurrent) controllers.push(new SemaphoreFlowController(limit.concurrent))
+
+    if (controllers.length === 0) return new NoOpFlowController()
+    if (controllers.length === 1) return controllers[0]
+    return new CompositeFlowController(controllers)
   }
 
-  private assertConsistentStrategy(limit: Limit): void {
-    const prev = this.strategies.get(limit.name)
+  private assertConsistent(limit: Limit): void {
+    const prev = this.configs.get(limit.name)
     if (!prev) return
 
-    const prevDesc = this.describeStrategy(prev)
-    const reqDesc = this.describeStrategy(limit.strategy)
+    const prevDesc = this.describe(prev)
+    const reqDesc = this.describe(limit)
 
     if (prevDesc !== reqDesc) {
       throw ErrLimitStrategyConflict.create({ limitName: limit.name, existing: prevDesc, requested: reqDesc })
     }
   }
 
-  private describeStrategy(s: LimitStrategy): string {
-    switch (s.kind) {
-      case 'concurrency':
-        return `concurrency(${s.max})`
-    }
+  private describe(cfg: { concurrent?: number; rate?: number }): string {
+    const parts: string[] = []
+    if (cfg.concurrent) parts.push(`concurrent(${cfg.concurrent})`)
+    if (cfg.rate) parts.push(`rate(${cfg.rate})`)
+    return parts.join('+') || 'none'
   }
 }

@@ -19,12 +19,8 @@ export interface FlowController {
  */
 export interface FlowControllerProvider {
   /** Get or create a flow controller for the given limit. */
-  get(limit: { readonly name: string; readonly strategy: LimitStrategy }): FlowController
+  get(limit: { readonly name: string; readonly concurrent?: number; readonly rate?: number }): FlowController
 }
-
-// Re-export here to avoid circular dep - LimitStrategy is defined in limit.ts
-// but referenced in the provider signature. Import at usage sites from limit.ts.
-import type { LimitStrategy } from './limit.js'
 
 /** FlowController that permits all work immediately - unlimited concurrency. */
 export class NoOpFlowController implements FlowController {

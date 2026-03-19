@@ -169,7 +169,6 @@ export type { SyncMeta } from "./sync-meta.js";
 
 // Limit
 export { Limit } from "./limit.js";
-export type { LimitStrategy, ConcurrencyStrategy } from "./limit.js";
 
 // FlowController
 export { NoOpFlowController } from "./flow-controller.js";

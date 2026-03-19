@@ -57,6 +57,9 @@ export type { SyncObserver, SyncProgressEvent } from "./sync-observer.js";
 export { Semaphore } from "./semaphore.js";
 export { Signal } from "./signal.js";
 export { SemaphoreFlowController } from "./semaphore-flow-controller.js";
+export { TokenBucket } from "./token-bucket.js";
+export { TokenBucketFlowController } from "./token-bucket-flow-controller.js";
+export { CompositeFlowController } from "./composite-flow-controller.js";
 export { LocalFlowControllerProvider } from "./local-flow-controller-provider.js";
 
 // Operation dispatcher

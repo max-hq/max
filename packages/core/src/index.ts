@@ -206,6 +206,9 @@ export { StaticTypeCompanion } from "./companion.js";
 export * from "./lazy.js";
 export {Duration} from "./duration.js";
 
+// Switch — type-safe discriminated union matching
+export { Switch, ErrUnmatchedSwitch } from "./switch.js";
+
 // Printables
 export {Sink, Printable, Printer, PrintFormatter} from './printable.js'
 

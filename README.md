@@ -1,308 +1,168 @@
-```
+<div align="center">
+  <br/>
+    <pre>
  _____ _____ __ __
-|     |  _  |  |  | 
+|     |  _  |  |  |
 | | | |     |-   -|
-|_|_|_|__|__|__|__| 
-```
+|_|_|_|__|__|__|__|
+</pre>
+  <a href="https://max.cloud">Max</a> syncs data from any source into storage that you own.
+  <br/>
+  Your agents query the data locally - fast, unconstrained, and without API limits.
+  <br/><br/>
+</div>
 
-## What is max?
 
-Max is a federated data query layer that **schematizes** and **reflects** source data right to where it's needed:
 
-![explainer.png](docs/img/explainer.png)
+Max syncs data from SaaS tools into local storage. Your agents query it there - fast, cheap, and without touching the upstream API.
 
-> Max turns any data source into a fast, "agent-local", queryable data provider
+It works with anything: Linear, GitHub, HubSpot, Google Drive, Hacker News, Hugging Face - [and more](https://github.com/max-hq/max-connectors).
 
-It's designed so that agents have fast and unfettered access to data - without needing to hit APIs or go through slow/limited MCP connectors.  
-
-Typical use cases include tooling like Linear, Hubspot, Jira, Google Drive etc; but any source can have a max node created for it.  
-
-### Why use Max when MCP already exists?
-
-MCP is inherently restrictive, both from a throughput and a data-access perspective.  
-- **On throughput** - you are typically rate-limited.  
-- **On access** - you will only see what the API / MCP service gives you an endpoint for, even though the data itself may be technically available. For example, your favourite ticket-management tool may not give you a way to search _inside_ titles... 
-
-By pulling data **out** of a source and **schematising** it, you automatically get some benefits:
-- **what you can search for** is unrestricted (the schema bares all)
-- **how fast you can search** is unrestricted - your max node dictates its own throughput
-- **search has a common language** across all data sources
-- throughput cost (for the most part) paid only once
+## Install
 
 ```bash
-max connect @max/connector-linear --name linear-1
-
-max sync linear-1
->> 68,012 records syncd
-
-max search linear-1 --filter 'title ~= "AcmeCo"' --fields=status,title
->> ... 1,138 records (1.8ms)
+curl -fsSL https://max.cloud/install.sh | sh
 ```
 
-In practice, this means that when your agent asks to find all customers with double-barrelled surnames, it takes milliseconds rather than hours:
-> `max search hubspot-1 --filter 'lastname ~= " "' --all | wc -l`
+## Try it out
 
-### Why is max (or any CLI) so much more performant than MCP?
+### On a public node
 
-This is well documented. In general, you can expect orders of magnitude more time and token efficiency when using a CLI over an MCP connector,
-because a CLI positions an agent well to operate on data _before_ that data hits its context window.  
+To get a feel for max, query live data on a public Max node:
 
-This of course varies case-by-case, but to provide a motivating example from a real-world test-case:
+```bash
+# What are the most downloaded text-generation models?
+max -t max://demo.max.cloud/max-demo/hf-popular search HfModel \                                                                                        (main✱)
+  --filter 'pipelineTag = "text-generation" AND downloads > 10000' \
+  --order-by downloads:desc \
+  --fields id,downloads,likes
+
+# Find open issues across a GitHub repo
+max -t max://demo.max.cloud/max-demo/gh-pi-mono search GitHubIssue \                                                                                    (main✱)
+  --filter 'state = "open"' \
+  --order-by createdAt:desc \
+  --fields title,author,state
+  
+# Show the schema for a node
+max -t max://demo.max.cloud/max-demo/gh-pi-mono schema
+
+```
+
+### On your own data
+
+```bash
+max 
+```
+
+## Documentation and examples
+
+**Documentation**:  [docs.max.cloud](https://docs.max.cloud).  
+**Sample workspace**: `max://demo.max.cloud/max-demo` (use `max -t <uri>` to access this)    
+**Sample workspace explorer**: [demo.max.cloud](https://demo.max.cloud). 
+
+
+## Why bring data locally when MCP exists?
+
+MCP over http typically pipes everything through your agent's context window. For exploring data, that's incredibly inefficient.
 
 > *"What are the top 10 first names in HubSpot, and how many Google Drive files mention them in the title?"*
 
-|         | Tokens | Time  | Cost    | Performance X |
-|---------|--------|-------|---------|---------------|
-| **MCP** | 18M+   | 80m+  | $180+   | -             |
-| **Max** | 238    | 27s   | $0.003  | **~75,630**   |
+|         | Tokens | Time  | Cost    |
+|---------|--------|-------|---------|
+| **MCP** | 18M+   | 80m+  | $180+   |
+| **Max** | 238    | 27s   | $0.003  |
 
-Note: MCP figures are extrapolated - we had to terminate claude mid-run due to repeated recompactions and a not-unlimited buget. Additionally, the $180 cost doesn't include any calls to google drive (the second half of the challenge).
+In this benchmark, the agent (opus 4.5) asked HubSpot MCP for 100,000 contacts, 200 at a time, hitting compaction quickly.  
+When given `max` with a connection to google and hubspot, the agent issued small handful of local queries.
 
-In the scenario above, Claude (alone) tried to paginate over 100,000 records from Hubspot, 200 users at a time.  
-With a `max` connector, the same Claude simply issued the query it needed.
+The difference: with Max, data is already local, and it's CLI-friendly. Your agent runs `max search`, `grep`, `jq`, `sort` - whatever it needs, allowing data to be filtered *before* it hits the context window.
 
-Having a CLI allows your agent to `cut`, `grep`, `sed`, `sort` pipe to `jq` etc. and redirect at will.
-
-## Quick start
-
-### Prerequisites
-
-- [Bun](https://bun.sh) >= 1.3.9
-- [Rust](https://rustup.rs) (for native dependencies)
-
-### Install
+## Connect your own sources
 
 ```bash
-git clone https://github.com/max-hq/max.git
-cd max
-bun install
+# Add connectors from any collection
+max -g install --collection git@github.com:max-hq/max-connectors.git
 
-# Put max on your path somewhere
-PATH=$PATH:`pwd` 
+# Create a workspace
+max init my-project && cd my-project
+
+# Connect and sync
+max connect @max/connector-linear --name linear-1
+max sync linear-1
+
+# Query
+max search linear-1 LinearIssue \
+  --filter 'state = "In Progress" AND labels ~= "bug"' \
+  --fields title,assignee,priority
 ```
 
-### Shell completions
+### Storage
 
-Max can generate shell completions for you:
+Max's storage is modular by design - the first available module is `storage-sqlite`.  
+This means queries run (typically) locally with high throughput and low latency - and without rate-limits.
+
+## Give your agent access
 
 ```bash
-# Zsh
-max completion zsh > ~/.max-completions.zsh
-echo 'source ~/.max-completions.zsh' >> ~/.zshrc
-
-# Or, if you use a completions directory (e.g. oh-my-zsh):
-max completion zsh > ~/.oh-my-zsh/completions/_max
-
-# Bash
-max completion bash > ~/.max-completions.bash
-echo 'source ~/.max-completions.bash' >> ~/.bashrc
-
-# Fish
-max completion fish > ~/.config/fish/completions/max.fish
+max -g llm-bootstrap
 ```
 
-## Getting started
+This prints a context document that teaches your agent how to use Max - what's installed, what the schemas look like, how to search. Hand it to Claude, GPT, or whatever you're building with.
 
-
-```bash
-
-# (optional) spin up acme in apps/acme - a fake saas tool:
-cd /path/to/max/acme
-./acme start --tenant default
-
-# create a workspace
-mkdir my-workspace && cd my-workspace
-max init .
-
-# connect to a connector
-max connect @max/connector-acme --name acme-1 
-# Max will walk you through authentication - you'll need an API token from the service you're connecting to.
-
-# check your workspace's status
-max status
-
-# check the schema of your connector
-max schema acme-1
-
-# synchronise the installation
-max sync acme-1
-  Syncing...
-    AcmeWorkspace  ██▓··      12  1021.8 op/s
-    AcmeUser       █████     283  4391.1 op/s
-    AcmeTask       ███▒·    2156  4811.3 op/s
-    ──────────────────────────────────────────────
-    3.2s elapsed
-
-# query your data
-max search acme-1 AcmeTask \
-  --filter 'title ~= "protocol"' \
-  --fields title,description \
-  --output ndjson
-```
-
-The query runs locally against your synced data - fast, cheap, and doesn't touch the upstream API.   
-**Roadmap item:** JIT access to upstream data, using local version as hot cache.
-
-## Max has a CLI
-Max is designed as a set of protocols and libraries, with a platform-agnostic implementation layer.  
-There is one runtime offered so far (`platform-bun`) - but others will follow.
-
-All functionality in max's core is exposed through the `@max/cli`.
-
-**CLI example**:
-```bash
-max -g ls
-max -t my-workspace ls
-# OR
-cd /path/to/my-workspace && max ls
-```
-
-**Or via code:**
-
-```typescript
-const max = BunPlatform.createGlobalMax()
-max.listWorkspaces()
-max.workspace("my-workspace").listInstallations()
-```
-
-
-# Status
-
-> **⚠️ Alpha.** Max is under heavy active development!  
-> 
-> Expect breaking changes, rough edges, and missing features. We're releasing early because the core idea works and we want feedback.
-
-# Immediate roadmap:
-The current high priority items are: (timestamped: `2026-02-27`)
-
-**Real-time sync**:
-
-- Make `sync --continue` for incremental operations
-- Expose a service interface so installations can listen to events for webhook input:  `max -t <installation> service start --all`
-- **Dependencies:** design installation "services"
-
-
-**Just-in-time (JIT) entity loading**
-
-- `engine.load(JiraTicket.ref("JT-1883")` to support direct loading from the upstream. See [](docs/ideas/field-freshness-and-incremental-sync.md)
-- this unlocks the ability to _avoid_ an upfront sync at all
-- design caching primitives
-- **Dependencies**: None.
-
-**Plugin architecture**
-
-- Create plugin framework: `[Ingest]` -> `[Index]` -> `[Store]` -> `[Query]` -> `[Deliver]`
-- Initial plugins: permissioning at `[Ingest]` and `[Deliver]`
-- Future: `[Indexing]` plugins (e.g. vector store, knowledge graph etc)  
-
-**Permission and identity**
-
-- Schematise permissions of upstream tooling
-- Mirror the same access controls to `search` layer
-- **Dependencies**: Plugin architecture
-
-A broader, lightweight roadmap can be found here: [ROADMAP.md](ROADMAP.md)
-
- 
-# Max architecture overview
-
-All implementations target nodejs / javascript / bun. All platform-specifics are pushed into modules.
-
-**Core components**
-
-| package         | purpose                                              | platform agnostic                |
-|-----------------|------------------------------------------------------|----------------------------------|
-| `@max/core`      | types and utilities                                  | ✅                                |
-| `@max/federation` | core logic for federation                            | ✅                                |
-| `@max/cli`       | max's cli. Currently (thinly) dependent on platform. | ❌ currently needs `platform-bun` |
-| `@max/connector`  | core types/logic for connectors                      | ✅                                |
-| `@max/execution`  | core types/logic for execution / task orchestration  | ✅                                |
-
-**Platform bindings**
-- `@max/platform-bun`
-
-**Modules/Implementations**
-
-| package               | purpose                                                | platform         |
-|-----------------------|--------------------------------------------------------|------------------|
-| `@max/execution-local`  | provides ephemeral in-memory execution / orchestration | ◯ none           |
-| `@max/execution-sqlite` | sqlite-based execution implementation                  | 🟣`platform-bun` |
-| `@max/storage-sqlite`   | sqlite-backed storage implemenatation                  | 🟣`platform-bun` |
-
- 
-## CLI / Library Usage
-Max can be imported and used as a library:
-
-```typescript
-import { BunPlatform } from '@max/platform-bun'
-import { GlobalMax } from '@max/federation'
-
-// Load a fully-functional persistent max
-const max = BunPlatform.createGlobalMax({
-  global:{
-    root:() => '~/.max'
-  }
-})
-max.listWorkspaces()
-
-// Or spin up a zero-dependency implementation 
-const maxLite = GlobalMax.ephemeral({
-  // ...optionally inject dependencies
-})
-maxLite.createWorkspace({ ... })
-```
-
-The best place currently to get started with library usage is by:
-- looking at the `examples` folder
-- looking at any smoke tests
-
-It's also highly worth reading the [max developer guide](docs/developer/README.md) which goes into more detail about library usage of connectors and their schema data.
-
-### Teach your agent
-
-Tell your agent to run:
-
-```bash
-max llm-bootstrap
-```
-
-This outputs a context block that teaches your AI agent what Max is and how to use it, and can be written to a SKILL.md.
-
-
-Your agent now knows how to discover connectors, run queries, and work with Max's output formats.
+Your agent can then explore (`max schema`, `max ls`), query (`max search`), and pipe output into its own tools.
 
 ## Connectors
 
-This monorepo contains one connector - @max/connector-acme.
-There is a a sibling repo [max-connectors](https://github.com/max-hq/max-connectors) which contains a collection of connectors.
+| Connector | What it syncs |
+|-----------|---------------|
+| [Linear](https://github.com/max-hq/max-connectors) | Issues, projects, teams, users |
+| [GitHub](https://github.com/max-hq/max-connectors) | Repos, issues, users |
+| [Google Workspace](https://github.com/max-hq/max-connectors) | Directory, users, groups |
+| [Google Calendar](https://github.com/max-hq/max-connectors) | Calendars, events, attendees |
+| [HubSpot](https://github.com/max-hq/max-connectors) | Contacts, companies, deals |
+| [Hacker News](https://github.com/max-hq/max-connectors) | Stories, comments, users |
+| [Hugging Face](https://github.com/max-hq/max-connectors) | Models, datasets, spaces |
+| [Claude Code](https://github.com/max-hq/max-connectors) | Your conversation history |
+| [Datadog](https://github.com/max-hq/max-connectors) | Incidents, metrics |
+| [AWS Cost Explorer](https://github.com/max-hq/max-connectors) | Cost records, forecasts, budgets |
 
-| Connector                                    | Description                                                  |
-|----------------------------------------------|--------------------------------------------------------------|
-| **@max/connector-acme**                      | Fictional app connector (in apps/acme) for testing / playing |
-| **@max/connector-claude-code-conversations** | Ingests your claude conversations from ~/.claude             |
-| **@max/connector-github**                    | Ingests github issues from the target repo                   |
-| **@max/connector-google-workspace**          | Ingests user / groups data from google workspace             |
-| **@max/connector-linear**                    | Ingests linear tickets, projects, teams etc                  |
+Writing a connector is straightforward - define entities, write loaders, wire them up. See the [connector SDK docs](https://docs.max.cloud/connector/entities-and-schema/).
 
-**To install the @max/max-connectors collection**:
-```bash
-max -g install --collection git@github.com:max-hq/max-connectors
+## Use Max as a library
+
+```typescript
+import { BunPlatform } from "@max/platform-bun";
+
+const max = await BunPlatform.createGlobalMax();
+const installation = await max.installation("linear-1");
+
+const issues = await installation.engine.query(
+  Query.from(LinearIssue)
+    .where("state", "=", "In Progress")
+    .select("title", "assignee")
+);
 ```
 
-**To install a custom collection**:
-```bash
-max -g install --collection <path-to-repo> # <- can be a local repo
-```
+## Status
 
-### Creating a connector
-See [max developer guide](docs/developer/README.md)
+**Alpha.** Max is under active development. The core works - sync, query, connectors, federation - but expect rough edges. We're releasing early because we want feedback.
+
+## Docs
+
+Full documentation at [docs.max.cloud](https://docs.max.cloud), including:
+
+- [Getting started](https://docs.max.cloud/guide/getting-started/)
+- [Query syntax](https://docs.max.cloud/guide/querying-data/)
+- [Agent integration](https://docs.max.cloud/guide/agent-integration/)
+- [Writing connectors](https://docs.max.cloud/connector/entities-and-schema/)
+- [Architecture](https://docs.max.cloud/architecture/)
 
 ## Contributing
 
-Max is early in its journey and under very active development. We're not accepting code contributions just yet whilst we allow the api to stabilize, but we'd love your feedback:
+We're not accepting code contributions yet while the API stabilises. But we'd love feedback:
 
 - [Open an issue](https://github.com/max-hq/max/issues) for bugs, feature requests, or connector ideas
-- Star the repo if you find it useful - it helps others discover Max!
+- Star the repo if you find it useful
 
 ## License
 

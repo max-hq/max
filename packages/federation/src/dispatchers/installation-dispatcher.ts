@@ -94,7 +94,6 @@ export class InstallationDispatcher {
     this.syncHandles.set(handle.id, handle)
     return {
       id: handle.id,
-      plan: handle.plan,
       startedAt: handle.startedAt.toISOString(),
     }
   }

@@ -40,5 +40,14 @@ export class SqliteExecutionSchema {
         PRIMARY KEY (ref_key, field)
       )
     `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS _max_sync (
+        id           TEXT PRIMARY KEY,
+        status       TEXT NOT NULL,
+        started_at   INTEGER NOT NULL,
+        completed_at INTEGER
+      )
+    `);
   }
 }

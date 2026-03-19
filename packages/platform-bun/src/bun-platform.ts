@@ -88,13 +88,13 @@ import {
   InMemoryCredentialProvider,
   InMemoryCredentialStore,
 } from '@max/connector'
-import { SyncExecutor, type TaskStore, DefaultOperationDispatcher, DispatchingOperationExecutor, SemaphoreFlowController, LocalFlowControllerProvider } from '@max/execution'
-import { DefaultTaskRunner, ExecutionRegistryImpl } from '@max/execution-local'
+import { SyncExecutor, type TaskStore, type SyncStore, DefaultOperationDispatcher, DispatchingOperationExecutor, SemaphoreFlowController, LocalFlowControllerProvider } from '@max/execution'
+import { DefaultTaskRunner, ExecutionRegistryImpl, InMemorySyncStore } from '@max/execution-local'
 import * as fs from 'node:fs'
 import path from 'node:path'
 import { InProcessDeploymentConfig } from './deployers/types.js'
 import { SqliteEngine } from '@max/storage-sqlite'
-import { SqliteExecutionSchema, SqliteSyncMeta, SqliteTaskStore } from '@max/execution-sqlite'
+import { SqliteExecutionSchema, SqliteSyncMeta, SqliteSyncStore, SqliteTaskStore } from '@max/execution-sqlite'
 import { NaiveBunConnectorRegistry } from './services/bun-connector-registry.js'
 import { FsCredentialStore } from './services/fs-credential-store.js'
 import { InMemorySyncMeta, InMemoryTaskStore } from '@max/execution-local'
@@ -145,6 +145,7 @@ export interface InstallationGraphDeps {
   credentialStore: CredentialStore
   credentialProvider: InMemoryCredentialProvider
   taskStore: TaskStore
+  syncStore: SyncStore
   syncMeta: SyncMeta
   flowControllerProvider: FlowControllerProvider
   flowController: FlowController
@@ -205,6 +206,12 @@ export const installationGraph = ResolverGraph.define<InstallationGraphConfig, I
     if (r.taskStoreConfig.type === 'in-memory') return new InMemoryTaskStore()
     if (r.engine instanceof SqliteEngine) return new SqliteTaskStore(r.engine.db)
     return new SqliteTaskStore(Database.open(r.dbPath))
+  },
+
+  syncStore: (_c, r) => {
+    if (r.taskStoreConfig.type === 'in-memory') return new InMemorySyncStore()
+    if (r.engine instanceof SqliteEngine) return new SqliteSyncStore(r.engine.db)
+    return new SqliteSyncStore(Database.open(r.dbPath))
   },
 
   syncMeta: (_c, r) => {
@@ -369,6 +376,7 @@ function createInstallationBootstrap(
     const syncExecutor = new SyncExecutor({
       taskRunner,
       taskStore: deps.taskStore,
+      syncStore: deps.syncStore,
       flowController: deps.flowController,
     })
 

@@ -33,6 +33,7 @@ import { SqliteEngine, SqliteSchema } from "@max/storage-sqlite";
 import { SyncExecutor } from "@max/execution";
 import { InMemoryTaskStore } from "../in-memory-task-store.js";
 import { InMemorySyncMeta } from "../in-memory-sync-meta.js";
+import { InMemorySyncStore } from "../in-memory-sync-store.js";
 import { DefaultTaskRunner } from "../default-task-runner.js";
 import { ExecutionRegistryImpl } from "../execution-registry-impl.js";
 
@@ -296,6 +297,7 @@ describe("Source + Derivation E2E", () => {
     return new SyncExecutor({
       taskRunner,
       taskStore: new InMemoryTaskStore(),
+      syncStore: new InMemorySyncStore(),
     });
   }
 

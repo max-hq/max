@@ -18,7 +18,7 @@ import {
   StopResult,
 } from '@max/core'
 import {type Installation} from "@max/connector";
-import {SyncExecutor, type SyncHandle, type SyncObserver} from "@max/execution";
+import {SyncExecutor, type SyncHandle, type SyncId, type SyncObserver, type SyncStore} from "@max/execution";
 import type {InstallationClient, InstallationDescription} from "../protocols/installation-client.js";
 
 // ============================================================================
@@ -71,9 +71,17 @@ export class InstallationMax implements InstallationClient {
     return this.config.engine
   }
 
+  get syncStore(): SyncStore | undefined {
+    return this.config.syncExecutor.syncStore;
+  }
+
   async sync(options?: { observer?: SyncObserver }): Promise<SyncHandle> {
     const plan = await this.config.seeder.seed(this.seederEnv);
     return this.config.syncExecutor.execute(plan, { observer: options?.observer });
+  }
+
+  async syncResume(syncId: SyncId, options?: { observer?: SyncObserver }): Promise<SyncHandle> {
+    return this.config.syncExecutor.resume(syncId, { observer: options?.observer });
   }
 
   // --------------------------------------------------------------------------

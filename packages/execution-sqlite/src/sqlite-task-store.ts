@@ -230,4 +230,5 @@ export class SqliteTaskStore implements TaskStore {
   async cancel(id: TaskId): Promise<void> {
     this.db.run(`UPDATE _max_tasks SET state = 'cancelled' WHERE id = ?`, [id]);
   }
+
 }

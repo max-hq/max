@@ -2,7 +2,7 @@
  * RemoteSyncHandle — Thin data wrapper for SyncHandle over RPC.
  *
  * Returned by InstallationClientProxy.sync(). Holds the handle's data
- * (id, plan, startedAt) and routes subsequent operations (status, pause,
+ * (id, startedAt) and routes subsequent operations (status, pause,
  * cancel, completion) as regular root-target RPC calls with syncId as
  * the first argument.
  *
@@ -10,19 +10,17 @@
  */
 
 import type { Transport, RpcRequest } from "@max/core"
-import type { SyncHandle, SyncId, SyncPlan, SyncResult, SyncStatus } from "@max/execution"
+import type { SyncHandle, SyncId, SyncResult, SyncStatus } from "@max/execution"
 
 export class RemoteSyncHandle implements SyncHandle {
   readonly id: SyncId
-  readonly plan: SyncPlan
   readonly startedAt: Date
 
   constructor(
     private readonly transport: Transport,
-    info: { id: SyncId; plan: SyncPlan; startedAt: string },
+    info: { id: SyncId; startedAt: string },
   ) {
     this.id = info.id
-    this.plan = info.plan
     this.startedAt = new Date(info.startedAt)
   }
 

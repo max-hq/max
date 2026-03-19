@@ -9,7 +9,7 @@
  */
 
 import type { ConnectorVersionIdentifier, Engine, InstallationScope, Schema, Supervised } from "@max/core"
-import type { SyncHandle, SyncObserver } from "@max/execution"
+import type { SyncHandle, SyncId, SyncObserver, SyncStore } from "@max/execution"
 
 /**
  * Self-reported metadata from a running installation node.
@@ -33,4 +33,10 @@ export interface InstallationClient extends Supervised {
 
   /** Kick off a sync. Seeds on first run, re-seeds on subsequent. */
   sync(options?: { observer?: SyncObserver }): Promise<SyncHandle>
+
+  /** Resume a previously interrupted sync by ID. Skips seeding. */
+  syncResume(syncId: SyncId, options?: { observer?: SyncObserver }): Promise<SyncHandle>
+
+  /** Access the sync store for listing past syncs. */
+  readonly syncStore: SyncStore | undefined
 }

@@ -16,6 +16,7 @@ import {AcmeTestClient} from "@max/acme";
 import {SyncExecutor} from "@max/execution";
 import {InMemoryTaskStore} from "../in-memory-task-store.js";
 import {InMemorySyncMeta} from "../in-memory-sync-meta.js";
+import {InMemorySyncStore} from "../in-memory-sync-store.js";
 import {DefaultTaskRunner} from "../default-task-runner.js";
 import {ExecutionRegistryImpl} from "../execution-registry-impl.js";
 
@@ -61,6 +62,7 @@ describe("forAll loadCollection pagination", () => {
     const executor = new SyncExecutor({
       taskRunner,
       taskStore: new InMemoryTaskStore(),
+      syncStore: new InMemorySyncStore(),
     });
 
     const plan = await AcmeSeeder.seed(Env.seeder({ ctx, engine }));

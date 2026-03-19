@@ -13,6 +13,7 @@ import { SqliteEngine } from "@max/storage-sqlite";
 import {
   SqliteExecutionSchema,
   SqliteSyncMeta,
+  SqliteSyncStore,
   SqliteTaskStore,
 } from "@max/execution-sqlite";
 import { DefaultTaskRunner, ExecutionRegistryImpl } from "@max/execution-local";
@@ -72,7 +73,7 @@ async function runSync(label: string, api: AcmeTestClient, dbPath: string, works
     registry,
     env: new BasicLoaderEnv(ctx),
   });
-  const executor = new SyncExecutor({ taskRunner, taskStore });
+  const executor = new SyncExecutor({ taskRunner, taskStore, syncStore: new SqliteSyncStore(db) });
 
   // Build the sync plan (seeds root entities, returns step graph)
   const plan = await AcmeSeeder.seed(Env.seeder({ ctx, engine }));

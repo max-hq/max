@@ -25,6 +25,7 @@ import { DefaultTaskRunner, ExecutionRegistryImpl } from "@max/execution-local";
 import { SqliteExecutionSchema } from "../schema.js";
 import { SqliteTaskStore } from "../sqlite-task-store.js";
 import { SqliteSyncMeta } from "../sqlite-sync-meta.js";
+import { SqliteSyncStore } from "../sqlite-sync-store.js";
 
 // ============================================================================
 // Mock API (matches AcmeClient shape — loaders access ctx.api.client.xxx())
@@ -127,7 +128,7 @@ describe("SqliteExecution E2E", () => {
       registry,
       env: new BasicLoaderEnv(buildCtx(api)),
     });
-    return new SyncExecutor({ taskRunner, taskStore: store });
+    return new SyncExecutor({ taskRunner, taskStore: store, syncStore: new SqliteSyncStore(db) });
   }
 
   test("seed → sync → data is in SQLite", async () => {

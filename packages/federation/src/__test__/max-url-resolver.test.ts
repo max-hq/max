@@ -21,6 +21,8 @@ async function setup() {
     schema: async () => AcmeSchema,
     engine: {} as InstallationClient['engine'],
     sync: async () => ({ close: async () => {} }) as any,
+    syncResume: async () => ({ close: async () => {} }) as any,
+    syncStore: undefined,
   }
 
   const max = GlobalMax.ephemeral({

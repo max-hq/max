@@ -19,12 +19,13 @@
  * This model survives restarts - all state is in the task store.
  */
 
-import { type FlowController, Lifecycle, LifecycleManager, SyncPlan, type EntityType } from '@max/core'
+import { type FlowController, Lifecycle, LifecycleManager, type SyncPlan, type EntityType } from '@max/core'
 
 import type {Task, TaskId, TaskPayload} from "./task.js";
 import type {TaskStore} from "./task-store.js";
 import type {TaskRunner, TaskRunResult} from "./task-runner.js";
 import type {SyncHandle, SyncResult, SyncStatus, SyncRegistry, SyncId} from "./sync-handle.js";
+import type {SyncStore} from "./sync-store.js";
 import type {SyncObserver, SyncProgressEvent} from "./sync-observer.js";
 import {PlanExpander} from "./plan-expander.js";
 import {Signal} from "./signal.js";
@@ -43,6 +44,7 @@ const DEFAULT_TASK_CONCURRENCY = 50;
 export interface SyncExecutorConfig {
   taskRunner: TaskRunner;
   taskStore: TaskStore;
+  syncStore: SyncStore;
   /** Task-level concurrency gate. Default: SemaphoreFlowController(50). */
   flowController?: FlowController;
 }
@@ -60,11 +62,11 @@ export class SyncExecutor implements Lifecycle {
 
   private taskRunner: TaskRunner;
   private taskStore: TaskStore;
+  readonly syncStore: SyncStore;
   private flowController: FlowController;
   private expander: PlanExpander;
 
   private activeSyncs = new Map<SyncId, SyncHandleImpl>();
-  private syncCounter = 0;
 
   readonly syncs: SyncRegistry;
 
@@ -75,6 +77,7 @@ export class SyncExecutor implements Lifecycle {
   constructor(config: SyncExecutorConfig) {
     this.taskRunner = config.taskRunner;
     this.taskStore = config.taskStore;
+    this.syncStore = config.syncStore;
     this.flowController = config.flowController ?? new SemaphoreFlowController(DEFAULT_TASK_CONCURRENCY);
     this.expander = new PlanExpander();
 
@@ -83,12 +86,26 @@ export class SyncExecutor implements Lifecycle {
 
   /** Execute a sync plan. Returns a handle immediately. */
   execute(plan: SyncPlan, options?: { syncId?: SyncId; observer?: SyncObserver }): SyncHandle {
-    const syncId = options?.syncId ?? this.nextSyncId();
-    const handle = new SyncHandleImpl(syncId, plan, options?.observer);
+    const syncId = options?.syncId ?? this.syncStore.nextId();
+    const handle = new SyncHandleImpl(syncId, options?.observer);
     this.activeSyncs.set(syncId, handle);
 
-    this.runSync(handle).catch((err) => {
+    this.runSync(handle, plan).catch((err) => {
       handle.markFailed(err);
+      this.syncStore.setStatus(handle.id, "failed");
+    });
+
+    return handle;
+  }
+
+  /** Resume a previously interrupted sync. Skips seeding — drains existing tasks. */
+  resume(syncId: SyncId, options?: { observer?: SyncObserver }): SyncHandle {
+    const handle = new SyncHandleImpl(syncId, options?.observer);
+    this.activeSyncs.set(syncId, handle);
+
+    this.resumeSync(handle).catch((err) => {
+      handle.markFailed(err);
+      this.syncStore.setStatus(handle.id, "failed");
     });
 
     return handle;
@@ -98,9 +115,12 @@ export class SyncExecutor implements Lifecycle {
   // Sync lifecycle
   // ============================================================================
 
-  private async runSync(handle: SyncHandleImpl): Promise<void> {
+  private async runSync(handle: SyncHandleImpl, plan: SyncPlan): Promise<void> {
+    // Record sync in persistent store
+    await this.syncStore.create(handle.id);
+
     // 1. Expand full plan into task graph
-    const templates = this.expander.expandPlan(handle.plan, handle.id);
+    const templates = this.expander.expandPlan(plan, handle.id);
 
     handle.emit({ kind: "sync-started", stepCount: templates.length });
 
@@ -112,6 +132,20 @@ export class SyncExecutor implements Lifecycle {
 
     if (!handle.isDone()) {
       handle.markCompleted(handle.tasksCompleted, handle.tasksFailed);
+      await this.syncStore.setStatus(handle.id, "completed");
+    }
+  }
+
+  private async resumeSync(handle: SyncHandleImpl): Promise<void> {
+    await this.syncStore.setStatus(handle.id, "running");
+
+    handle.emit({ kind: "sync-started", stepCount: 0 });
+
+    await this.drainTasks(handle);
+
+    if (!handle.isDone()) {
+      handle.markCompleted(handle.tasksCompleted, handle.tasksFailed);
+      await this.syncStore.setStatus(handle.id, "completed");
     }
   }
 
@@ -216,13 +250,6 @@ export class SyncExecutor implements Lifecycle {
     return result;
   }
 
-  // ============================================================================
-  // ID generation
-  // ============================================================================
-
-  private nextSyncId(): SyncId {
-    return `sync-${++this.syncCounter}`;
-  }
 }
 
 // ============================================================================
@@ -244,7 +271,6 @@ class SyncHandleImpl implements SyncHandle {
 
   constructor(
     readonly id: SyncId,
-    readonly plan: SyncPlan,
     observer?: SyncObserver,
   ) {
     this.observer = observer;
@@ -309,7 +335,7 @@ class SyncRegistryImpl implements SyncRegistry {
   constructor(private syncs: Map<SyncId, SyncHandleImpl>) {}
   async list(): Promise<SyncHandle[]> { return Array.from(this.syncs.values()); }
   async get(id: SyncId): Promise<SyncHandle | null> { return this.syncs.get(id) ?? null; }
-  async findDuplicate(plan: SyncPlan): Promise<SyncHandle | null> { return null; }
+  async findDuplicate(syncId: SyncId): Promise<SyncHandle | null> { return this.syncs.get(syncId) ?? null; }
 }
 
 // ============================================================================

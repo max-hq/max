@@ -11,7 +11,7 @@ import {
   Locator,
 } from '@max/core'
 import { StubbedEngine } from "@max/core/testing"
-import type { SyncHandle, SyncId, SyncPlan, SyncResult, SyncStatus } from "@max/execution"
+import type { SyncHandle, SyncId, SyncResult, SyncStatus, SyncStore } from "@max/execution"
 import type { InstallationClient, InstallationDescription } from "./protocols/installation-client.js"
 import type { WorkspaceClient, CreateInstallationConfig, ConnectInstallationConfig } from "./protocols/workspace-client.js"
 import type { InstallationInfo } from "./federation/installation-registry.js"
@@ -29,7 +29,6 @@ export function StubbedSyncHandle(options: StubbedSyncHandleOptions = {}): SyncH
   const { id = "sync-1", calls } = options
   return {
     id: id as SyncId,
-    plan: { steps: [] } as SyncPlan,
     startedAt: new Date("2026-01-01T00:00:00Z"),
     async status() { calls?.push("status"); return "running" as SyncStatus },
     async pause() { calls?.push("pause") },
@@ -68,6 +67,11 @@ export function StubbedInstallationClient(
       calls?.push("sync")
       return StubbedSyncHandle({ id: `sync-${id}`, calls })
     },
+    async syncResume(syncId: SyncId) {
+      calls?.push(`syncResume(${syncId})`)
+      return StubbedSyncHandle({ id: syncId as string, calls })
+    },
+    syncStore: undefined as SyncStore | undefined,
     async health() { calls?.push("health"); return HealthStatus.healthy() },
     async start() { calls?.push("start"); return StartResult.started() },
     async stop() { calls?.push("stop"); return StopResult.stopped() },

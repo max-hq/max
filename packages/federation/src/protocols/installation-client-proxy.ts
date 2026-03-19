@@ -21,7 +21,7 @@ import {
   type StartResult,
   type StopResult,
 } from "@max/core"
-import type { SyncHandle, SyncObserver } from "@max/execution"
+import type { SyncHandle, SyncId, SyncObserver, SyncStore } from "@max/execution"
 import type { InstallationClient, InstallationDescription } from "./installation-client.js"
 import { RemoteSyncHandle } from "./remote-sync-handle.js"
 
@@ -54,12 +54,17 @@ export class InstallationClientProxy implements InstallationClient {
     return this.supervised.stop()
   }
 
+  get syncStore(): SyncStore | undefined {
+    return undefined // Not available over RPC
+  }
+
   async sync(_options?: { observer?: SyncObserver }): Promise<SyncHandle> {
-    const info : {
-      id: any
-      plan: any
-      startedAt: string
-    } = await this.rpc("sync")
+    const info: { id: any; startedAt: string } = await this.rpc("sync")
+    return new RemoteSyncHandle(this.transport, info)
+  }
+
+  async syncResume(syncId: SyncId, _options?: { observer?: SyncObserver }): Promise<SyncHandle> {
+    const info: { id: any; startedAt: string } = await this.rpc("syncResume", syncId)
     return new RemoteSyncHandle(this.transport, info)
   }
 

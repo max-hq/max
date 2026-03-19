@@ -6,7 +6,6 @@
  */
 
 import type {Id} from "@max/core";
-import type {SyncPlan} from "@max/core";
 
 // ============================================================================
 // SyncId
@@ -37,7 +36,6 @@ export interface SyncResult {
 
 export interface SyncHandle {
   readonly id: SyncId;
-  readonly plan: SyncPlan;
   readonly startedAt: Date;
 
   /** Get current status */
@@ -65,6 +63,6 @@ export interface SyncRegistry {
   /** Get a sync handle by ID */
   get(id: SyncId): Promise<SyncHandle | null>;
 
-  /** Check if an equivalent plan is already running */
-  findDuplicate(plan: SyncPlan): Promise<SyncHandle | null>;
+  /** Check if an equivalent sync is already running */
+  findDuplicate(syncId: SyncId): Promise<SyncHandle | null>;
 }

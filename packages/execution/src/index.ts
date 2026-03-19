@@ -46,6 +46,9 @@ export type { ExecutionRegistry } from "./registry.js";
 // PlanExpander
 export { PlanExpander } from "./plan-expander.js";
 
+// SyncStore
+export type { SyncStore, SyncRecord } from "./sync-store.js";
+
 // SyncExecutor
 export { SyncExecutor } from "./sync-executor.js";
 export type { SyncExecutorConfig } from "./sync-executor.js";

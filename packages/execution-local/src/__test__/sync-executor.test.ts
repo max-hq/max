@@ -20,6 +20,7 @@ import { AcmeTestClient } from "@max/acme";
 import { SyncExecutor } from "@max/execution";
 import { InMemoryTaskStore } from "../in-memory-task-store.js";
 import { InMemorySyncMeta } from "../in-memory-sync-meta.js";
+import { InMemorySyncStore } from "../in-memory-sync-store.js";
 import { DefaultTaskRunner } from "../default-task-runner.js";
 import { ExecutionRegistryImpl } from "../execution-registry-impl.js";
 
@@ -69,7 +70,7 @@ describe("SyncExecutor E2E", () => {
       registry,
       env,
     });
-    return new SyncExecutor({ taskRunner, taskStore: store });
+    return new SyncExecutor({ taskRunner, taskStore: store, syncStore: new InMemorySyncStore() });
   }
 
   async function seedAndExecute(executor: SyncExecutor) {

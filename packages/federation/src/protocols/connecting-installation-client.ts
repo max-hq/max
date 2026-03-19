@@ -14,7 +14,7 @@
 
 import { HealthStatus, StartResult, StopResult } from '@max/core'
 import type { Engine, InstallationScope, Schema } from '@max/core'
-import type { SyncHandle, SyncObserver } from '@max/execution'
+import type { SyncHandle, SyncId, SyncObserver, SyncStore } from '@max/execution'
 import type { InstallationClient, InstallationDescription } from './installation-client.js'
 import { ErrClientNotConnected } from '../errors/errors.js'
 
@@ -59,6 +59,14 @@ export class ConnectingInstallationClient implements InstallationClient {
 
   async sync(options?: { observer?: SyncObserver }): Promise<SyncHandle> {
     return (await this.ensure()).sync(options)
+  }
+
+  async syncResume(syncId: SyncId, options?: { observer?: SyncObserver }): Promise<SyncHandle> {
+    return (await this.ensure()).syncResume(syncId, options)
+  }
+
+  get syncStore(): SyncStore | undefined {
+    return this._actual?.syncStore
   }
 
   get engine(): Engine<InstallationScope> {

@@ -1,12 +1,6 @@
 #!/bin/sh
 set -e
 
-# When piped (curl | sh), stdin is the script, not the terminal.
-# Reattach stdin to the terminal so interactive prompts work.
-if [ ! -t 0 ] && [ -e /dev/tty ]; then
-    exec </dev/tty
-fi
-
 REPO="${MAX_REPO:-https://github.com/max-hq/max.git}"
 INSTALL_DIR="${MAX_HOME:-$HOME/.max/repo}"
 BIN_DIR="$HOME/.local/bin"
@@ -54,7 +48,7 @@ EOF
     esac
 
     echo ""
-    max --direct setup
+    max --direct setup </dev/tty
 }
 
 main

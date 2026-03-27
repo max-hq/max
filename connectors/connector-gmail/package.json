@@ -4,8 +4,10 @@
   "type": "module",
   "description": "Max connector for Gmail — syncs threads, messages, labels, and contacts",
   "exports": {
-    "types": "./src/index.ts",
-    "default": "./src/index.ts"
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
   },
   "scripts": {
     "build": "bun build ./src/index.ts --outdir ./dist --target node",
@@ -13,11 +15,11 @@
     "test": "bun test --pass-with-no-tests"
   },
   "dependencies": {
-    "@max/core": "workspace:*",
-    "@max/connector": "workspace:*"
+    "@max/core": "catalog:",
+    "@max/connector": "catalog:"
   },
   "devDependencies": {
-    "@types/bun": "latest",
+    "@types/bun": "catalog:",
     "typescript": "catalog:"
   }
 }

@@ -2,11 +2,10 @@
  * Gmail entity definitions.
  *
  * Entity hierarchy:
- *   GmailRoot
- *     └─ GmailMailbox (one per authenticated user)
- *          ├─ GmailLabel[]
- *          └─ GmailThread[]
- *               └─ GmailMessage[]
+ *   GmailMailbox (root — one per authenticated user)
+ *     ├─ GmailLabel[]
+ *     └─ GmailThread[]
+ *          └─ GmailMessage[]
  *
  * Ordered leaf-first to avoid forward references.
  */
@@ -15,7 +14,6 @@ import {
   EntityDef,
   Field,
   type ScalarField,
-  type RefField,
   type CollectionField,
 } from "@max/core";
 
@@ -96,7 +94,7 @@ export const GmailThread: GmailThread = EntityDef.create("GmailThread", {
 });
 
 // ============================================================================
-// GmailMailbox (the authenticated user's mailbox)
+// GmailMailbox (root — the authenticated user's mailbox)
 // ============================================================================
 
 export interface GmailMailbox extends EntityDef<{
@@ -111,16 +109,4 @@ export const GmailMailbox: GmailMailbox = EntityDef.create("GmailMailbox", {
   displayName: Field.string(),
   labels: Field.collection(GmailLabel),
   threads: Field.collection(GmailThread),
-});
-
-// ============================================================================
-// GmailRoot (singleton)
-// ============================================================================
-
-export interface GmailRoot extends EntityDef<{
-  mailbox: RefField<GmailMailbox>;
-}> {}
-
-export const GmailRoot: GmailRoot = EntityDef.create("GmailRoot", {
-  mailbox: Field.ref(GmailMailbox),
 });

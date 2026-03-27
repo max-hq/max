@@ -52,7 +52,7 @@ export interface GmailMessagePayload {
 }
 
 export class GmailClient {
-  constructor(private _getToken: () => string) {}
+  constructor(private _getToken: () => Promise<string>) {}
 
   async getProfile(): Promise<GmailProfile> {
     return this._call<GmailProfile>("users/me/profile");
@@ -103,7 +103,7 @@ export class GmailClient {
     }
 
     const res = await fetch(url.toString(), {
-      headers: { Authorization: `Bearer ${this._getToken()}` },
+      headers: { Authorization: `Bearer ${await this._getToken()}` },
     });
 
     if (!res.ok) {

@@ -2,12 +2,10 @@
  * Slack entity definitions.
  *
  * Entity hierarchy:
- *   SlackRoot
- *     └─ SlackWorkspace
- *          ├─ SlackUser[]
- *          └─ SlackChannel[]
- *               └─ SlackMessage[]
- *                    └─ SlackMessage[] (thread replies, same type)
+ *   SlackWorkspace (root — one per connected workspace)
+ *     ├─ SlackUser[]
+ *     └─ SlackChannel[]
+ *          └─ SlackMessage[]
  *
  * Ordered leaf-first to avoid forward references.
  */
@@ -16,7 +14,6 @@ import {
   EntityDef,
   Field,
   type ScalarField,
-  type RefField,
   type CollectionField,
 } from "@max/core";
 
@@ -93,7 +90,7 @@ export const SlackChannel: SlackChannel = EntityDef.create("SlackChannel", {
 });
 
 // ============================================================================
-// SlackWorkspace (collections of SlackUser, SlackChannel)
+// SlackWorkspace (root — collections of SlackUser, SlackChannel)
 // ============================================================================
 
 export interface SlackWorkspace extends EntityDef<{
@@ -110,16 +107,4 @@ export const SlackWorkspace: SlackWorkspace = EntityDef.create("SlackWorkspace",
   iconUrl: Field.string(),
   users: Field.collection(SlackUser),
   channels: Field.collection(SlackChannel),
-});
-
-// ============================================================================
-// SlackRoot (singleton)
-// ============================================================================
-
-export interface SlackRoot extends EntityDef<{
-  workspace: RefField<SlackWorkspace>;
-}> {}
-
-export const SlackRoot: SlackRoot = EntityDef.create("SlackRoot", {
-  workspace: Field.ref(SlackWorkspace),
 });

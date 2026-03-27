@@ -1,6 +1,5 @@
 import { Schema } from "@max/core";
 import {
-  GmailRoot,
   GmailMailbox,
   GmailLabel,
   GmailThread,
@@ -9,6 +8,6 @@ import {
 
 export const GmailSchema = Schema.create({
   namespace: "gmail",
-  entities: [GmailRoot, GmailMailbox, GmailLabel, GmailThread, GmailMessage],
-  roots: [GmailRoot],
+  entities: [GmailMailbox, GmailLabel, GmailThread, GmailMessage],
+  roots: [GmailMailbox],
 });

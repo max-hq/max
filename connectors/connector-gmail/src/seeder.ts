@@ -1,51 +1,41 @@
 /**
  * GmailSeeder — cold-start bootstrapper for the Gmail connector.
  *
+ * Creates the mailbox entity directly from context (emailAddress from config),
+ * then returns a plan to discover labels, threads, and messages.
+ *
  * Sync order:
- *   1. Store root → resolve mailbox (profile)
- *   2. Load mailbox scalar fields
- *   3. Discover labels and thread list in parallel
- *   4. Load thread fields (fetches full thread bodies — most expensive step)
- *   5. Materialise individual messages per thread
+ *   1. Discover labels and thread list in parallel
+ *      — threads are eagerly populated with all scalar fields by MailboxThreadsLoader
+ *   2. Materialise individual messages per thread
+ *      — re-uses thread data cached from step 1
  */
 
 import { Seeder, SyncPlan, Step, EntityInput } from "@max/core";
-import { GmailRoot, GmailMailbox, GmailThread } from "./entities.js";
+import { GmailMailbox, GmailThread } from "./entities.js";
 import { GmailAppContext } from "./context.js";
 
 export const GmailSeeder = Seeder.create({
   context: GmailAppContext,
 
   async seed(env) {
-    const rootRef = GmailRoot.ref("root");
-    await env.engine.store(EntityInput.create(rootRef, {}));
+    // Create the mailbox entity directly from config — emailAddress is set during onboarding.
+    const mailboxRef = GmailMailbox.ref(env.ctx.emailAddress);
+    await env.engine.store(EntityInput.create(mailboxRef, {
+      emailAddress: env.ctx.emailAddress,
+      displayName: env.ctx.emailAddress,
+    }));
 
     return SyncPlan.create([
-      // 1. Resolve the mailbox from root
-      Step.forRoot(rootRef).loadFields("mailbox"),
-
-      // 2. Load mailbox scalar fields
-      Step.forAll(GmailMailbox).loadFields("emailAddress", "displayName"),
-
-      // 3. Discover labels and threads in parallel
-      // Labels are cheap; thread list pagination can be concurrent
+      // 1. Discover labels and threads in parallel.
+      // MailboxThreadsLoader fetches full thread data (all scalar fields) eagerly.
       Step.concurrent([
-        Step.forAll(GmailMailbox).loadCollection("labels"),
-        Step.forAll(GmailMailbox).loadCollection("threads"),
+        Step.forRoot(mailboxRef).loadCollection("labels"),
+        Step.forRoot(mailboxRef).loadCollection("threads"),
       ]),
 
-      // 4. Load thread fields (fetches full thread + metadata)
-      Step.forAll(GmailThread).loadFields(
-        "subject",
-        "snippet",
-        "lastMessageDate",
-        "messageCount",
-        "participants",
-        "labelIds",
-        "isUnread"
-      ),
-
-      // 5. Materialise individual messages (re-uses cached thread from step 4)
+      // 2. Materialise individual messages per thread.
+      // ThreadMessagesLoader re-uses thread data already fetched in step 1.
       Step.forAll(GmailThread).loadCollection("messages"),
     ]);
   },

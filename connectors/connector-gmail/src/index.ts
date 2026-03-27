@@ -8,7 +8,6 @@
 
 // Public exports
 export {
-  GmailRoot,
   GmailMailbox,
   GmailLabel,
   GmailThread,
@@ -21,7 +20,6 @@ export { GmailSchema } from "./schema.js";
 export { GmailAccessToken, GmailRefreshToken } from "./credentials.js";
 export { GmailOnboarding } from "./onboarding.js";
 export { GmailSeeder } from "./seeder.js";
-export { GmailRootResolver } from "./resolvers/root-resolver.js";
 export { GmailMailboxResolver } from "./resolvers/mailbox-resolver.js";
 export { GmailThreadResolver } from "./resolvers/thread-resolver.js";
 export type { GmailConfig } from "./config.js";
@@ -35,7 +33,6 @@ import { ConnectorDef, ConnectorModule, Installation } from "@max/connector";
 import { GmailOperations } from "./operations.js";
 import { GmailSchema } from "./schema.js";
 import { GmailSeeder } from "./seeder.js";
-import { GmailRootResolver } from "./resolvers/root-resolver.js";
 import { GmailMailboxResolver } from "./resolvers/mailbox-resolver.js";
 import { GmailThreadResolver } from "./resolvers/thread-resolver.js";
 import { GmailOnboarding } from "./onboarding.js";
@@ -55,7 +52,6 @@ const GmailDef = ConnectorDef.create<GmailConfig>({
   onboarding: GmailOnboarding,
   seeder: GmailSeeder,
   resolvers: [
-    GmailRootResolver,
     GmailMailboxResolver,
     GmailThreadResolver,
   ],
@@ -70,7 +66,7 @@ const GmailConnector = ConnectorModule.create<GmailConfig>({
 
     const clientProvider = {
       get client() {
-        return new GmailClient(() => accessTokenHandle.value);
+        return new GmailClient(() => accessTokenHandle.get());
       },
     };
 

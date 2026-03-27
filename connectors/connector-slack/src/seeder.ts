@@ -1,65 +1,44 @@
 /**
  * SlackSeeder — cold-start bootstrapper for the Slack connector.
  *
+ * Uses auth.test (no extra scopes needed) to get workspace metadata,
+ * creates the workspace entity, then discovers users, channels, and messages.
+ *
  * Sync order:
- *   1. Store root → load workspace (team info)
- *   2. Load workspace fields (name, domain, icon)
- *   3. Discover users and channels in parallel
- *   4. Load channel fields (name, topic, purpose, counts)
- *   5. Load message history per channel (most expensive step — done last)
+ *   1. Discover users and channels in parallel
+ *      — both loaders eagerly populate all scalar fields
+ *   2. Load message history per channel (most expensive step — done last)
  */
 
 import { Seeder, SyncPlan, Step, EntityInput } from "@max/core";
-import {
-  SlackRoot,
-  SlackWorkspace,
-  SlackUser,
-  SlackChannel,
-} from "./entities.js";
+import { SlackWorkspace, SlackChannel } from "./entities.js";
 import { SlackAppContext } from "./context.js";
 
 export const SlackSeeder = Seeder.create({
   context: SlackAppContext,
 
   async seed(env) {
-    const rootRef = SlackRoot.ref("root");
-    await env.engine.store(EntityInput.create(rootRef, {}));
+    // auth.test is always available and returns workspace name/url without team:read scope.
+    const auth = await env.ctx.api.client.getAuthInfo();
+    // Derive domain from the workspace URL (e.g. "https://acmecorp.slack.com/" → "acmecorp")
+    const domain = auth.teamUrl.replace("https://", "").split(".")[0] ?? auth.teamId;
+
+    const workspaceRef = SlackWorkspace.ref(auth.teamId);
+    await env.engine.store(EntityInput.create(workspaceRef, {
+      name: auth.teamName,
+      domain,
+      iconUrl: "",
+    }));
 
     return SyncPlan.create([
-      // 1. Resolve the single workspace from root
-      Step.forRoot(rootRef).loadFields("workspace"),
-
-      // 2. Load workspace scalar fields
-      Step.forAll(SlackWorkspace).loadFields("name", "domain", "iconUrl"),
-
-      // 3. Discover users and channels in parallel (independent)
+      // 1. Discover users and channels in parallel.
+      // Both loaders populate all scalar fields eagerly.
       Step.concurrent([
-        Step.forAll(SlackWorkspace).loadCollection("users"),
-        Step.forAll(SlackWorkspace).loadCollection("channels"),
+        Step.forRoot(workspaceRef).loadCollection("users"),
+        Step.forRoot(workspaceRef).loadCollection("channels"),
       ]),
 
-      // 4. Load user and channel fields
-      Step.concurrent([
-        Step.forAll(SlackUser).loadFields(
-          "name",
-          "displayName",
-          "email",
-          "isBot",
-          "isAdmin",
-          "timezone",
-          "avatarUrl"
-        ),
-        Step.forAll(SlackChannel).loadFields(
-          "name",
-          "topic",
-          "purpose",
-          "isPrivate",
-          "isArchived",
-          "memberCount"
-        ),
-      ]),
-
-      // 5. Sync message history (sequential — most API-intensive step)
+      // 2. Sync message history — most API-intensive step, done after all refs settled.
       Step.forAll(SlackChannel).loadCollection("messages"),
     ]);
   },

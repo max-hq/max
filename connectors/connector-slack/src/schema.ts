@@ -1,6 +1,5 @@
 import { Schema } from "@max/core";
 import {
-  SlackRoot,
   SlackWorkspace,
   SlackUser,
   SlackChannel,
@@ -9,6 +8,6 @@ import {
 
 export const SlackSchema = Schema.create({
   namespace: "slack",
-  entities: [SlackRoot, SlackWorkspace, SlackUser, SlackChannel, SlackMessage],
-  roots: [SlackRoot],
+  entities: [SlackWorkspace, SlackUser, SlackChannel, SlackMessage],
+  roots: [SlackWorkspace],
 });

@@ -1,0 +1,23 @@
+{
+  "name": "@max/connector-slack",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Max connector for Slack — syncs channels, messages, threads, and users",
+  "exports": {
+    "types": "./src/index.ts",
+    "default": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "bun build ./src/index.ts --outdir ./dist --target node",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test --pass-with-no-tests"
+  },
+  "dependencies": {
+    "@max/core": "workspace:*",
+    "@max/connector": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "catalog:"
+  }
+}

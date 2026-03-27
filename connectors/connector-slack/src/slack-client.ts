@@ -52,7 +52,20 @@ export interface SlackApiMessage {
 export class SlackClient {
   private readonly _baseUrl = "https://slack.com/api";
 
-  constructor(private readonly _token: string) {}
+  constructor(private readonly _getToken: () => Promise<string>) {}
+
+  /**
+   * auth.test — always available regardless of scopes.
+   * Returns workspace name and domain without requiring team:read scope.
+   */
+  async getAuthInfo(): Promise<{ teamId: string; teamName: string; teamUrl: string }> {
+    const data = await this._call("auth.test");
+    return {
+      teamId: data.team_id,
+      teamName: data.team,
+      teamUrl: data.url ?? "",
+    };
+  }
 
   async getTeam(): Promise<SlackTeam> {
     const data = await this._call("team.info");
@@ -68,8 +81,12 @@ export class SlackClient {
   async listChannels(
     types: string = "public_channel,private_channel"
   ): Promise<SlackApiChannel[]> {
+    // Normalize "all" shorthand to explicit Slack API types
+    const resolvedTypes = types === "all"
+      ? "public_channel,private_channel"
+      : types;
     return this._paginate<SlackApiChannel>("conversations.list", "channels", {
-      types,
+      types: resolvedTypes,
       limit: 200,
       exclude_archived: false,
     });
@@ -108,7 +125,7 @@ export class SlackClient {
     }
 
     const res = await fetch(url.toString(), {
-      headers: { Authorization: `Bearer ${this._token}` },
+      headers: { Authorization: `Bearer ${await this._getToken()}` },
     });
 
     if (!res.ok) {

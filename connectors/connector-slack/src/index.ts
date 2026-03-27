@@ -9,7 +9,7 @@
  */
 
 // Public exports
-export { SlackRoot, SlackWorkspace, SlackUser, SlackChannel, SlackMessage } from "./entities.js";
+export { SlackWorkspace, SlackUser, SlackChannel, SlackMessage } from "./entities.js";
 export { SlackAppContext } from "./context.js";
 export { SlackClient } from "./slack-client.js";
 export type { SlackClientProvider } from "./slack-client.js";
@@ -17,7 +17,6 @@ export { SlackSchema } from "./schema.js";
 export { SlackBotToken } from "./credentials.js";
 export { SlackOnboarding } from "./onboarding.js";
 export { SlackSeeder } from "./seeder.js";
-export { SlackRootResolver } from "./resolvers/root-resolver.js";
 export { SlackWorkspaceResolver } from "./resolvers/workspace-resolver.js";
 export { SlackChannelResolver } from "./resolvers/channel-resolver.js";
 export type { SlackConfig } from "./config.js";
@@ -31,7 +30,6 @@ import { ConnectorDef, ConnectorModule, Installation } from "@max/connector";
 import { SlackOperations } from "./operations.js";
 import { SlackSchema } from "./schema.js";
 import { SlackSeeder } from "./seeder.js";
-import { SlackRootResolver } from "./resolvers/root-resolver.js";
 import { SlackWorkspaceResolver } from "./resolvers/workspace-resolver.js";
 import { SlackChannelResolver } from "./resolvers/channel-resolver.js";
 import { SlackOnboarding } from "./onboarding.js";
@@ -51,7 +49,6 @@ const SlackDef = ConnectorDef.create<SlackConfig>({
   onboarding: SlackOnboarding,
   seeder: SlackSeeder,
   resolvers: [
-    SlackRootResolver,
     SlackWorkspaceResolver,
     SlackChannelResolver,
   ],
@@ -66,7 +63,7 @@ const SlackConnector = ConnectorModule.create<SlackConfig>({
     // Build the client lazily — token is resolved at runtime by the credential store
     const clientProvider = {
       get client() {
-        return new SlackClient(tokenHandle.value);
+        return new SlackClient(() => tokenHandle.get());
       },
     };
 
@@ -87,7 +84,7 @@ const SlackConnector = ConnectorModule.create<SlackConfig>({
       },
       async health() {
         try {
-          await clientProvider.client.getTeam();
+          await clientProvider.client.getAuthInfo();
           return { status: "healthy" };
         } catch (err) {
           return {

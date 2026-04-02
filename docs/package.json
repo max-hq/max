@@ -9,6 +9,7 @@
     "clean": "rm -rf .astro dist"
   },
   "dependencies": {
+    "@astrojs/sitemap": "^3.7.2",
     "@astrojs/starlight": "^0.33.0",
     "astro": "^5.5.0",
     "astro-d2": "0.9.0",

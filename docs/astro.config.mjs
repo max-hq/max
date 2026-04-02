@@ -1,9 +1,12 @@
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
+import sitemap from "@astrojs/sitemap";
 import d2 from "astro-d2";
 
 export default defineConfig({
+  site: "https://docs.max.cloud",
   integrations: [
+    sitemap(),
     d2({ theme: { default: "200", dark: "200" } }),
     starlight({
       title: 'Max',
